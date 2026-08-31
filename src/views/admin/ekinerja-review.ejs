@@ -49,7 +49,7 @@
           if (!this.selectedReport) return;
           const form = this.$refs.reviewForm;
           form.action = '/admin/ekinerja-review/' + this.selectedReport.id + '/review?tab=history';
-          const statusEl = form.querySelector('input[name="statusReview"]');
+          const statusEl = form.querySelector('input[name=statusReview]');
           if (statusEl) statusEl.value = this.reviewAction === 'approve' ? 'APPROVED' : 'REJECTED';
           const approveNote = document.getElementById('approveNoteInput');
           const rejectNote = document.getElementById('rejectNoteInput');
