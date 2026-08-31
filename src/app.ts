@@ -1,4 +1,4 @@
-import express, { Express, Request, Response } from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import path from 'path';
 import fs from 'fs';
 import cors from 'cors';
@@ -35,9 +35,14 @@ export function createApp(): Express {
   app.use(express.urlencoded({ extended: true }));
 
   // 4. Optimized Static Assets Delivery with Client-Side Caching
-  const publicPath = fs.existsSync(path.join(process.cwd(), 'public'))
-    ? path.join(process.cwd(), 'public')
+  const cwd = process.cwd();
+  const publicPath = fs.existsSync(path.join(cwd, 'public'))
+    ? path.join(cwd, 'public')
     : path.join(__dirname, '..', 'public');
+
+  console.log('[App] cwd:', cwd);
+  console.log('[App] __dirname:', __dirname);
+  console.log('[App] publicPath:', publicPath, '| exists:', fs.existsSync(publicPath));
 
   app.use(
     express.static(publicPath, {
@@ -47,16 +52,23 @@ export function createApp(): Express {
   );
 
   // 5. View Engine Setup (EJS) with robust path resolution for Vercel Serverless
-  let viewsPath = path.join(process.cwd(), 'src', 'views');
-  if (!fs.existsSync(viewsPath)) {
-    if (fs.existsSync(path.join(process.cwd(), 'views'))) {
-      viewsPath = path.join(process.cwd(), 'views');
-    } else if (fs.existsSync(path.join(__dirname, 'views'))) {
-      viewsPath = path.join(__dirname, 'views');
-    } else if (fs.existsSync(path.join(__dirname, '..', 'src', 'views'))) {
-      viewsPath = path.join(__dirname, '..', 'src', 'views');
+  const candidatePaths = [
+    path.join(cwd, 'src', 'views'),
+    path.join(cwd, 'views'),
+    path.join(__dirname, 'views'),
+    path.join(__dirname, '..', 'src', 'views'),
+    path.join(__dirname, '..', 'views'),
+  ];
+
+  let viewsPath = candidatePaths[0];
+  for (const candidate of candidatePaths) {
+    if (fs.existsSync(candidate)) {
+      viewsPath = candidate;
+      break;
     }
   }
+
+  console.log('[App] viewsPath:', viewsPath, '| exists:', fs.existsSync(viewsPath));
 
   app.set('views', viewsPath);
   app.set('view engine', 'ejs');
@@ -65,13 +77,30 @@ export function createApp(): Express {
   app.use('/', publicRoutes);
   app.use('/admin', adminRoutes);
 
-  // 7. 404 Not Found Handler
+  // 7. Global Express Error Handler (catches async errors in routes)
+  app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
+    console.error('[App] Express error handler caught:', err.message, err.stack);
+    if (!res.headersSent) {
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: err.message,
+      });
+    }
+  });
+
+  // 8. 404 Not Found Handler
   app.use((req: Request, res: Response) => {
-    res.status(404).render('partials/404', {
-      title: 'Halaman Tidak Ditemukan - SIMPEG Korwil Cibitung',
-      page: '404',
-      user: (req as any).session?.user || null
-    });
+    console.log('[App] 404 for:', req.url);
+    try {
+      res.status(404).render('partials/404', {
+        title: 'Halaman Tidak Ditemukan - SIMPEG Korwil Cibitung',
+        page: '404',
+        user: (req as any).session?.user || null
+      });
+    } catch (renderErr) {
+      console.error('[App] 404 render failed:', renderErr);
+      res.status(404).send('404 - Page Not Found');
+    }
   });
 
   return app;
