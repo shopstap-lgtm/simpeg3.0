@@ -1,5 +1,6 @@
 import express, { Express, Request, Response } from 'express';
 import path from 'path';
+import fs from 'fs';
 import cors from 'cors';
 import compression from 'compression';
 import session from 'express-session';
@@ -34,15 +35,30 @@ export function createApp(): Express {
   app.use(express.urlencoded({ extended: true }));
 
   // 4. Optimized Static Assets Delivery with Client-Side Caching
+  const publicPath = fs.existsSync(path.join(process.cwd(), 'public'))
+    ? path.join(process.cwd(), 'public')
+    : path.join(__dirname, '..', 'public');
+
   app.use(
-    express.static(path.join(process.cwd(), 'public'), {
+    express.static(publicPath, {
       maxAge: process.env.NODE_ENV === 'production' ? '7d' : '1h',
       etag: true
     })
   );
 
-  // 5. View Engine Setup (EJS)
-  app.set('views', path.join(process.cwd(), 'src', 'views'));
+  // 5. View Engine Setup (EJS) with robust path resolution for Vercel Serverless
+  let viewsPath = path.join(process.cwd(), 'src', 'views');
+  if (!fs.existsSync(viewsPath)) {
+    if (fs.existsSync(path.join(process.cwd(), 'views'))) {
+      viewsPath = path.join(process.cwd(), 'views');
+    } else if (fs.existsSync(path.join(__dirname, 'views'))) {
+      viewsPath = path.join(__dirname, 'views');
+    } else if (fs.existsSync(path.join(__dirname, '..', 'src', 'views'))) {
+      viewsPath = path.join(__dirname, '..', 'src', 'views');
+    }
+  }
+
+  app.set('views', viewsPath);
   app.set('view engine', 'ejs');
 
   // 6. Mount Application Routes

@@ -1,5 +1,8 @@
 import { Router } from 'express';
 import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
+import os from 'os';
 import { authController } from '../controllers/admin/authController';
 import { klarifikasiController } from '../controllers/admin/klarifikasiController';
 import { ekinerjaReviewController } from '../controllers/admin/ekinerjaReviewController';
@@ -12,9 +15,27 @@ import { requireAdmin, requireSuperAdmin, requireSuperAdminOrDinas } from '../mi
 
 const router = Router();
 
+// Helper to get safe writable upload directory (handles Vercel Serverless read-only filesystem)
+const getUploadDir = () => {
+  const localUploadDir = path.join(process.cwd(), 'public', 'uploads');
+  try {
+    if (!fs.existsSync(localUploadDir)) {
+      fs.mkdirSync(localUploadDir, { recursive: true });
+    }
+    fs.accessSync(localUploadDir, fs.constants.W_OK);
+    return localUploadDir;
+  } catch {
+    const tmpUploadDir = path.join(os.tmpdir(), 'uploads');
+    if (!fs.existsSync(tmpUploadDir)) {
+      fs.mkdirSync(tmpUploadDir, { recursive: true });
+    }
+    return tmpUploadDir;
+  }
+};
+
 const diskStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'public/uploads');
+    cb(null, getUploadDir());
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
