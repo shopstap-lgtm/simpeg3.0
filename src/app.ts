@@ -13,18 +13,23 @@ dotenv.config();
 export function createApp(): Express {
   const app = express();
 
+  // Enable trust proxy (essential for Vercel / reverse proxy HTTPS session cookies)
+  app.set('trust proxy', 1);
+
   // 1. HTTP Gzip/Brotli Compression (Reduces payload size by up to 75%)
   app.use(compression());
 
-  // 2. Express Session Configuration
+  // 2. Express Session Configuration (Optimized for Serverless + Vercel)
   app.use(
     session({
       secret: process.env.SESSION_SECRET || 'simpeg_cibitung_super_secret_session_key_2026',
       resave: false,
       saveUninitialized: false,
+      proxy: true,
       cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000 // 1 Day
+        secure: 'auto',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 Days
       }
     })
   );

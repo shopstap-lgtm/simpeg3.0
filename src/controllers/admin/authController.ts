@@ -82,15 +82,21 @@ export const authController = {
           type: 'success',
           message: `Selamat datang kembali, ${admin.namaLengkap}!`
         };
+
+        return (req as any).session.save((saveErr: any) => {
+          if (saveErr) console.error('[Auth] Session save error:', saveErr);
+          return res.redirect('/admin/klarifikasi');
+        });
       }
 
-      res.redirect('/admin/klarifikasi');
+      return res.redirect('/admin/klarifikasi');
     } catch (error) {
       console.error('Login error:', error);
       if ((req as any).session) {
         (req as any).session.loginError = 'Terjadi kesalahan sistem saat proses login.';
+        return (req as any).session.save(() => res.redirect('/admin/login'));
       }
-      res.redirect('/admin/login');
+      return res.redirect('/admin/login');
     }
   },
 
