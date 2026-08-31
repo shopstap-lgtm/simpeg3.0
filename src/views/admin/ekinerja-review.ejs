@@ -461,170 +461,209 @@
        style="display: none;">
     
     <div @click.away="reviewModal = false"
-         class="bg-white rounded-3xl max-w-7xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 space-y-4 flex flex-col max-h-[96vh]">
+         class="bg-white rounded-3xl max-w-7xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 flex flex-col max-h-[96vh]">
       
-      <!-- Modal Header -->
-      <template x-if="selectedReport">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-          <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <h3 class="font-extrabold text-base sm:text-lg text-slate-900 truncate" x-text="selectedReport.employee.nama"></h3>
-              <span class="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100" x-text="'Periode ' + selectedReport.bulan + '/' + selectedReport.tahun"></span>
-            </div>
-            <p class="text-xs text-slate-500 mt-0.5 truncate" x-text="'NIP: ' + selectedReport.employee.nip + ' • Unit: ' + selectedReport.employee.unitNama"></p>
+      <!-- Modal Header — uses x-show safely since it does NOT contain form -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-4 border-b border-slate-100">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2">
+            <h3 class="font-extrabold text-base sm:text-lg text-slate-900 truncate" x-text="selectedReport ? selectedReport.employee.nama : '—'"></h3>
+            <span class="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-100" 
+                  x-show="selectedReport"
+                  x-text="selectedReport ? ('Periode ' + selectedReport.bulan + '/' + selectedReport.tahun) : ''"></span>
           </div>
+          <p class="text-xs text-slate-500 mt-0.5 truncate" 
+             x-show="selectedReport"
+             x-text="selectedReport ? ('NIP: ' + selectedReport.employee.nip + ' • Unit: ' + selectedReport.employee.unitNama) : ''"></p>
+        </div>
 
-          <!-- Document Switcher & Close -->
-          <div class="flex items-center gap-2 shrink-0">
-            <div class="flex items-center bg-slate-100 p-1 rounded-xl">
-              <button type="button" 
-                      @click="activeDocType = 'harian'" 
-                      :class="activeDocType === 'harian' ? 'bg-white text-indigo-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'"
-                      class="px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition-all">
-                <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-600"></i>
-                <span>Lap. Harian</span>
-                <span x-show="selectedReport.fileHarianUrl" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              </button>
-              <button type="button" 
-                      @click="activeDocType = 'bulanan'" 
-                      :class="activeDocType === 'bulanan' ? 'bg-white text-emerald-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'"
-                      class="px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition-all">
-                <i data-lucide="file-check-2" class="w-3.5 h-3.5 text-emerald-600"></i>
-                <span>Lap. Bulanan</span>
-                <span x-show="selectedReport.fileBulananUrl" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-              </button>
-            </div>
-
-            <!-- Quick Download & Full Tab Buttons -->
-            <template x-if="currentPdfUrl">
-              <div class="flex items-center gap-1">
-                <a :href="currentPdfUrl" :download="currentPdfName" class="btn-secondary py-1.5 px-2.5 text-xs text-indigo-600 hover:text-indigo-700" title="Unduh Berkas PDF">
-                  <i data-lucide="download" class="w-3.5 h-3.5"></i>
-                </a>
-                <a :href="currentPdfUrl" target="_blank" class="btn-secondary py-1.5 px-2.5 text-xs text-slate-600 hover:text-slate-800" title="Buka Tab Baru Penuh">
-                  <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-                </a>
-              </div>
-            </template>
-
-            <button @click="reviewModal = false" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
-              <i data-lucide="x" class="w-5 h-5"></i>
+        <!-- Controls row -->
+        <div class="flex items-center gap-2 shrink-0">
+          <!-- Doc type switcher -->
+          <div class="flex items-center bg-slate-100 p-1 rounded-xl">
+            <button type="button" 
+                    @click="activeDocType = 'harian'" 
+                    :class="activeDocType === 'harian' ? 'bg-white text-indigo-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'"
+                    class="px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition-all">
+              <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-600"></i>
+              <span>Lap. Harian</span>
+              <span x-show="selectedReport && selectedReport.fileHarianUrl" class="w-1.5 h-1.5 rounded-full bg-emerald-500" style="display:none;"></span>
+            </button>
+            <button type="button" 
+                    @click="activeDocType = 'bulanan'" 
+                    :class="activeDocType === 'bulanan' ? 'bg-white text-emerald-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'"
+                    class="px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition-all">
+              <i data-lucide="file-check-2" class="w-3.5 h-3.5 text-emerald-600"></i>
+              <span>Lap. Bulanan</span>
+              <span x-show="selectedReport && selectedReport.fileBulananUrl" class="w-1.5 h-1.5 rounded-full bg-emerald-500" style="display:none;"></span>
             </button>
           </div>
+
+          <!-- Download & open-tab buttons — ALWAYS in DOM, shown/hidden with x-show -->
+          <a x-show="currentPdfUrl" 
+             :href="currentPdfUrl || '#'" 
+             :download="currentPdfName"
+             class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-indigo-50 border border-indigo-200 text-indigo-600 hover:bg-indigo-100 transition-colors" 
+             title="Unduh Berkas PDF"
+             style="display:none;">
+            <i data-lucide="download" class="w-4 h-4"></i>
+          </a>
+          <a x-show="currentPdfUrl" 
+             :href="currentPdfUrl || '#'" 
+             target="_blank"
+             class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors" 
+             title="Buka di Tab Baru"
+             style="display:none;">
+            <i data-lucide="external-link" class="w-4 h-4"></i>
+          </a>
+
+          <button @click="reviewModal = false" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 ml-1">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
         </div>
-      </template>
+      </div>
 
-      <!-- Modal Body: Side-by-Side Grid (Left: PDF Preview 60%, Right: Review Controls 40%) -->
+      <!-- Modal Body: Side-by-Side Grid (PDF left 58%, Form right 42%) -->
       <div class="flex-1 overflow-hidden">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 h-full max-h-[80vh]">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 h-full" style="max-height: 76vh;">
           
-          <!-- LEFT COLUMN: PDF Document Viewer -->
-          <div class="lg:col-span-7 h-[45vh] lg:h-full bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 relative flex items-center justify-center">
-            <template x-if="currentPdfUrl">
-              <iframe :src="currentPdfUrl" class="w-full h-full min-h-[45vh] lg:min-h-[65vh] rounded-2xl border-0" allowfullscreen></iframe>
-            </template>
-            <template x-if="!currentPdfUrl">
-              <div class="p-8 text-center text-slate-400">
-                <i data-lucide="file-x" class="w-12 h-12 mx-auto text-slate-300 mb-3"></i>
-                <p class="font-bold text-sm text-slate-700">Berkas Belum Diunggah</p>
-                <p class="text-xs text-slate-400 mt-1 max-w-xs mx-auto">Pegawai belum melampirkan file PDF untuk kategori <span class="font-bold text-slate-600" x-text="activeDocType === 'harian' ? 'Laporan Harian' : 'Laporan Bulanan'"></span>.</p>
+          <!-- LEFT: PDF Viewer (NOT inside x-if — uses x-show for iframe) -->
+          <div class="lg:col-span-7 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 relative flex items-center justify-center" style="height: 44vh;">
+            <iframe x-show="currentPdfUrl" 
+                    :src="currentPdfUrl || 'about:blank'"
+                    class="absolute inset-0 w-full h-full rounded-2xl border-0" 
+                    allowfullscreen
+                    style="display:none;"></iframe>
+            <div x-show="!currentPdfUrl" class="p-8 text-center">
+              <i data-lucide="file-x" class="w-12 h-12 mx-auto text-slate-300 mb-3"></i>
+              <p class="font-bold text-sm text-slate-700">Berkas Belum Diunggah</p>
+              <p class="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
+                Pegawai belum melampirkan file PDF untuk 
+                <span class="font-bold text-slate-600" x-text="activeDocType === 'harian' ? 'Laporan Harian' : 'Laporan Bulanan'"></span>.
+              </p>
+            </div>
+          </div>
+
+          <!-- RIGHT: Review Form — INTENTIONALLY NOT inside <template x-if> -->
+          <!-- Form action is set via JS at submit time to avoid Alpine reactive issues -->
+          <div class="lg:col-span-5 overflow-y-auto custom-scrollbar" style="max-height: 76vh;">
+            <form id="ekinerjaReviewForm"
+                  method="POST"
+                  action="/admin/ekinerja-review/placeholder/review"
+                  @submit.prevent="
+                    if (!selectedReport) { alert('Pilih laporan terlebih dahulu'); return; }
+                    const formEl = $el;
+                    formEl.action = '/admin/ekinerja-review/' + selectedReport.id + '/review?tab=history';
+                    const statusInput = formEl.querySelector('[name=statusReview]');
+                    if (statusInput) statusInput.value = (reviewAction === 'approve') ? 'APPROVED' : 'REJECTED';
+                    const approveNote = document.getElementById('approveNoteInput');
+                    const rejectNote = document.getElementById('rejectNoteInput');
+                    if (approveNote) approveNote.disabled = (reviewAction !== 'approve');
+                    if (rejectNote) rejectNote.disabled = (reviewAction !== 'reject');
+                    formEl.submit();
+                  "
+                  class="space-y-4 p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80">
+
+              <!-- Hidden status field -->
+              <input type="hidden" name="statusReview" value="APPROVED">
+
+              <!-- Decision Selector -->
+              <div>
+                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Keputusan Verifikator</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <button type="button" 
+                          @click="reviewAction = 'approve'" 
+                          :class="reviewAction === 'approve' ? 'bg-emerald-600 text-white font-bold ring-2 ring-emerald-400 shadow-sm' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 font-semibold'"
+                          class="py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all">
+                    <i data-lucide="check-circle" class="w-4 h-4"></i>
+                    <span>Setujui &amp; Nilai</span>
+                  </button>
+                  <button type="button" 
+                          @click="reviewAction = 'reject'" 
+                          :class="reviewAction === 'reject' ? 'bg-rose-600 text-white font-bold ring-2 ring-rose-400 shadow-sm' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 font-semibold'"
+                          class="py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all">
+                    <i data-lucide="x-circle" class="w-4 h-4"></i>
+                    <span>Tolak Laporan</span>
+                  </button>
+                </div>
               </div>
-            </template>
-          </div>
 
-          <!-- RIGHT COLUMN: Review, Scoring, and Action Buttons Form -->
-          <div class="lg:col-span-5 h-full overflow-y-auto custom-scrollbar flex flex-col justify-between">
-            <template x-if="selectedReport">
-              <form :action="'/admin/ekinerja-review/' + selectedReport.id + '/review?tab=' + activeTab" method="POST" class="space-y-4 p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80 flex-1 flex flex-col justify-between">
-                <input type="hidden" name="statusReview" :value="reviewAction === 'approve' ? 'APPROVED' : 'REJECTED'">
-
-                <div class="space-y-4">
-                  <!-- Decision Selector (Approve vs Reject) -->
-                  <div>
-                    <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">Keputusan Tim Verifikator</label>
-                    <div class="grid grid-cols-2 gap-2">
-                      <button type="button" 
-                              @click="reviewAction = 'approve'" 
-                              :class="reviewAction === 'approve' ? 'bg-emerald-600 text-white font-bold ring-2 ring-emerald-400 shadow-sm' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 font-semibold'"
-                              class="py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all text-center">
-                        <i data-lucide="check-circle" class="w-4 h-4"></i>
-                        <span>Setujui & Nilai</span>
-                      </button>
-
-                      <button type="button" 
-                              @click="reviewAction = 'reject'" 
-                              :class="reviewAction === 'reject' ? 'bg-rose-600 text-white font-bold ring-2 ring-rose-400 shadow-sm' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200 font-semibold'"
-                              class="py-2.5 px-3 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all text-center">
-                        <i data-lucide="x-circle" class="w-4 h-4"></i>
-                        <span>Tolak Laporan</span>
-                      </button>
-                    </div>
+              <!-- SECTION A: Approve — score inputs -->
+              <div x-show="reviewAction === 'approve'" class="space-y-3">
+                <div class="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/80 space-y-3">
+                  <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
+                    <i data-lucide="award" class="w-4 h-4 text-emerald-600"></i>
+                    <span>Penetapan Nilai Prestasi Kerja</span>
                   </div>
-
-                  <!-- SECTION A: APPROVE -> SCORE INPUTS -->
-                  <div x-show="reviewAction === 'approve'" class="space-y-3">
-                    <div class="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200/80 space-y-3">
-                      <div class="flex items-center gap-1.5 text-xs font-bold text-emerald-900">
-                        <i data-lucide="award" class="w-4 h-4 text-emerald-600"></i>
-                        <span>Penetapan Nilai Prestasi Kerja</span>
-                      </div>
-                      
-                      <div class="grid grid-cols-2 gap-3">
-                        <div>
-                          <label class="block text-[11px] font-bold uppercase text-emerald-900 mb-1">Nilai Harian</label>
-                          <input type="number" step="0.1" min="0" max="100" name="nilaiHarian" x-model="nilaiHarian" class="form-input text-sm font-extrabold text-center text-emerald-800 bg-white">
-                        </div>
-
-                        <div>
-                          <label class="block text-[11px] font-bold uppercase text-emerald-900 mb-1">Nilai Bulanan</label>
-                          <input type="number" step="0.1" min="0" max="100" name="nilaiBulanan" x-model="nilaiBulanan" class="form-input text-sm font-extrabold text-center text-emerald-800 bg-white">
-                        </div>
-                      </div>
-                    </div>
-
+                  <div class="grid grid-cols-2 gap-3">
                     <div>
-                      <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Catatan Tambahan (Opsional)</label>
-                      <input type="text" name="catatanAdmin" x-model="catatanAdmin" placeholder="Contoh: Laporan lengkap dan memenuhi target..." class="form-input text-xs">
+                      <label class="block text-[11px] font-bold uppercase text-emerald-900 mb-1">Nilai Harian (0–100)</label>
+                      <input type="number" step="0.1" min="0" max="100" 
+                             name="nilaiHarian" x-model="nilaiHarian"
+                             class="form-input text-sm font-extrabold text-center text-emerald-800 bg-white">
                     </div>
-                  </div>
-
-                  <!-- SECTION B: REJECT -> MANDATORY REASON -->
-                  <div x-show="reviewAction === 'reject'" class="space-y-3" style="display: none;">
-                    <div class="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-1.5">
-                      <p class="font-bold flex items-center gap-1 text-rose-700">
-                        <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600"></i>
-                        <span>Alasan Penolakan Berkas:</span>
-                      </p>
-                      <p class="text-[11px] text-rose-800 leading-relaxed">
-                        Sampaikan poin yang perlu diperbaiki agar pegawai dapat segera mengunggah revisi.
-                      </p>
-                    </div>
-
                     <div>
-                      <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
-                        Catatan / Alasan Penolakan <span class="text-rose-600">*</span>
-                      </label>
-                      <textarea name="catatanAdmin" rows="3" x-model="catatanAdmin" class="form-input text-xs" placeholder="Contoh: Tanda tangan Kepala Sekolah belum tercantum pada lembar pengesahan bulanan..."></textarea>
+                      <label class="block text-[11px] font-bold uppercase text-emerald-900 mb-1">Nilai Bulanan (0–100)</label>
+                      <input type="number" step="0.1" min="0" max="100" 
+                             name="nilaiBulanan" x-model="nilaiBulanan"
+                             class="form-input text-sm font-extrabold text-center text-emerald-800 bg-white">
                     </div>
                   </div>
                 </div>
-
-                <!-- Footer Action Buttons -->
-                <div class="pt-4 border-t border-slate-200/80 flex items-center justify-end gap-2.5">
-                  <button type="button" @click="reviewModal = false" class="btn-secondary py-2.5 px-4 text-xs font-semibold">
-                    Batal
-                  </button>
-                  <button type="submit" 
-                          :class="reviewAction === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200' : 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-200'"
-                          class="btn-primary py-2.5 px-5 text-xs font-bold flex items-center gap-2 shadow-md">
-                    <i :data-lucide="reviewAction === 'approve' ? 'check-circle' : 'x-circle'" class="w-4 h-4"></i>
-                    <span x-text="reviewAction === 'approve' ? 'Simpan Nilai & Setujui' : 'Konfirmasi Tolak Laporan'"></span>
-                  </button>
+                <div>
+                  <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Catatan Evaluasi (Opsional)</label>
+                  <input type="text" 
+                         id="approveNoteInput"
+                         name="catatanAdmin" 
+                         x-model="catatanAdmin"
+                         placeholder="Contoh: Laporan lengkap dan memenuhi target KPI..." 
+                         class="form-input text-xs">
                 </div>
+              </div>
 
-              </form>
-            </template>
-          </div>
+              <!-- SECTION B: Reject — mandatory reason -->
+              <div x-show="reviewAction === 'reject'" class="space-y-3" style="display:none;">
+                <div class="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs space-y-1.5">
+                  <p class="font-bold flex items-center gap-1 text-rose-700">
+                    <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600"></i>
+                    <span>Alasan penolakan wajib diisi</span>
+                  </p>
+                  <p class="text-[11px] text-rose-800 leading-relaxed">
+                    Sampaikan poin yang perlu diperbaiki agar pegawai dapat segera mengunggah revisi.
+                  </p>
+                </div>
+                <div>
+                  <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1">
+                    Catatan / Alasan Penolakan <span class="text-rose-600">*</span>
+                  </label>
+                  <textarea id="rejectNoteInput"
+                            name="catatanAdmin" 
+                            rows="3" 
+                            x-model="catatanAdmin"
+                            class="form-input text-xs" 
+                            placeholder="Contoh: Tanda tangan Kepala Sekolah belum tercantum pada lembar pengesahan bulanan..."></textarea>
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="pt-4 border-t border-slate-200/80 flex items-center gap-2.5">
+                <button type="button" @click="reviewModal = false" 
+                        class="btn-secondary py-2.5 px-4 text-xs font-semibold whitespace-nowrap">
+                  Batal
+                </button>
+                <button type="submit" 
+                        :class="reviewAction === 'approve' 
+                          ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200' 
+                          : 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-200'"
+                        class="btn-primary flex-1 py-2.5 px-4 text-xs font-bold flex items-center justify-center gap-2 shadow-md">
+                  <i data-lucide="check-circle" x-show="reviewAction === 'approve'" class="w-4 h-4"></i>
+                  <i data-lucide="x-circle" x-show="reviewAction === 'reject'" class="w-4 h-4" style="display:none;"></i>
+                  <span x-text="reviewAction === 'approve' ? 'Simpan Nilai & Setujui Laporan' : 'Konfirmasi Tolak Laporan'"></span>
+                </button>
+              </div>
+
+            </form>
+          </div><!-- end right column -->
 
         </div>
       </div>
