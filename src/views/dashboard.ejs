@@ -1,0 +1,323 @@
+<%- include('partials/head') %>
+<%- include('partials/public-nav') %>
+<%- include('partials/toast') %>
+
+<main class="flex-1 pb-16">
+  
+  <!-- Hero Section -->
+  <section class="relative bg-gradient-to-b from-indigo-900 via-indigo-800 to-slate-900 text-white pt-10 pb-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
+    <!-- Subtle Background Glows -->
+    <div class="absolute -top-24 -left-24 w-96 h-96 bg-indigo-500/20 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute top-1/2 -right-24 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="relative max-w-7xl mx-auto space-y-6">
+      
+      <!-- Hero Badge -->
+      <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-indigo-200 shadow-sm">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        <span><%= cms.heroBadge %></span>
+      </div>
+
+      <!-- Hero Title & Subtitle -->
+      <div class="max-w-3xl space-y-3">
+        <h1 class="text-2xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+          <%= cms.heroTitle %>
+        </h1>
+        <p class="text-sm sm:text-base text-indigo-100/90 leading-relaxed max-w-2xl">
+          <%= cms.heroSubtitle %>
+        </p>
+      </div>
+
+      <!-- Announcement Banner -->
+      <% if (cms.pengumumanText) { %>
+        <div class="mt-6 rounded-2xl bg-white/10 backdrop-blur-md border border-white/15 p-4 sm:p-5 flex items-start gap-3.5 shadow-lg">
+          <div class="p-2 rounded-xl bg-amber-500/20 text-amber-300 shrink-0 mt-0.5">
+            <i data-lucide="megaphone" class="w-5 h-5"></i>
+          </div>
+          <div class="flex-1 text-xs sm:text-sm text-slate-100 leading-relaxed">
+            <span class="font-bold text-amber-300">PENGUMUMAN RESMI:</span>
+            <p class="mt-1 text-slate-200"><%= cms.pengumumanText %></p>
+          </div>
+        </div>
+      <% } %>
+
+    </div>
+  </section>
+
+  <!-- Main Content Container with negative margin overlap -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10">
+    
+    <!-- Filter Bar Card -->
+    <div class="custom-card p-4 sm:p-5 mb-8 bg-white/95 backdrop-blur shadow-md">
+      <form action="/" method="GET" class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <i data-lucide="filter" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <label for="unit" class="text-xs font-bold uppercase tracking-wider text-slate-500">Filter Unit Kerja / Sekolah</label>
+            <p class="text-xs text-slate-400">Pilih sekolah untuk melihat data statistik spesifik</p>
+          </div>
+        </div>
+
+        <div class="sm:max-w-xs w-full relative"
+             x-data="{
+               open: false,
+               search: '',
+               selectedVal: '<%= selectedUnit %>',
+               options: <%= JSON.stringify(units.map(u => ({ value: u.id, label: u.namaUnit }))) %>,
+               get filteredOptions() {
+                 if (!this.search) return this.options;
+                 return this.options.filter(o => o.label.toLowerCase().includes(this.search.toLowerCase()));
+               },
+               get selectedLabel() {
+                 const found = this.options.find(o => o.value === this.selectedVal);
+                 return found ? found.label : 'Semua Unit Kerja';
+               },
+               selectOption(val) {
+                 this.selectedVal = val;
+                 this.open = false;
+                 $refs.unitInput.value = val;
+                 $nextTick(() => { $refs.unitInput.closest('form').submit(); });
+               }
+             }"
+             @click.away="open = false">
+          
+          <input type="hidden" name="unit" x-ref="unitInput" :value="selectedVal">
+          
+          <button type="button" 
+                  @click="open = !open" 
+                  class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+            <span class="truncate pr-2" x-text="selectedLabel"></span>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+          </button>
+
+          <!-- Dropdown Popover (Max 7 items with scroll) -->
+          <div x-show="open" 
+               x-transition:enter="transition ease-out duration-150"
+               x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+               x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+               x-transition:leave="transition ease-in duration-100"
+               x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+               x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+               class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1.5 min-w-[240px]"
+               style="display: none;"
+               @click.stop>
+            
+            <!-- Search input inside dropdown (Clean without icon, with X on far right) -->
+            <div class="relative" style="position: relative;">
+              <input type="text" 
+                     x-model="search" 
+                     placeholder="Ketik nama sekolah / unit..." 
+                     class="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 text-slate-800 placeholder:text-slate-400"
+                     @click.stop
+                     @keydown.stop>
+              <button type="button" 
+                      x-show="search && search.length > 0" 
+                      @click="search = ''" 
+                      style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);"
+                      class="text-slate-400 hover:text-slate-600 p-1 flex items-center justify-center z-20">
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+
+            <div class="max-h-[230px] overflow-y-auto custom-scrollbar space-y-0.5 pt-1">
+              <template x-for="item in filteredOptions" :key="item.value">
+                <button type="button" 
+                        @click="selectOption(item.value)" 
+                        class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                        :class="selectedVal === item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                  <span class="truncate" x-text="item.label"></span>
+                  <i data-lucide="check" x-show="selectedVal === item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+                </button>
+              </template>
+              <div x-show="filteredOptions.length === 0" class="py-3 text-center text-xs text-slate-400">
+                Tidak ada unit yang cocok
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- 4 Headline Stats Cards (Mobile stacked, Desktop 4-cols) -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+      
+      <!-- Stat 1: Total Pegawai -->
+      <div class="custom-card p-5 sm:p-6 flex flex-col justify-between relative overflow-hidden group">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Total Pegawai</span>
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <i data-lucide="users" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="mt-4">
+          <div class="flex items-baseline gap-2">
+            <span class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight"><%= stats.totalPegawai %></span>
+            <span class="text-xs font-medium text-slate-500">Orang</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">Terdaftar aktif di sistem</p>
+        </div>
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-indigo-500"></div>
+      </div>
+
+      <!-- Stat 2: Persentase Kehadiran -->
+      <div class="custom-card p-5 sm:p-6 flex flex-col justify-between relative overflow-hidden group">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Rata-rata Presensi</span>
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <i data-lucide="percent" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="mt-4">
+          <div class="flex items-baseline gap-2">
+            <span class="text-3xl sm:text-4xl font-extrabold text-emerald-600 tracking-tight"><%= stats.persenKehadiran %>%</span>
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Tinggi</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">Bulan <%= cms.selectedMonth %> Tahun <%= cms.selectedYear %></p>
+        </div>
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
+      </div>
+
+      <!-- Stat 3: Hadir Hari Ini -->
+      <div class="custom-card p-5 sm:p-6 flex flex-col justify-between relative overflow-hidden group">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Hadir Hari Ini (H)</span>
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <i data-lucide="user-check" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="mt-4">
+          <div class="flex items-baseline gap-2">
+            <span class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight"><%= stats.hadirHariIni %></span>
+            <span class="text-xs font-medium text-slate-500">/ <%= stats.totalPegawai %> Pegawai</span>
+          </div>
+          <p class="text-xs text-emerald-600 font-medium mt-1">Presensi tepat waktu</p>
+        </div>
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-emerald-500"></div>
+      </div>
+
+      <!-- Stat 4: Dinas Luar (Sesuai & Kuning) -->
+      <div class="custom-card p-5 sm:p-6 flex flex-col justify-between relative overflow-hidden group">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-500">Dinas Luar (DL)</span>
+          <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <i data-lucide="briefcase" class="w-5 h-5"></i>
+          </div>
+        </div>
+        <div class="mt-4">
+          <div class="flex items-baseline gap-2">
+            <span class="text-3xl sm:text-4xl font-extrabold text-blue-600 tracking-tight"><%= stats.dlHariIni + stats.dlKuningHariIni %></span>
+            <span class="text-xs font-medium text-slate-500">Pegawai</span>
+          </div>
+          <p class="text-xs text-slate-400 mt-1">DL Sesuai: <%= stats.dlHariIni %>, DL Kuning: <%= stats.dlKuningHariIni %></p>
+        </div>
+        <div class="absolute bottom-0 left-0 right-0 h-1 bg-blue-500"></div>
+      </div>
+
+    </div>
+
+    <!-- Status Breakdown Section & Quick Actions -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+      
+      <!-- Breakdown Status Kepegawaian (2 cols on large screen) -->
+      <div class="lg:col-span-2 custom-card p-5 sm:p-6">
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div>
+            <h2 class="text-base sm:text-lg font-extrabold text-slate-900">Distribusi Status Kepegawaian</h2>
+            <p class="text-xs text-slate-500">Komposisi aparatur dan staf di lingkungan Korwil Cibitung</p>
+          </div>
+          <span class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700">4 Kategori</span>
+        </div>
+
+        <div class="mt-6 space-y-5">
+          <% stats.statusBreakdown.forEach(function(item) { %>
+            <div class="space-y-1.5">
+              <div class="flex items-center justify-between text-xs sm:text-sm">
+                <span class="font-semibold text-slate-700 flex items-center gap-2">
+                  <span class="w-2.5 h-2.5 rounded-full <%= item.bgClass %>"></span>
+                  <%= item.label %>
+                </span>
+                <div class="flex items-center gap-2">
+                  <span class="font-extrabold text-slate-900"><%= item.count %> Pegawai</span>
+                  <span class="text-xs text-slate-400">(<%= item.persen %>%)</span>
+                </div>
+              </div>
+              <div class="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full rounded-full <%= item.bgClass %> transition-all duration-500" style="width: <%= item.persen %>%"></div>
+              </div>
+            </div>
+          <% }); %>
+        </div>
+
+        <div class="mt-8 pt-4 border-t border-slate-100 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+            <p class="text-[11px] text-slate-500 font-medium">PNS</p>
+            <p class="text-base font-extrabold text-blue-600 mt-0.5"><%= stats.statusBreakdown[0].count %></p>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+            <p class="text-[11px] text-slate-500 font-medium">PPPK</p>
+            <p class="text-base font-extrabold text-emerald-600 mt-0.5"><%= stats.statusBreakdown[1].count %></p>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+            <p class="text-[11px] text-slate-500 font-medium">PPPK PW</p>
+            <p class="text-base font-extrabold text-amber-600 mt-0.5"><%= stats.statusBreakdown[2].count %></p>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-100">
+            <p class="text-[11px] text-slate-500 font-medium">Outsourcing</p>
+            <p class="text-base font-extrabold text-purple-600 mt-0.5"><%= stats.statusBreakdown[3].count %></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Action Cards (1 col on large screen) -->
+      <div class="space-y-6">
+        
+        <!-- Card 1: Rekap Absensi CTA -->
+        <div class="custom-card p-6 bg-gradient-to-br from-indigo-600 to-indigo-800 text-white relative overflow-hidden shadow-lg shadow-indigo-100">
+          <div class="relative z-10 space-y-4">
+            <div class="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white">
+              <i data-lucide="calendar-check" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-extrabold text-white">Rekap Absensi Bulanan</h3>
+              <p class="text-xs text-indigo-100 mt-1 leading-relaxed">
+                Lihat detail presensi harian 1-31 hari kerja. Klik tanggal berstatus TK & DL Kuning untuk mengajukan klarifikasi.
+              </p>
+            </div>
+            <a href="/absensi" class="inline-flex items-center justify-center w-full py-2.5 px-4 rounded-xl bg-white text-indigo-700 font-bold text-xs hover:bg-indigo-50 transition-colors shadow-sm gap-2">
+              <span>Buka Rekap Absensi</span>
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </a>
+          </div>
+          <div class="absolute -bottom-10 -right-10 w-32 h-32 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+        </div>
+
+        <!-- Card 2: Laporan E-Kinerja CTA -->
+        <div class="custom-card p-6 border-slate-200 bg-white">
+          <div class="space-y-4">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-extrabold text-slate-900">Upload Laporan E-Kinerja</h3>
+              <p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                Unggah berkas Laporan Harian dan Laporan Bulanan (PDF) untuk diverifikasi dan dinilai oleh Korwil.
+              </p>
+            </div>
+            <a href="/ekinerja" class="btn-primary w-full gap-2 text-xs">
+              <span>Upload Laporan Sekarang</span>
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </a>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </section>
+
+</main>
+
+<%- include('partials/footer') %>

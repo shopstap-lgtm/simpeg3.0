@@ -1,0 +1,25 @@
+    <!-- Admin Footer -->
+    <footer class="mt-auto border-t border-slate-200/80 bg-white py-4 px-4 sm:px-6 lg:px-8 text-slate-500 text-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+        <span class="font-bold text-slate-700">SIMPEG Panel Admin v3.0</span>
+        <span class="text-slate-400">• Korwil Cibitung</span>
+      </div>
+      <p class="text-slate-400 text-[11px]">
+        &copy; <%= new Date().getFullYear() %> Korwil Bidik Kecamatan Cibitung. All rights reserved.
+      </p>
+    </footer>
+
+  </div><!-- End Main Canvas & Topbar Wrapper -->
+</div><!-- End Sidebar Container Wrapper -->
+
+<script>
+  // Initialize Lucide icons on page load
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+  });
+</script>
+</body>
+</html>

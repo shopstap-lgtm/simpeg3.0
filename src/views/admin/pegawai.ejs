@@ -1,0 +1,839 @@
+<%- include('../partials/head') %>
+<%- include('../partials/admin-nav') %>
+<%- include('../partials/toast') %>
+
+<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-6"
+      x-data="{
+        addModal: false,
+        editModal: false,
+        deleteModal: false,
+        importModal: false,
+        importFileName: '',
+        editData: {
+          id: '',
+          nip: '',
+          nama: '',
+          jabatan: 'Guru Kelas',
+          unitId: '',
+          statusKepegawaian: 'PNS',
+          aktif: true
+        },
+        deleteData: {
+          id: '',
+          nip: '',
+          nama: '',
+          unitNama: ''
+        },
+        openEdit(emp) {
+          this.editData = {
+            id: emp.id,
+            nip: emp.nip,
+            nama: emp.nama,
+            jabatan: emp.jabatan || 'Guru',
+            unitId: emp.unitId,
+            statusKepegawaian: emp.statusKepegawaian,
+            aktif: emp.aktif
+          };
+          this.editModal = true;
+        },
+        openDelete(emp) {
+          this.deleteData = {
+            id: emp.id,
+            nip: emp.nip,
+            nama: emp.nama,
+            unitNama: emp.unitNama
+          };
+          this.deleteModal = true;
+        }
+      }">
+
+  <!-- Page Header -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider border border-indigo-100">Super Admin Only</span>
+        <span class="text-xs text-slate-400">Master Data Pegawai</span>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">Pengelolaan Data Pegawai</h1>
+      <p class="text-xs sm:text-sm text-slate-500">Kelola master data pendidik & tenaga kependidikan (NIP, Jabatan, Unit Kerja, & Status)</p>
+    </div>
+  </div>
+
+  <!-- Summary Statistics Cards -->
+  <div class="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
+    
+    <div class="custom-card p-3.5 sm:p-4 bg-white border-l-4 border-l-indigo-600">
+      <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Pegawai</span>
+      <div class="text-xl sm:text-2xl font-black text-slate-900 mt-1"><%= totalAll %></div>
+      <span class="text-[10px] text-slate-500">Seluruh Pegawai</span>
+    </div>
+
+    <div class="custom-card p-3.5 sm:p-4 bg-white border-l-4 border-l-blue-600">
+      <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Pegawai PNS</span>
+      <div class="text-xl sm:text-2xl font-black text-blue-700 mt-1"><%= countPns %></div>
+      <span class="text-[10px] text-slate-500">PNS Aktif</span>
+    </div>
+
+    <div class="custom-card p-3.5 sm:p-4 bg-white border-l-4 border-l-emerald-600">
+      <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Pegawai PPPK</span>
+      <div class="text-xl sm:text-2xl font-black text-emerald-700 mt-1"><%= countPppk %></div>
+      <span class="text-[10px] text-slate-500">PPPK Penuh Waktu</span>
+    </div>
+
+    <div class="custom-card p-3.5 sm:p-4 bg-white border-l-4 border-l-purple-600">
+      <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">PPPK PW</span>
+      <div class="text-xl sm:text-2xl font-black text-purple-700 mt-1"><%= countPppkPw %></div>
+      <span class="text-[10px] text-slate-500">Paruh Waktu</span>
+    </div>
+
+    <div class="custom-card p-3.5 sm:p-4 bg-white border-l-4 border-l-amber-500 col-span-2 sm:col-span-1">
+      <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Outsourcing</span>
+      <div class="text-xl sm:text-2xl font-black text-amber-700 mt-1"><%= countOs %></div>
+      <span class="text-[10px] text-slate-500">Tenaga Kontrak</span>
+    </div>
+
+  </div>
+
+  <!-- Filter Toolbar & Table Card -->
+  <div class="custom-card p-5 sm:p-6 bg-white shadow-xs space-y-6">
+    
+    <!-- Card Title & Action Buttons Row -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3.5">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+          <i data-lucide="users" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-slate-900">Daftar Master Data Pegawai</h2>
+          <p class="text-xs text-slate-500">Kelola informasi pendidik dan tenaga kependidikan</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons In Card Header -->
+      <div class="flex flex-wrap items-center gap-2">
+        <a href="/admin/employees/template" class="btn-secondary py-2 px-3 text-xs gap-1.5 shadow-2xs">
+          <i data-lucide="download" class="w-3.5 h-3.5 text-slate-600"></i>
+          <span>Template</span>
+        </a>
+
+        <button @click="importModal = true" class="btn-primary py-2 px-3 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200">
+          <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
+          <span>Import Excel</span>
+        </button>
+
+        <button @click="addModal = true" class="btn-primary py-2 px-3.5 text-xs gap-1.5 shadow-indigo-100">
+          <i data-lucide="user-plus" class="w-3.5 h-3.5"></i>
+          <span>Tambah Pegawai Baru</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter & Search Toolbar with Modern Rounded Searchable Dropdowns -->
+    <form method="GET" action="/admin/pegawai" class="grid grid-cols-1 sm:grid-cols-12 gap-3 pb-4 border-b border-slate-100">
+      
+      <!-- Search Input (Real-time auto search + Fixed Right 'X' Button) -->
+      <div class="sm:col-span-5 relative" 
+           style="position: relative;"
+           x-data="{ 
+             q: '<%= search ? search.replace(/'/g, "\\'") : '' %>',
+             timer: null,
+             searchRealtime() {
+               clearTimeout(this.timer);
+               this.timer = setTimeout(() => {
+                 this.$el.closest('form').submit();
+               }, 400);
+             }
+           }">
+        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Cari Pegawai / Jabatan</label>
+        <div class="relative" style="position: relative;">
+          <input type="text" 
+                 name="search" 
+                 x-model="q"
+                 @input="searchRealtime()"
+                 @keydown.enter.prevent="$el.closest('form').submit()"
+                 autocomplete="off"
+                 placeholder="Ketik Nama, NIP, atau Jabatan..." 
+                 style="padding-left: 18px;"
+                 class="w-full pl-5 pr-10 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 shadow-2xs transition-all">
+          
+          <!-- Clear Button 'X' (Pinned to far right with inline style) -->
+          <button type="button" 
+                  x-show="q && q.length > 0" 
+                  @click="q = ''; $nextTick(() => { $el.closest('form').submit(); })" 
+                  style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"
+                  class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors z-20 flex items-center justify-center"
+                  title="Hapus pencarian">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Unit Kerja (Searchable Dropdown) -->
+      <div class="sm:col-span-4 relative"
+           x-data="{
+             open: false,
+             search: '',
+             selectedVal: '<%= selectedUnit %>',
+             options: <%= JSON.stringify(units.map(u => ({ value: u.id, label: u.namaUnit }))) %>,
+             get filteredOptions() {
+               if (!this.search || !this.search.trim()) return this.options;
+               const term = this.search.trim().toLowerCase();
+               return this.options.filter(o => o.label.toLowerCase().includes(term));
+             },
+             get selectedLabel() {
+               const found = this.options.find(o => o.value === this.selectedVal);
+               return found ? found.label : 'Semua Unit Kerja';
+             },
+             selectOption(val) {
+               this.selectedVal = val;
+               this.open = false;
+               $refs.unitInput.value = val;
+               $nextTick(() => { $refs.unitInput.closest('form').submit(); });
+             }
+           }"
+           @click.away="open = false">
+        
+        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Unit Kerja / Sekolah</label>
+        <input type="hidden" name="unit" x-ref="unitInput" :value="selectedVal">
+        
+        <button type="button" 
+                @click="open = !open" 
+                class="w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+          <span class="truncate pr-2" x-text="selectedLabel"></span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+        </button>
+
+        <div x-show="open" 
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+             x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+             class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1.5 min-w-[240px]"
+             style="display: none;"
+             @click.stop>
+          
+          <!-- Search input inside dropdown (Clean without icon, with X on far right) -->
+          <div class="relative" style="position: relative;">
+            <input type="text" 
+                   x-model="search" 
+                   placeholder="Ketik nama unit / sekolah..." 
+                   class="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 text-slate-800 placeholder:text-slate-400"
+                   @click.stop
+                   @keydown.stop>
+            <button type="button" 
+                    x-show="search && search.length > 0" 
+                    @click="search = ''" 
+                    style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);"
+                    class="text-slate-400 hover:text-slate-600 p-1 flex items-center justify-center z-20">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          <div class="max-h-[230px] overflow-y-auto custom-scrollbar space-y-0.5 pt-1">
+            <template x-for="item in filteredOptions" :key="item.value">
+              <button type="button" 
+                      @click="selectOption(item.value)" 
+                      class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                      :class="selectedVal === item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                <span class="truncate" x-text="item.label"></span>
+                <i data-lucide="check" x-show="selectedVal === item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+              </button>
+            </template>
+            <div x-show="filteredOptions.length === 0" class="py-3 text-center text-xs text-slate-400">
+              Tidak ada unit yang cocok
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Status Kepegawaian (Custom Dropdown) -->
+      <div class="sm:col-span-3 relative"
+           x-data="{
+             open: false,
+             selectedVal: '<%= selectedStatus %>',
+             options: [
+               { value: 'ALL', label: 'Semua Status' },
+               { value: 'PNS', label: 'PNS' },
+               { value: 'PPPK', label: 'PPPK' },
+               { value: 'PPPK_PW', label: 'PPPK Paruh Waktu' },
+               { value: 'OUTSOURCING', label: 'Outsourcing' }
+             ],
+             get selectedLabel() {
+               const found = this.options.find(o => o.value === this.selectedVal);
+               return found ? found.label : 'Semua Status';
+             },
+             selectOption(val) {
+               this.selectedVal = val;
+               this.open = false;
+               $refs.statusInput.value = val;
+               $nextTick(() => { $refs.statusInput.closest('form').submit(); });
+             }
+           }"
+           @click.away="open = false">
+        
+        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Status Kepegawaian</label>
+        <input type="hidden" name="status" x-ref="statusInput" :value="selectedVal">
+        
+        <button type="button" 
+                @click="open = !open" 
+                class="w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+          <span class="truncate pr-2" x-text="selectedLabel"></span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+        </button>
+
+        <div x-show="open" 
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+             x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+             class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1 min-w-[180px]"
+             style="display: none;">
+          <template x-for="item in options" :key="item.value">
+            <button type="button" 
+                    @click="selectOption(item.value)" 
+                    class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                    :class="selectedVal === item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+              <span x-text="item.label"></span>
+              <i data-lucide="check" x-show="selectedVal === item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+            </button>
+          </template>
+        </div>
+      </div>
+
+    </form>
+
+    <!-- Table Header Info -->
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-2">
+        <div class="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+          <i data-lucide="users" class="w-4 h-4"></i>
+        </div>
+        <span class="text-xs font-bold text-slate-700">Ditemukan <b><%= employees.length %></b> data pegawai</span>
+      </div>
+
+      <% if (search || selectedUnit !== 'unit-all' || selectedStatus !== 'ALL') { %>
+        <a href="/admin/pegawai" class="text-xs text-indigo-600 font-bold hover:underline inline-flex items-center gap-1">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          <span>Reset Filter</span>
+        </a>
+      <% } %>
+    </div>
+
+    <!-- MOBILE VIEW: Stacked Cards (sm and down) -->
+    <div class="block lg:hidden space-y-3.5">
+      <% if (employees.length === 0) { %>
+        <div class="py-12 text-center text-slate-400 text-xs">
+          <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2 opacity-40"></i>
+          Tidak ada data pegawai yang sesuai filter.
+        </div>
+      <% } %>
+
+      <% employees.forEach(function(emp) { 
+          let statusBadgeClass = 'bg-blue-50 text-blue-700 border-blue-200';
+          let statusLabel = emp.statusKepegawaian;
+          if (emp.statusKepegawaian === 'PNS') {
+            statusBadgeClass = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+            statusLabel = 'PNS';
+          } else if (emp.statusKepegawaian === 'PPPK') {
+            statusBadgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+            statusLabel = 'PPPK';
+          } else if (emp.statusKepegawaian === 'PPPK_PW') {
+            statusBadgeClass = 'bg-purple-50 text-purple-700 border-purple-200';
+            statusLabel = 'PPPK PW';
+          } else {
+            statusBadgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
+            statusLabel = 'Outsourcing';
+          }
+      %>
+        <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow-xs">
+                <%= emp.nama.charAt(0) %>
+              </div>
+              <div>
+                <h3 class="font-bold text-sm text-slate-900"><%= emp.nama %></h3>
+                <p class="text-xs text-indigo-600 font-semibold mt-0.5">
+                  <%= emp.jabatan %>
+                </p>
+              </div>
+            </div>
+
+            <span class="px-2 py-0.5 rounded-md text-[10px] font-bold border <%= statusBadgeClass %>">
+              <%= statusLabel %>
+            </span>
+          </div>
+
+          <div class="p-2.5 rounded-xl bg-white border border-slate-200/80 text-xs space-y-1.5">
+            <div class="flex items-center justify-between text-slate-600">
+              <span class="text-slate-400">NIP:</span>
+              <span class="font-mono font-bold text-slate-800"><%= emp.nip %></span>
+            </div>
+            <div class="flex items-center justify-between text-slate-600">
+              <span class="text-slate-400">Unit Kerja:</span>
+              <span class="font-semibold text-slate-800"><%= emp.unitNama %></span>
+            </div>
+            <div class="flex items-center justify-between text-slate-600">
+              <span class="text-slate-400">Status Keaktifan:</span>
+              <span class="font-bold <%= emp.aktif ? 'text-emerald-600' : 'text-rose-600' %>">
+                <%= emp.aktif ? '● Aktif' : '○ Non-Aktif' %>
+              </span>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="pt-2 border-t border-slate-200 flex items-center justify-end gap-2">
+            <button @click="openEdit(<%= JSON.stringify(emp) %>)" 
+                    class="btn-secondary py-1.5 px-3 text-xs gap-1">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5 text-indigo-600"></i>
+              <span>Edit</span>
+            </button>
+
+            <button @click="openDelete(<%= JSON.stringify(emp) %>)" 
+                    class="btn-danger py-1.5 px-3 text-xs gap-1">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+              <span>Hapus</span>
+            </button>
+          </div>
+        </div>
+      <% }); %>
+
+      <!-- Mobile Pagination -->
+      <div class="custom-card overflow-hidden">
+        <%- include('../partials/pagination') %>
+      </div>
+    </div>
+
+    <!-- DESKTOP VIEW: Table Layout (lg and up) -->
+    <div class="hidden lg:block overflow-x-auto custom-scrollbar">
+      <table class="w-full text-left text-xs border-collapse">
+        <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
+          <tr>
+            <th class="px-5 py-3.5 min-w-[240px]">Pegawai & NIP</th>
+            <th class="px-4 py-3.5 min-w-[180px]">Jabatan / Tugas</th>
+            <th class="px-4 py-3.5 min-w-[200px]">Unit Kerja / Sekolah</th>
+            <th class="px-4 py-3.5 text-center">Status Pegawai</th>
+            <th class="px-4 py-3.5 text-center">Keaktifan</th>
+            <th class="px-5 py-3.5 text-right">Aksi</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <% if (employees.length === 0) { %>
+            <tr>
+              <td colspan="6" class="py-12 text-center text-slate-400">
+                Tidak ada data pegawai yang ditemukan.
+              </td>
+            </tr>
+          <% } %>
+
+          <% employees.forEach(function(emp) { 
+              let statusBadgeClass = 'bg-blue-50 text-blue-700 border-blue-200';
+              let statusLabel = emp.statusKepegawaian;
+              if (emp.statusKepegawaian === 'PNS') {
+                statusBadgeClass = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+                statusLabel = 'PNS';
+              } else if (emp.statusKepegawaian === 'PPPK') {
+                statusBadgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                statusLabel = 'PPPK';
+              } else if (emp.statusKepegawaian === 'PPPK_PW') {
+                statusBadgeClass = 'bg-purple-50 text-purple-700 border-purple-200';
+                statusLabel = 'PPPK PW';
+              } else {
+                statusBadgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
+                statusLabel = 'Outsourcing';
+              }
+          %>
+            <tr class="hover:bg-slate-50/80 transition-colors">
+              
+              <!-- Nama & NIP -->
+              <td class="px-5 py-3.5">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                    <%= emp.nama.charAt(0) %>
+                  </div>
+                  <div>
+                    <div class="font-bold text-slate-900 text-xs"><%= emp.nama %></div>
+                    <div class="text-[11px] text-slate-400 font-mono">NIP: <%= emp.nip %></div>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Jabatan -->
+              <td class="px-4 py-3.5 font-semibold text-slate-800 text-xs">
+                <%= emp.jabatan %>
+              </td>
+
+              <!-- Unit Kerja -->
+              <td class="px-4 py-3.5 text-slate-700 font-medium">
+                <%= emp.unitNama %>
+              </td>
+
+              <!-- Status Kepegawaian -->
+              <td class="px-4 py-3.5 text-center whitespace-nowrap">
+                <span class="px-2.5 py-1 rounded-full text-[11px] font-bold border <%= statusBadgeClass %>">
+                  <%= statusLabel %>
+                </span>
+              </td>
+
+              <!-- Keaktifan -->
+              <td class="px-4 py-3.5 text-center whitespace-nowrap">
+                <span class="px-2.5 py-1 rounded-full text-[11px] font-bold <%= emp.aktif ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200' %>">
+                  <%= emp.aktif ? 'Aktif' : 'Non-Aktif' %>
+                </span>
+              </td>
+
+              <!-- Aksi -->
+              <td class="px-5 py-3.5 text-right whitespace-nowrap">
+                <div class="flex items-center justify-end gap-1.5">
+                  
+                  <!-- Edit Button -->
+                  <button type="button"
+                          @click="openEdit(<%= JSON.stringify(emp) %>)" 
+                          class="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-indigo-600 transition-colors" 
+                          title="Ubah Data Pegawai">
+                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                  </button>
+
+                  <!-- Toggle Aktif -->
+                  <form action="/admin/pegawai/<%= emp.id %>/toggle" method="POST" class="inline">
+                    <button type="submit" 
+                            class="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 transition-colors" 
+                            title="<%= emp.aktif ? 'Nonaktifkan Pegawai' : 'Aktifkan Pegawai' %>">
+                      <i data-lucide="power" class="w-3.5 h-3.5 <%= emp.aktif ? 'text-emerald-600' : 'text-slate-400' %>"></i>
+                    </button>
+                  </form>
+
+                  <!-- Delete Button -->
+                  <button type="button"
+                          @click="openDelete(<%= JSON.stringify(emp) %>)" 
+                          class="p-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors" 
+                          title="Hapus Pegawai">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+
+                </div>
+              </td>
+
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Desktop Pagination -->
+    <%- include('../partials/pagination') %>
+  </div>
+
+  <!-- ALPINE.JS MODAL 1: TAMBAH PEGAWAI BARU -->
+  <div x-show="addModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    
+    <div @click.away="addModal = false"
+         class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
+      
+      <!-- Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i data-lucide="user-plus" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-bold text-slate-900">Tambah Pegawai Baru</h3>
+            <p class="text-xs text-slate-500">Daftarkan pendidik / tenaga kependidikan ke sistem</p>
+          </div>
+        </div>
+        <button @click="addModal = false" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Form -->
+      <form action="/admin/pegawai/create" method="POST" class="space-y-4">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">NIP Pegawai *</label>
+            <input type="text" name="nip" required class="form-input text-xs font-mono font-bold" placeholder="198503152010011012">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Nama Lengkap & Gelar *</label>
+            <input type="text" name="nama" required class="form-input text-xs font-bold" placeholder="Ahmad Fauzi, S.Pd.">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Jabatan / Tugas *</label>
+            <input type="text" name="jabatan" required class="form-input text-xs" placeholder="Contoh: Guru Kelas VI, Kepala Sekolah">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Status Kepegawaian *</label>
+            <select name="statusKepegawaian" class="form-select text-xs font-semibold">
+              <option value="PNS">1. PNS (Pegawai Negeri Sipil)</option>
+              <option value="PPPK">2. PPPK (Pegawai Pemerintah dg PK)</option>
+              <option value="PPPK_PW">3. PPPK PW (Paruh Waktu)</option>
+              <option value="OUTSOURCING">4. Outsourcing / Tenaga Kontrak</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Unit Kerja / Sekolah *</label>
+          <select name="unitId" required class="form-select text-xs font-semibold">
+            <% allUnits.forEach(function(u) { %>
+              <option value="<%= u.id %>"><%= u.namaUnit %></option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <button type="button" @click="addModal = false" class="btn-secondary py-2 px-4 text-xs">
+            Batal
+          </button>
+          <button type="submit" class="btn-primary py-2 px-5 text-xs gap-2">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>Simpan Pegawai</span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ALPINE.JS MODAL 2: EDIT DATA PEGAWAI -->
+  <div x-show="editModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    
+    <div @click.away="editModal = false"
+         class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
+      
+      <!-- Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+            <i data-lucide="edit-3" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-bold text-slate-900">Ubah Data Pegawai</h3>
+            <p class="text-xs text-slate-500" x-text="editData.nama"></p>
+          </div>
+        </div>
+        <button @click="editModal = false" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Form -->
+      <form :action="'/admin/pegawai/' + editData.id + '/update'" method="POST" class="space-y-4">
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">NIP Pegawai *</label>
+            <input type="text" name="nip" x-model="editData.nip" required class="form-input text-xs font-mono font-bold">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Nama Lengkap & Gelar *</label>
+            <input type="text" name="nama" x-model="editData.nama" required class="form-input text-xs font-bold">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Jabatan / Tugas *</label>
+            <input type="text" name="jabatan" x-model="editData.jabatan" required class="form-input text-xs">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Status Kepegawaian *</label>
+            <select name="statusKepegawaian" x-model="editData.statusKepegawaian" class="form-select text-xs font-semibold">
+              <option value="PNS">1. PNS (Pegawai Negeri Sipil)</option>
+              <option value="PPPK">2. PPPK (Pegawai Pemerintah dg PK)</option>
+              <option value="PPPK_PW">3. PPPK PW (Paruh Waktu)</option>
+              <option value="OUTSOURCING">4. Outsourcing / Tenaga Kontrak</option>
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Unit Kerja / Sekolah *</label>
+          <select name="unitId" x-model="editData.unitId" required class="form-select text-xs font-semibold">
+            <% allUnits.forEach(function(u) { %>
+              <option value="<%= u.id %>"><%= u.namaUnit %></option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <button type="button" @click="editModal = false" class="btn-secondary py-2 px-4 text-xs">
+            Batal
+          </button>
+          <button type="submit" class="btn-primary py-2 px-5 text-xs gap-2">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>Simpan Perubahan</span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ALPINE.JS MODAL 3: HAPUS PEGAWAI CONFIRMATION -->
+  <div x-show="deleteModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    
+    <div @click.away="deleteModal = false"
+         class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
+      
+      <div class="flex items-center gap-3">
+        <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+          <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h3 class="text-base sm:text-lg font-bold text-slate-900">Hapus Data Pegawai?</h3>
+          <p class="text-xs text-slate-500">Tindakan ini akan menghapus data absensi & riwayat pegawai</p>
+        </div>
+      </div>
+
+      <div class="p-3.5 rounded-2xl bg-rose-50/50 border border-rose-100 text-xs space-y-1.5">
+        <div class="flex justify-between">
+          <span class="text-slate-500">Nama Pegawai:</span>
+          <span class="font-bold text-slate-900" x-text="deleteData.nama"></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">NIP:</span>
+          <span class="font-mono font-bold text-slate-900" x-text="deleteData.nip"></span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-500">Unit Kerja:</span>
+          <span class="font-semibold text-slate-700" x-text="deleteData.unitNama"></span>
+        </div>
+      </div>
+
+      <form :action="'/admin/pegawai/' + deleteData.id + '/delete'" method="POST" class="pt-2 flex items-center justify-end gap-2.5">
+        <button type="button" @click="deleteModal = false" class="btn-secondary py-2.5 px-4 text-xs">
+          Batal
+        </button>
+        <button type="submit" class="btn-danger py-2.5 px-5 text-xs font-bold gap-2">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+          <span>Ya, Hapus Pegawai</span>
+        </button>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ALPINE.JS MODAL 4: IMPORT DATA PEGAWAI DARI EXCEL -->
+  <div x-show="importModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    
+    <div @click.away="importModal = false"
+         class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-bold text-slate-900">Import Master Data Pegawai</h3>
+            <p class="text-xs text-slate-500">Unggah file Excel / CSV (.xlsx, .xls, .csv)</p>
+          </div>
+        </div>
+        <button @click="importModal = false" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Instructions & Template Link -->
+      <div class="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 space-y-2 text-xs text-slate-700">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-indigo-900">Format Kolom Excel:</span>
+          <a href="/admin/employees/template" class="text-indigo-600 font-bold hover:underline inline-flex items-center gap-1">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Unduh Contoh File</span>
+          </a>
+        </div>
+        <p class="text-[11px] text-slate-600 leading-relaxed">
+          File memuat kolom: <b>NIP</b>, <b>Nama Lengkap</b>, <b>Jabatan</b>, <b>Unit Kerja</b>, dan <b>Status Kepegawaian</b> (PNS, PPPK, PPPK_PW, OUTSOURCING).
+        </p>
+      </div>
+
+      <!-- Upload Form -->
+      <form action="/admin/employees/import" method="POST" enctype="multipart/form-data" class="space-y-4">
+        <input type="hidden" name="redirectUrl" value="/admin/pegawai">
+        
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+            Pilih File Excel (.xlsx / .xls / .csv) *
+          </label>
+          <div class="border-2 border-dashed border-slate-200 hover:border-emerald-500 rounded-2xl p-4 text-center cursor-pointer transition-colors bg-slate-50 relative">
+            <input type="file" 
+                   name="employeeFile" 
+                   accept=".xlsx, .xls, .csv" 
+                   required
+                   @change="importFileName = $event.target.files[0] ? $event.target.files[0].name : ''"
+                   class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+            <div class="flex items-center justify-center gap-2">
+              <i data-lucide="file-spreadsheet" class="w-6 h-6 text-emerald-600"></i>
+              <span class="text-xs font-bold text-slate-700 truncate max-w-xs" x-text="importFileName ? importFileName : 'Klik atau Tarik File Excel ke Sini'"></span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-1">Mendukung format Microsoft Excel & CSV (.xlsx, .xls, .csv)</p>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <button type="button" @click="importModal = false" class="btn-secondary py-2.5 px-4 text-xs">
+            Batal
+          </button>
+          <button type="submit" class="btn-primary py-2.5 px-5 text-xs font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-200">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            <span>Mulai Import Data Pegawai</span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+</main>
+
+<%- include('../partials/admin-footer') %>

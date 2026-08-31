@@ -1,0 +1,139 @@
+<% if (typeof pagination !== 'undefined' && pagination && pagination.totalItems > 0) { 
+    // Build query string helper to preserve existing filters
+    const buildPageUrl = (pageNum) => {
+      const params = new URLSearchParams();
+      if (typeof selectedUnit !== 'undefined' && selectedUnit && selectedUnit !== 'unit-all') params.set('unit', selectedUnit);
+      if (typeof bulan !== 'undefined' && bulan) params.set('bulan', bulan);
+      if (typeof tahun !== 'undefined' && tahun) params.set('tahun', tahun);
+      if (typeof search !== 'undefined' && search) params.set('search', search);
+      if (typeof selectedStatus !== 'undefined' && selectedStatus && selectedStatus !== 'ALL') params.set('status', selectedStatus);
+      if (pagination.limit && pagination.limit !== 25) params.set('limit', pagination.limit);
+      params.set('page', pageNum);
+      return '?' + params.toString();
+    };
+
+    const buildLimitUrl = (limitVal) => {
+      const params = new URLSearchParams();
+      if (typeof selectedUnit !== 'undefined' && selectedUnit && selectedUnit !== 'unit-all') params.set('unit', selectedUnit);
+      if (typeof bulan !== 'undefined' && bulan) params.set('bulan', bulan);
+      if (typeof tahun !== 'undefined' && tahun) params.set('tahun', tahun);
+      if (typeof search !== 'undefined' && search) params.set('search', search);
+      if (typeof selectedStatus !== 'undefined' && selectedStatus && selectedStatus !== 'ALL') params.set('status', selectedStatus);
+      params.set('limit', limitVal);
+      params.set('page', 1);
+      return '?' + params.toString();
+    };
+
+    // Calculate smart window of page numbers
+    const curPage = pagination.page;
+    const maxPages = pagination.totalPages;
+    let startPage = Math.max(1, curPage - 2);
+    let endPage = Math.min(maxPages, curPage + 2);
+
+    if (curPage <= 3) {
+      endPage = Math.min(5, maxPages);
+    }
+    if (curPage >= maxPages - 2) {
+      startPage = Math.max(1, maxPages - 4);
+    }
+%>
+
+<div class="p-4 sm:p-5 bg-white border-t border-slate-100 flex flex-col md:flex-row items-center justify-between gap-4">
+  
+  <!-- Left Side: Information & Rows Per Page Selector -->
+  <div class="flex flex-wrap items-center gap-3.5 text-xs text-slate-600">
+    <div class="flex items-center gap-1.5 font-medium">
+      <span>Menampilkan</span>
+      <span class="font-bold text-slate-900"><%= pagination.from %></span>
+      <span>–</span>
+      <span class="font-bold text-slate-900"><%= pagination.to %></span>
+      <span>dari</span>
+      <span class="font-bold text-indigo-600"><%= pagination.totalItems %></span>
+      <span>pegawai</span>
+    </div>
+
+    <div class="flex items-center gap-2 pl-3 border-l border-slate-200">
+      <label for="limitSelector" class="text-[11px] text-slate-400 font-bold uppercase">Baris:</label>
+      <select id="limitSelector" 
+              onchange="window.location.href = this.value" 
+              class="form-select py-1 px-3 pr-7 text-xs font-bold rounded-xl w-auto bg-slate-50 border-slate-200">
+        <option value="<%= buildLimitUrl(25) %>" <%= (pagination.limit == 25 || !pagination.limit) ? 'selected' : '' %>>25 (Default)</option>
+        <option value="<%= buildLimitUrl(50) %>" <%= pagination.limit == 50 ? 'selected' : '' %>>50</option>
+        <option value="<%= buildLimitUrl(100) %>" <%= pagination.limit == 100 ? 'selected' : '' %>>100</option>
+        <option value="<%= buildLimitUrl('all') %>" <%= pagination.limit === 'all' ? 'selected' : '' %>>Semua</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Right Side: Page Navigation Buttons -->
+  <% if (pagination.totalPages > 1) { %>
+    <nav class="flex items-center gap-1.5" aria-label="Pagination">
+      
+      <!-- Previous Page Button -->
+      <% if (pagination.page > 1) { %>
+        <a href="<%= buildPageUrl(pagination.page - 1) %>" 
+           class="inline-flex items-center justify-center p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors shadow-2xs"
+           title="Halaman Sebelumnya">
+          <i data-lucide="chevron-left" class="w-4 h-4"></i>
+        </a>
+      <% } else { %>
+        <span class="inline-flex items-center justify-center p-2 rounded-xl border border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed">
+          <i data-lucide="chevron-left" class="w-4 h-4"></i>
+        </span>
+      <% } %>
+
+      <!-- First Page + Ellipsis if needed -->
+      <% if (startPage > 1) { %>
+        <a href="<%= buildPageUrl(1) %>" 
+           class="w-8 h-8 rounded-xl font-bold text-xs flex items-center justify-center border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors">
+          1
+        </a>
+        <% if (startPage > 2) { %>
+          <span class="px-1 text-slate-400 font-bold text-xs">...</span>
+        <% } %>
+      <% } %>
+
+      <!-- Windowed Page Numbers -->
+      <% for (let p = startPage; p <= endPage; p++) { %>
+        <% if (p === pagination.page) { %>
+          <span class="w-8 h-8 rounded-xl font-extrabold text-xs flex items-center justify-center bg-indigo-600 text-white shadow-sm shadow-indigo-200">
+            <%= p %>
+          </span>
+        <% } else { %>
+          <a href="<%= buildPageUrl(p) %>" 
+             class="w-8 h-8 rounded-xl font-semibold text-xs flex items-center justify-center border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors">
+            <%= p %>
+          </a>
+        <% } %>
+      <% } %>
+
+      <!-- Last Page + Ellipsis if needed -->
+      <% if (endPage < maxPages) { %>
+        <% if (endPage < maxPages - 1) { %>
+          <span class="px-1 text-slate-400 font-bold text-xs">...</span>
+        <% } %>
+        <a href="<%= buildPageUrl(maxPages) %>" 
+           class="w-8 h-8 rounded-xl font-bold text-xs flex items-center justify-center border border-slate-200 hover:bg-slate-50 text-slate-700 transition-colors">
+          <%= maxPages %>
+        </a>
+      <% } %>
+
+      <!-- Next Page Button -->
+      <% if (pagination.page < pagination.totalPages) { %>
+        <a href="<%= buildPageUrl(pagination.page + 1) %>" 
+           class="inline-flex items-center justify-center p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 transition-colors shadow-2xs"
+           title="Halaman Selanjutnya">
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
+        </a>
+      <% } else { %>
+        <span class="inline-flex items-center justify-center p-2 rounded-xl border border-slate-100 bg-slate-50 text-slate-300 cursor-not-allowed">
+          <i data-lucide="chevron-right" class="w-4 h-4"></i>
+        </span>
+      <% } %>
+
+    </nav>
+  <% } %>
+
+</div>
+
+<% } %>

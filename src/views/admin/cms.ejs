@@ -1,0 +1,334 @@
+<%- include('../partials/head') %>
+<%- include('../partials/admin-nav') %>
+<%- include('../partials/toast') %>
+
+<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-6"
+      x-data="{
+        heroBadge: '<%= cms.heroBadge %>',
+        heroTitle: '<%= cms.heroTitle %>',
+        heroSubtitle: '<%= cms.heroSubtitle %>',
+        pengumumanText: '<%= cms.pengumumanText %>',
+        selectedMonth: <%= cms.selectedMonth %>,
+        selectedMonthEkinerja: <%= cms.selectedMonthEkinerja %>,
+        selectedYear: <%= cms.selectedYear %>
+      }">
+
+  <!-- Page Header -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider border border-indigo-100">Super Admin Only</span>
+        <span class="text-xs text-slate-400">Konfigurasi Tampilan</span>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">CMS Dashboard & Pengumuman</h1>
+      <p class="text-xs sm:text-sm text-slate-500">Kelola banner hero publik, teks pengumuman penting, dan periode aktif default</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    
+    <!-- Left Column: Form Settings (7 cols) -->
+    <div class="lg:col-span-7 custom-card p-6 sm:p-7 bg-white shadow-xs space-y-6">
+      <div class="flex items-center gap-3 pb-4 border-b border-slate-100">
+        <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+          <i data-lucide="sliders" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-slate-900">Pengaturan Teks & Periode</h2>
+          <p class="text-xs text-slate-500">Perubahan akan langsung tampil di halaman depan publik</p>
+        </div>
+      </div>
+
+      <form action="/admin/cms" method="POST" class="space-y-4">
+        
+        <!-- 1. Hero Badge -->
+        <div>
+          <label for="heroBadge" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+            Hero Badge / Label Kecil
+          </label>
+          <input type="text" 
+                 name="heroBadge" 
+                 id="heroBadge" 
+                 x-model="heroBadge"
+                 required 
+                 class="form-input text-xs">
+        </div>
+
+        <!-- 2. Hero Title -->
+        <div>
+          <label for="heroTitle" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+            Hero Judul Utama
+          </label>
+          <input type="text" 
+                 name="heroTitle" 
+                 id="heroTitle" 
+                 x-model="heroTitle"
+                 required 
+                 class="form-input text-xs">
+        </div>
+
+        <!-- 3. Hero Subtitle -->
+        <div>
+          <label for="heroSubtitle" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+            Hero Deskripsi / Subjudul
+          </label>
+          <textarea name="heroSubtitle" 
+                    id="heroSubtitle" 
+                    rows="2" 
+                    x-model="heroSubtitle"
+                    required 
+                    class="form-input text-xs"></textarea>
+        </div>
+
+        <!-- 4. Pengumuman Banner Text -->
+        <div>
+          <label for="pengumumanText" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+            Teks Banner Pengumuman Penting
+          </label>
+          <textarea name="pengumumanText" 
+                    id="pengumumanText" 
+                    rows="3" 
+                    x-model="pengumumanText"
+                    class="form-input text-xs"></textarea>
+          <p class="text-[10px] text-slate-400 mt-1">Kosongkan jika tidak ada pengumuman yang ingin ditampilkan.</p>
+        </div>
+
+        <!-- 5. Default Months Selection (Modern Custom Dropdowns) -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+          
+          <!-- Bulan Default Absensi -->
+          <div class="relative"
+               x-data="{
+                 open: false,
+                 options: [
+                   { value: 1, label: 'Januari' },
+                   { value: 2, label: 'Februari' },
+                   { value: 3, label: 'Maret' },
+                   { value: 4, label: 'April' },
+                   { value: 5, label: 'Mei' },
+                   { value: 6, label: 'Juni' },
+                   { value: 7, label: 'Juli' },
+                   { value: 8, label: 'Agustus' },
+                   { value: 9, label: 'September' },
+                   { value: 10, label: 'Oktober' },
+                   { value: 11, label: 'November' },
+                   { value: 12, label: 'Desember' }
+                 ],
+                 get selectedLabel() {
+                   const found = this.options.find(o => o.value == selectedMonth);
+                   return found ? found.label : 'Januari';
+                 },
+                 selectOption(val) {
+                   selectedMonth = val;
+                   this.open = false;
+                 }
+               }"
+               @click.away="open = false">
+            
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+              Bulan Default Absensi
+            </label>
+            <input type="hidden" name="selectedMonth" :value="selectedMonth">
+            
+            <button type="button" 
+                    @click="open = !open" 
+                    class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+              <span class="truncate pr-2" x-text="selectedLabel"></span>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+            </button>
+
+            <div x-show="open" 
+                 x-transition:enter="transition ease-out duration-150"
+                 x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                 x-transition:leave="transition ease-in duration-100"
+                 x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+                 class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-0.5 min-w-[160px]"
+                 style="display: none;">
+              <div class="max-h-[230px] overflow-y-auto custom-scrollbar space-y-0.5">
+                <template x-for="item in options" :key="item.value">
+                  <button type="button" 
+                          @click="selectOption(item.value)" 
+                          class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                          :class="selectedMonth == item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                    <span x-text="item.label"></span>
+                    <i data-lucide="check" x-show="selectedMonth == item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+                  </button>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bulan Default E-Kinerja -->
+          <div class="relative"
+               x-data="{
+                 open: false,
+                 options: [
+                   { value: 1, label: 'Januari' },
+                   { value: 2, label: 'Februari' },
+                   { value: 3, label: 'Maret' },
+                   { value: 4, label: 'April' },
+                   { value: 5, label: 'Mei' },
+                   { value: 6, label: 'Juni' },
+                   { value: 7, label: 'Juli' },
+                   { value: 8, label: 'Agustus' },
+                   { value: 9, label: 'September' },
+                   { value: 10, label: 'Oktober' },
+                   { value: 11, label: 'November' },
+                   { value: 12, label: 'Desember' }
+                 ],
+                 get selectedLabel() {
+                   const found = this.options.find(o => o.value == selectedMonthEkinerja);
+                   return found ? found.label : 'Januari';
+                 },
+                 selectOption(val) {
+                   selectedMonthEkinerja = val;
+                   this.open = false;
+                 }
+               }"
+               @click.away="open = false">
+            
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+              Bulan Default E-Kinerja
+            </label>
+            <input type="hidden" name="selectedMonthEkinerja" :value="selectedMonthEkinerja">
+            
+            <button type="button" 
+                    @click="open = !open" 
+                    class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+              <span class="truncate pr-2" x-text="selectedLabel"></span>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+            </button>
+
+            <div x-show="open" 
+                 x-transition:enter="transition ease-out duration-150"
+                 x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                 x-transition:leave="transition ease-in duration-100"
+                 x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+                 class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-0.5 min-w-[160px]"
+                 style="display: none;">
+              <div class="max-h-[230px] overflow-y-auto custom-scrollbar space-y-0.5">
+                <template x-for="item in options" :key="item.value">
+                  <button type="button" 
+                          @click="selectOption(item.value)" 
+                          class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                          :class="selectedMonthEkinerja == item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                    <span x-text="item.label"></span>
+                    <i data-lucide="check" x-show="selectedMonthEkinerja == item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+                  </button>
+                </template>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tahun Aktif -->
+          <div class="relative"
+               x-data="{
+                 open: false,
+                 options: [
+                   { value: 2026, label: '2026' },
+                   { value: 2025, label: '2025' }
+                 ],
+                 get selectedLabel() {
+                   const found = this.options.find(o => o.value == selectedYear);
+                   return found ? found.label : '2026';
+                 },
+                 selectOption(val) {
+                   selectedYear = val;
+                   this.open = false;
+                 }
+               }"
+               @click.away="open = false">
+            
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+              Tahun Aktif
+            </label>
+            <input type="hidden" name="selectedYear" :value="selectedYear">
+            
+            <button type="button" 
+                    @click="open = !open" 
+                    class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+              <span class="truncate pr-2" x-text="selectedLabel"></span>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+            </button>
+
+            <div x-show="open" 
+                 x-transition:enter="transition ease-out duration-150"
+                 x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+                 x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                 x-transition:leave="transition ease-in duration-100"
+                 x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+                 class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-0.5 min-w-[140px]"
+                 style="display: none;">
+              <template x-for="item in options" :key="item.value">
+                <button type="button" 
+                        @click="selectOption(item.value)" 
+                        class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                        :class="selectedYear == item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                  <span x-text="item.label"></span>
+                  <i data-lucide="check" x-show="selectedYear == item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+                </button>
+              </template>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Save Button -->
+        <div class="pt-4 border-t border-slate-100 flex justify-end">
+          <button type="submit" class="btn-primary py-2.5 px-6 gap-2">
+            <i data-lucide="save" class="w-4 h-4"></i>
+            <span>Simpan Perubahan CMS</span>
+          </button>
+        </div>
+
+      </form>
+    </div>
+
+    <!-- Right Column: Live Preview Container (5 cols) -->
+    <div class="lg:col-span-5 space-y-4">
+      <div class="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-500">
+        <i data-lucide="eye" class="w-4 h-4 text-indigo-600"></i>
+        <span>Pratinjau Langsung (Live Preview)</span>
+      </div>
+
+      <!-- Preview Mock Banner -->
+      <div class="rounded-3xl bg-gradient-to-b from-indigo-900 via-indigo-800 to-slate-900 text-white p-6 shadow-xl space-y-4 relative overflow-hidden">
+        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-[11px] font-semibold text-indigo-200">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span x-text="heroBadge"></span>
+        </div>
+
+        <h3 class="text-xl font-extrabold text-white leading-tight" x-text="heroTitle"></h3>
+        <p class="text-xs text-indigo-100/90 leading-relaxed" x-text="heroSubtitle"></p>
+
+        <!-- Preview Announcement -->
+        <template x-if="pengumumanText">
+          <div class="p-3 rounded-2xl bg-white/10 border border-white/15 text-xs text-slate-100 space-y-1">
+            <span class="font-bold text-amber-300 flex items-center gap-1">
+              <i data-lucide="megaphone" class="w-3.5 h-3.5"></i>
+              <span>PENGUMUMAN:</span>
+            </span>
+            <p class="text-[11px] text-slate-200" x-text="pengumumanText"></p>
+          </div>
+        </template>
+      </div>
+
+      <div class="p-4 rounded-2xl bg-slate-100/80 border border-slate-200 text-xs text-slate-600 space-y-1">
+        <p class="font-bold text-slate-800 flex items-center gap-1.5">
+          <i data-lucide="info" class="w-3.5 h-3.5 text-indigo-600"></i>
+          <span>Informasi Tambahan:</span>
+        </p>
+        <p>Bulan default yang Anda tentukan akan otomatis terpilih ketika publik membuka halaman Rekap Absensi dan Laporan E-Kinerja.</p>
+      </div>
+    </div>
+
+  </div>
+
+</main>
+
+<%- include('../partials/admin-footer') %>

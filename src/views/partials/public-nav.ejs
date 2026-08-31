@@ -1,0 +1,116 @@
+<header x-data="{ mobileMenuOpen: false }" class="sticky top-0 z-40 bg-white/90 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-between h-16 sm:h-20">
+      
+      <!-- Brand / Logo -->
+      <a href="/" class="flex items-center gap-3 group">
+        <div class="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-indigo-600 via-indigo-700 to-blue-800 flex items-center justify-center text-white shadow-md shadow-indigo-200 group-hover:scale-105 transition-transform">
+          <i data-lucide="graduation-cap" class="w-5 h-5 sm:w-6 sm:h-6"></i>
+        </div>
+        <div class="flex flex-col">
+          <div class="flex items-center gap-1.5">
+            <span class="font-extrabold text-base sm:text-lg tracking-tight text-slate-900 group-hover:text-indigo-600 transition-colors">SIMPEG</span>
+            <span class="px-1.5 py-0.5 text-[10px] font-bold tracking-wider uppercase rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/60">2.0</span>
+          </div>
+          <span class="text-[11px] sm:text-xs font-medium text-slate-500 line-clamp-1">Korwil Cibitung Kab. Bekasi</span>
+        </div>
+      </a>
+
+      <!-- Desktop Navigation Menu -->
+      <nav class="hidden md:flex items-center gap-1 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60">
+        <a href="/" 
+           class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all <%= (typeof page !== 'undefined' && page === 'dashboard') ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50' %>">
+          <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+          <span>Dashboard</span>
+        </a>
+
+        <a href="/absensi" 
+           class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all <%= (typeof page !== 'undefined' && page === 'absensi') ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50' %>">
+          <i data-lucide="calendar-check-2" class="w-4 h-4"></i>
+          <span>Rekap Absensi</span>
+        </a>
+
+        <a href="/ekinerja" 
+           class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all <%= (typeof page !== 'undefined' && page === 'ekinerja') ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50' %>">
+          <i data-lucide="file-check-2" class="w-4 h-4"></i>
+          <span>Laporan E-Kinerja</span>
+        </a>
+      </nav>
+
+      <!-- Right Action / Admin Button -->
+      <div class="hidden md:flex items-center gap-3">
+        <% if (typeof user !== 'undefined' && user) { %>
+          <a href="/admin/klarifikasi" class="btn-primary gap-2">
+            <i data-lucide="shield-check" class="w-4 h-4"></i>
+            <span>Panel Admin</span>
+          </a>
+        <% } else { %>
+          <a href="/admin/login" class="btn-secondary gap-2 text-indigo-600 hover:text-indigo-700 hover:border-indigo-200">
+            <i data-lucide="lock" class="w-4 h-4"></i>
+            <span>Login Admin</span>
+          </a>
+        <% } %>
+      </div>
+
+      <!-- Mobile Menu Hamburger Button -->
+      <div class="flex items-center md:hidden gap-2">
+        <% if (typeof user !== 'undefined' && user) { %>
+          <a href="/admin/klarifikasi" class="p-2 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200 text-xs font-semibold">
+            Admin
+          </a>
+        <% } %>
+        <button @click="mobileMenuOpen = !mobileMenuOpen" 
+                type="button" 
+                class="p-2.5 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                aria-label="Toggle Navigation">
+          <i x-show="!mobileMenuOpen" data-lucide="menu" class="w-6 h-6"></i>
+          <i x-show="mobileMenuOpen" data-lucide="x" class="w-6 h-6" style="display: none;"></i>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Mobile Dropdown Navigation -->
+  <div x-show="mobileMenuOpen" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0 -translate-y-2"
+       x-transition:enter-end="opacity-100 translate-y-0"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100 translate-y-0"
+       x-transition:leave-end="opacity-0 -translate-y-2"
+       class="md:hidden border-b border-slate-200 bg-white px-4 pt-2 pb-6 space-y-2 shadow-lg"
+       style="display: none;">
+    <a href="/" 
+       class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all <%= (typeof page !== 'undefined' && page === 'dashboard') ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50' %>">
+      <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+      <span>Dashboard Publik</span>
+    </a>
+
+    <a href="/absensi" 
+       class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all <%= (typeof page !== 'undefined' && page === 'absensi') ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50' %>">
+      <i data-lucide="calendar-check-2" class="w-5 h-5"></i>
+      <span>Rekap Absensi Harian</span>
+    </a>
+
+    <a href="/ekinerja" 
+       class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all <%= (typeof page !== 'undefined' && page === 'ekinerja') ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50' %>">
+      <i data-lucide="file-check-2" class="w-5 h-5"></i>
+      <span>Laporan E-Kinerja</span>
+    </a>
+
+    <div class="pt-3 border-t border-slate-100">
+      <% if (typeof user !== 'undefined' && user) { %>
+        <a href="/admin/klarifikasi" class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-indigo-600 text-white font-semibold text-sm shadow-sm">
+          <i data-lucide="shield-check" class="w-5 h-5"></i>
+          <span>Buka Panel Admin</span>
+        </a>
+      <% } else { %>
+        <a href="/admin/login" class="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-slate-900 text-white font-semibold text-sm shadow-sm">
+          <i data-lucide="lock" class="w-5 h-5"></i>
+          <span>Masuk Admin</span>
+        </a>
+      <% } %>
+    </div>
+  </div>
+</header>

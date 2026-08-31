@@ -1,0 +1,1338 @@
+<%- include('partials/head') %>
+<%- include('partials/public-nav') %>
+<%- include('partials/toast') %>
+
+<% 
+  const isAdmin = typeof user !== 'undefined' && user !== null;
+  const isSuperAdminOrDinas = typeof user !== 'undefined' && user !== null && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN_DINAS');
+  const isDefaultPeriod = (bulan === activeDefaultMonth && tahun === activeDefaultYear);
+%>
+
+<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6" 
+      x-data="{
+        isAdmin: <%= isAdmin ? 'true' : 'false' %>,
+        isSuperAdminOrDinas: <%= isSuperAdminOrDinas ? 'true' : 'false' %>,
+        isDefaultPeriod: <%= isDefaultPeriod ? 'true' : 'false' %>,
+        klarifikasiModal: false,
+        adminDirectModal: false,
+        bulkDateModal: false,
+        bulkTargetDay: 1,
+        bulkTargetStatus: 'HADIR',
+        bulkKeterangan: '',
+        statusHistoryModal: false,
+        rejectedInfoModal: false,
+        rejectedReason: '',
+        rejectedEmployeeName: '',
+        rejectedDate: '',
+        selectedEmployee: null,
+        eligibleDays: [],
+        isRentang: false,
+        selectedDate: '',
+        selectedDay: 1,
+        tanggalMulai: '',
+        tanggalSelesai: '',
+        currentStatus: 'TK',
+        selectedStatus: 'DL',
+        directTargetStatus: 'HADIR',
+        directKeterangan: '',
+        searchQuery: '<%= search %>',
+        unitFilter: '<%= selectedUnit %>',
+        fileName: '',
+        pdfModal: false,
+        pdfTitle: '',
+        pdfUrl: '',
+        pdfFileName: '',
+
+        viewPdf(title, url, fileName) {
+          this.pdfTitle = title;
+          this.pdfUrl = url;
+          this.pdfFileName = fileName || 'bukti-dokumen.pdf';
+          this.pdfModal = true;
+        },
+
+        openBulkDateModal(day) {
+          this.bulkTargetDay = day;
+          this.bulkTargetStatus = 'HADIR';
+          this.bulkKeterangan = '';
+          this.bulkDateModal = true;
+        },
+
+        handleCellClick(emp, dayObj, allDays) {
+          if (this.isAdmin) {
+            // ADMIN: Ubah Status Langsung
+            this.selectedEmployee = emp;
+            this.selectedDay = dayObj.tanggal;
+            this.selectedDate = '<%= tahun %>-<%= String(bulan).padStart(2, '0') %>-' + String(dayObj.tanggal).padStart(2, '0');
+            this.directTargetStatus = dayObj.status !== 'EMPTY' ? dayObj.status : 'HADIR';
+            this.directKeterangan = dayObj.keterangan || '';
+            this.adminDirectModal = true;
+          } else {
+            // PUBLIK:
+            if (!this.isDefaultPeriod) {
+              alert('Pengajuan klarifikasi hanya dibuka untuk periode aktif (Bulan <%= activeDefaultMonth %> Tahun <%= activeDefaultYear %>). Periode lainnya hanya untuk dilihat.');
+              return;
+            }
+
+            if (dayObj.clarificationStatus === 'REJECTED') {
+              this.showRejectedDetail(emp.nama, '<%= tahun %>-<%= String(bulan).padStart(2, '0') %>-' + String(dayObj.tanggal).padStart(2, '0'), dayObj.clarificationNote || 'Bukti dokumen tidak memenuhi syarat / belum ditandatangani Kepala Sekolah.');
+              return;
+            }
+
+            if (dayObj.clarificationStatus === 'PENDING') {
+              alert('Presensi pada tanggal ' + dayObj.tanggal + ' sedang dalam proses review verifikasi oleh Admin Korwil (Status: Menunggu).');
+              return;
+            }
+
+            if (dayObj.status === 'TK' || dayObj.status === 'DL_KUNING') {
+              const formattedDate = '<%= tahun %>-<%= String(bulan).padStart(2, '0') %>-' + String(dayObj.tanggal).padStart(2, '0');
+              this.openKlarifikasiWithDays(emp, allDays, formattedDate, dayObj.status, false);
+            } else if (dayObj.status === 'EMPTY') {
+              alert('Belum ada data presensi untuk tanggal ' + dayObj.tanggal + '.');
+            } else {
+              alert('Hanya presensi berstatus Tanpa Keterangan (TK) dan DL Belum Sesuai (DL Kuning) yang dapat diajukan klarifikasi.');
+            }
+          }
+        },
+
+        showRejectedDetail(empName, dateStr, note) {
+          this.rejectedEmployeeName = empName;
+          this.rejectedDate = dateStr;
+          this.rejectedReason = note;
+          this.rejectedInfoModal = true;
+        },
+
+        openKlarifikasiWithDays(emp, daysList, defaultDate = '', status = 'TK', isRange = false) {
+          if (!this.isAdmin && !this.isDefaultPeriod) {
+            alert('Pengajuan klarifikasi hanya dibuka untuk periode aktif (Bulan <%= activeDefaultMonth %> Tahun <%= activeDefaultYear %>).');
+            return;
+          }
+
+          this.selectedEmployee = emp;
+          this.isRentang = isRange;
+          
+          // Filter KHUSUS hari dengan status TK atau DL_KUNING untuk pegawai yang dipilih
+          this.eligibleDays = daysList.filter(d => d.status === 'TK' || d.status === 'DL_KUNING').map(d => {
+            const padDay = String(d.tanggal).padStart(2, '0');
+            const dateVal = '<%= tahun %>-<%= String(bulan).padStart(2, '0') %>-' + padDay;
+            const labelStatus = d.status === 'TK' ? 'Tanpa Keterangan (TK)' : 'DL Belum Sesuai (DL Kuning)';
+            return {
+              tanggal: d.tanggal,
+              dateStr: dateVal,
+              status: d.status,
+              label: 'Tgl ' + d.tanggal + ' ' + '<%= bulan === 7 ? 'Juli' : 'Bulan ' + bulan %>' + ' (' + labelStatus + ')'
+            };
+          });
+
+          if (!this.isAdmin && this.eligibleDays.length === 0) {
+            alert('Pegawai ' + emp.nama + ' tidak memiliki presensi berstatus TK atau DL Kuning pada bulan ini.');
+            return;
+          }
+
+          const firstEligible = this.eligibleDays.length > 0 ? this.eligibleDays[0] : null;
+          const initialDate = defaultDate || (firstEligible ? firstEligible.dateStr : '<%= tahun %>-<%= String(bulan).padStart(2, '0') %>-01');
+          
+          this.selectedDate = initialDate;
+          this.tanggalMulai = initialDate;
+          this.tanggalSelesai = initialDate;
+
+          const matchedDay = this.eligibleDays.find(d => d.dateStr === initialDate);
+          this.currentStatus = matchedDay ? matchedDay.status : status;
+          this.selectedStatus = 'DL';
+          this.fileName = '';
+          this.klarifikasiModal = true;
+        },
+
+        onDateSelected(dateStr) {
+          const matched = this.eligibleDays.find(d => d.dateStr === dateStr);
+          if (matched) {
+            this.currentStatus = matched.status;
+          }
+        }
+      }">
+
+  <!-- Page Header & Title -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider border border-indigo-100">Presensi Harian</span>
+        <span class="text-xs text-slate-400">Periode Bulan <%= bulan %> / <%= tahun %></span>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">Rekap Absensi Pegawai</h1>
+      <p class="text-xs sm:text-sm text-slate-500">
+        <% if (isAdmin) { %>
+          <span class="text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded">Mode Admin:</span> Klik sel mana saja untuk langsung memperbarui presensi.
+        <% } else if (isDefaultPeriod) { %>
+          Pantau presensi harian 1–31. Klik kotak berstatus <span class="text-rose-600 font-bold">TK</span> atau <span class="text-amber-700 font-bold">DL Kuning</span> untuk mengajukan klarifikasi.
+        <% } else { %>
+          <span class="text-amber-800 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Mode Arsip:</span> Periode ini hanya untuk dilihat. Pengajuan klarifikasi dibuka pada periode aktif (Bulan <%= activeDefaultMonth %> Tahun <%= activeDefaultYear %>).
+        <% } %>
+      </p>
+    </div>
+
+    <!-- Quick Notification Button -->
+    <div class="flex items-center gap-2">
+      <button @click="statusHistoryModal = true" class="btn-secondary py-2 px-3.5 text-xs gap-1.5 shadow-2xs">
+        <i data-lucide="bell" class="w-3.5 h-3.5 text-indigo-600"></i>
+        <span>Status Klarifikasi</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Non-Default Period Warning Banner for Public -->
+  <% if (!isAdmin && !isDefaultPeriod) { %>
+    <div class="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-3 shadow-xs">
+      <div class="p-1 rounded-lg bg-amber-200 text-amber-800 shrink-0 mt-0.5">
+        <i data-lucide="info" class="w-4 h-4"></i>
+      </div>
+      <div>
+        <span class="font-bold block">Periode Klarifikasi Terkunci:</span>
+        <p class="text-amber-800 mt-0.5">
+          Anda sedang melihat data presensi bulan <b><%= bulan %> / <%= tahun %></b>. Klarifikasi presensi publik hanya dapat diajukan pada periode default yang aktif, yaitu <b>Bulan <%= activeDefaultMonth %> Tahun <%= activeDefaultYear %></b>.
+        </p>
+      </div>
+    </div>
+  <% } %>
+
+
+
+  <!-- Filter & Search Toolbar with Modern Rounded Searchable Dropdowns -->
+  <div class="custom-card p-4 sm:p-5 bg-white shadow-xs">
+    <form action="/absensi" method="GET" id="absensiFilterForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- 1. Unit Kerja Filter (Custom Searchable Dropdown) -->
+      <div class="relative" 
+           x-data="{
+             open: false,
+             search: '',
+             selectedVal: '<%= selectedUnit %>',
+             options: <%= JSON.stringify(units.map(u => ({ value: u.id, label: u.namaUnit }))) %>,
+             get filteredOptions() {
+               if (!this.search) return this.options;
+               return this.options.filter(o => o.label.toLowerCase().includes(this.search.toLowerCase()));
+             },
+             get selectedLabel() {
+               const found = this.options.find(o => o.value === this.selectedVal);
+               return found ? found.label : 'Pilih Unit Kerja...';
+             },
+             selectOption(val) {
+               this.selectedVal = val;
+               this.open = false;
+               $refs.unitInput.value = val;
+               $nextTick(() => { $refs.unitInput.closest('form').submit(); });
+             }
+           }"
+           @click.away="open = false">
+        
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Unit Kerja</label>
+        <input type="hidden" name="unit" x-ref="unitInput" :value="selectedVal">
+        
+        <button type="button" 
+                @click="open = !open" 
+                class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+          <span class="truncate pr-2" x-text="selectedLabel"></span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+        </button>
+
+        <!-- Searchable Dropdown Menu (Max 7 Rows with scroll) -->
+        <div x-show="open" 
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+             x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+             class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1.5 min-w-[240px]"
+             style="display: none;"
+             @click.stop>
+          
+          <!-- Search input inside dropdown (Clean without icon, with X on far right) -->
+          <div class="relative" style="position: relative;">
+            <input type="text" 
+                   x-model="search" 
+                   placeholder="Ketik nama unit / sekolah..." 
+                   class="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 text-slate-800 placeholder:text-slate-400"
+                   @click.stop
+                   @keydown.stop>
+            <button type="button" 
+                    x-show="search && search.length > 0" 
+                    @click="search = ''" 
+                    style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);"
+                    class="text-slate-400 hover:text-slate-600 p-1 flex items-center justify-center z-20">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          <!-- Options List (Max 7 items with scrollbar) -->
+          <div class="max-h-[230px] overflow-y-auto custom-scrollbar space-y-0.5 pt-1">
+            <template x-for="item in filteredOptions" :key="item.value">
+              <button type="button" 
+                      @click="selectOption(item.value)" 
+                      class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                      :class="selectedVal === item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                <span class="truncate" x-text="item.label"></span>
+                <i data-lucide="check" x-show="selectedVal === item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+              </button>
+            </template>
+            <div x-show="filteredOptions.length === 0" class="py-3 text-center text-xs text-slate-400">
+              Tidak ada unit yang cocok
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Bulan Filter (Custom Searchable Dropdown) -->
+      <div class="relative" 
+           x-data="{
+             open: false,
+             search: '',
+             selectedVal: <%= bulan %>,
+             options: [
+               { value: 1, label: 'Januari' },
+               { value: 2, label: 'Februari' },
+               { value: 3, label: 'Maret' },
+               { value: 4, label: 'April' },
+               { value: 5, label: 'Mei' },
+               { value: 6, label: 'Juni' },
+               { value: 7, label: 'Juli' },
+               { value: 8, label: 'Agustus' },
+               { value: 9, label: 'September' },
+               { value: 10, label: 'Oktober' },
+               { value: 11, label: 'November' },
+               { value: 12, label: 'Desember' }
+             ],
+             get filteredOptions() {
+               if (!this.search || !this.search.trim()) return this.options;
+               const term = this.search.trim().toLowerCase();
+               return this.options.filter(o => o.label.toLowerCase().includes(term));
+             },
+             get selectedLabel() {
+               const found = this.options.find(o => o.value == this.selectedVal);
+               return found ? found.label : 'Pilih Bulan...';
+             },
+             selectOption(val) {
+               this.selectedVal = val;
+               this.open = false;
+               $refs.bulanInput.value = val;
+               $nextTick(() => { $refs.bulanInput.closest('form').submit(); });
+             }
+           }"
+           @click.away="open = false">
+        
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Bulan</label>
+        <input type="hidden" name="bulan" x-ref="bulanInput" :value="selectedVal">
+        
+        <button type="button" 
+                @click="open = !open" 
+                class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+          <span class="truncate pr-2" x-text="selectedLabel"></span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+        </button>
+
+        <!-- Dropdown Popover (Max 7 items with scroll) -->
+        <div x-show="open" 
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+             x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+             class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1.5 min-w-[200px]"
+             style="display: none;"
+             @click.stop>
+          
+          <!-- Search input inside month dropdown (Clean without icon, with X on far right) -->
+          <div class="relative" style="position: relative;">
+            <input type="text" 
+                   x-model="search" 
+                   placeholder="Ketik nama bulan..." 
+                   class="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 text-slate-800 placeholder:text-slate-400"
+                   @click.stop
+                   @keydown.stop>
+            <button type="button" 
+                    x-show="search && search.length > 0" 
+                    @click="search = ''" 
+                    style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);"
+                    class="text-slate-400 hover:text-slate-600 p-1 flex items-center justify-center z-20">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          <div class="max-h-[230px] overflow-y-auto custom-scrollbar space-y-0.5 pt-1">
+            <template x-for="item in filteredOptions" :key="item.value">
+              <button type="button" 
+                      @click="selectOption(item.value)" 
+                      class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                      :class="selectedVal == item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                <span class="truncate" x-text="item.label"></span>
+                <i data-lucide="check" x-show="selectedVal == item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+              </button>
+            </template>
+            <div x-show="filteredOptions.length === 0" class="py-3 text-center text-xs text-slate-400">
+              Tidak ada bulan yang cocok
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Tahun Filter (Custom Dropdown) -->
+      <div class="relative" 
+           x-data="{
+             open: false,
+             selectedVal: <%= tahun %>,
+             options: [
+               { value: 2026, label: '2026' },
+               { value: 2025, label: '2025' }
+             ],
+             get selectedLabel() {
+               const found = this.options.find(o => o.value == this.selectedVal);
+               return found ? found.label : '2026';
+             },
+             selectOption(val) {
+               this.selectedVal = val;
+               this.open = false;
+               $refs.tahunInput.value = val;
+               $nextTick(() => { $refs.tahunInput.closest('form').submit(); });
+             }
+           }"
+           @click.away="open = false">
+        
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Tahun</label>
+        <input type="hidden" name="tahun" x-ref="tahunInput" :value="selectedVal">
+        
+        <button type="button" 
+                @click="open = !open" 
+                class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+          <span class="truncate pr-2" x-text="selectedLabel"></span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+        </button>
+
+        <div x-show="open" 
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+             x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+             class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1 min-w-[150px]"
+             style="display: none;">
+          <template x-for="item in options" :key="item.value">
+            <button type="button" 
+                    @click="selectOption(item.value)" 
+                    class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                    :class="selectedVal == item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+              <span x-text="item.label"></span>
+              <i data-lucide="check" x-show="selectedVal == item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <!-- 4. Manual Search Input (Real-time auto search + Fixed Right 'X' Button) -->
+      <div>
+        <label for="search" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Cari Pegawai (Nama / NIP)</label>
+        <div class="relative" 
+             style="position: relative;"
+             x-data="{ 
+               q: '<%= search ? search.replace(/'/g, "\\'") : '' %>',
+               timer: null,
+               searchRealtime() {
+                 clearTimeout(this.timer);
+                 this.timer = setTimeout(() => {
+                   this.$el.closest('form').submit();
+                 }, 400);
+               }
+             }">
+          <input type="text" 
+                 name="search" 
+                 id="search" 
+                 x-model="q"
+                 @input="searchRealtime()"
+                 @keydown.enter.prevent="$el.closest('form').submit()"
+                 autocomplete="off"
+                 placeholder="Ketik Nama / NIP..." 
+                 style="padding-left: 18px;"
+                 class="w-full pl-5 pr-10 py-2.5 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 shadow-2xs transition-all">
+          
+          <!-- Clear Button 'X' (Pinned to far right with inline style) -->
+          <button type="button" 
+                  x-show="q && q.length > 0" 
+                  @click="q = ''; $nextTick(() => { $el.closest('form').submit(); })" 
+                  style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"
+                  class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors z-20 flex items-center justify-center"
+                  title="Hapus pencarian">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+
+    </form>
+
+    <!-- Status Legend -->
+    <div class="mt-4 pt-4 border-t border-slate-100 flex flex-wrap items-center gap-3 sm:gap-4 text-[11px] text-slate-600">
+      <span class="font-bold text-slate-700">Keterangan:</span>
+      <div class="flex items-center gap-1.5">
+        <span class="w-3.5 h-3.5 rounded bg-emerald-500 shadow-2xs"></span>
+        <span>Hadir (Hijau Polos)</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="w-3.5 h-3.5 rounded bg-rose-600 ring-1 ring-rose-300 flex items-center justify-center text-[8px] text-white font-bold">TK</span>
+        <span class="font-bold text-rose-700">Tanpa Keterangan (TK) *</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="w-3.5 h-3.5 rounded bg-blue-600 flex items-center justify-center text-[8px] text-white font-bold">DL</span>
+        <span>DL Sesuai (Biru)</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="w-3.5 h-3.5 rounded bg-amber-400 ring-1 ring-amber-300 flex items-center justify-center text-[8px] text-amber-950 font-bold">DL</span>
+        <span class="font-bold text-amber-800">DL Belum Sesuai (Kuning) *</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="w-3.5 h-3.5 rounded bg-orange-500 flex items-center justify-center text-[8px] text-white font-bold">TL</span>
+        <span>Terlambat (TL)</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="w-3.5 h-3.5 rounded bg-orange-500 flex items-center justify-center text-[8px] text-white font-bold">PC</span>
+        <span>Pulang Cepat (PC)</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="w-3.5 h-3.5 rounded bg-purple-600 flex items-center justify-center text-[8px] text-white font-bold">ST</span>
+        <span>Sakit (ST)</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="w-3.5 h-3.5 rounded bg-purple-600 flex items-center justify-center text-[8px] text-white font-bold">CT</span>
+        <span>Cuti (CT)</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="w-4 h-4 rounded bg-amber-300 ring-2 ring-amber-400 flex items-center justify-center text-[10px]">⏳</span>
+        <span class="font-bold text-amber-800">Sedang Review</span>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <span class="w-4 h-4 rounded bg-rose-600 ring-2 ring-rose-500 flex items-center justify-center text-[10px] text-white font-bold">⚠️</span>
+        <span class="font-bold text-rose-800">Ditolak</span>
+      </div>
+    </div>
+
+    <% if (isSuperAdminOrDinas) { %>
+      <div class="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center gap-1.5 text-xs text-violet-800 font-medium">
+        <i data-lucide="layers" class="w-3.5 h-3.5 text-violet-600 shrink-0"></i>
+        <span><b>Fitur Super Admin & Admin Dinas:</b> Klik angka tanggal pada header tabel (1–31) untuk mengubah status seluruh pegawai secara vertikal sekaligus.</span>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- MOBILE VIEW: Card list layout (sm and down) -->
+  <div class="block lg:hidden space-y-4">
+    <% if (recap.length === 0) { %>
+      <div class="custom-card p-8 text-center text-slate-500">
+        <i data-lucide="user-x" class="w-10 h-10 mx-auto text-slate-300 mb-2"></i>
+        <p class="font-bold text-slate-700">Tidak ada pegawai ditemukan</p>
+      </div>
+    <% } %>
+
+    <% recap.forEach(function(item) { %>
+      <div class="custom-card p-4 space-y-3 bg-white">
+        
+        <!-- Header Info (Full Uncut Name) -->
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex-1 min-w-0">
+            <h3 class="font-bold text-sm text-slate-900 leading-snug break-words"><%= item.employee.nama %></h3>
+            <p class="text-[11px] font-mono text-slate-400 mt-0.5"><%= item.employee.nip %></p>
+            <p class="text-[11px] text-indigo-600 font-medium truncate mt-0.5"><%= item.employee.unitNama %></p>
+          </div>
+          
+          <div class="text-right shrink-0">
+            <span class="inline-block px-2 py-1 rounded-lg text-xs font-extrabold <%= item.summary.persentase >= 85 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' %>">
+              <%= item.summary.persentase %>%
+            </span>
+          </div>
+        </div>
+
+        <!-- Summary Stats (ONLY H, TK, and %) -->
+        <div class="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl text-center text-xs">
+          <div class="p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
+            <span class="text-[10px] text-slate-500 uppercase font-bold">Total Hadir (H)</span>
+            <p class="font-extrabold text-emerald-600 text-sm mt-0.5"><%= item.summary.hadir %></p>
+          </div>
+          <div class="p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
+            <span class="text-[10px] text-slate-500 uppercase font-bold">Tanpa Ket. (TK)</span>
+            <p class="font-extrabold text-rose-600 text-sm mt-0.5"><%= item.summary.tk %></p>
+          </div>
+          <div class="p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
+            <span class="text-[10px] text-slate-500 uppercase font-bold">Persentase</span>
+            <p class="font-extrabold text-slate-800 text-sm mt-0.5"><%= item.summary.persentase %>%</p>
+          </div>
+        </div>
+
+        <!-- Horizontal Scrollable Day Strip (Badges 1..31) -->
+        <div class="pt-1">
+          <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500 mb-1">
+            <span>Presensi Hari 1–31:</span>
+            <span class="text-[10px] text-slate-400">
+              <%= isAdmin ? 'Klik untuk Ubah Status Langsung' : 'Klik TK / DL Kuning' %>
+            </span>
+          </div>
+          <div class="flex items-center gap-1.5 overflow-x-auto pb-2 custom-scrollbar">
+            <% item.days.forEach(function(d) { 
+                let badgeClass = '';
+                let shortCode = '';
+                let isWithoutBadge = (d.status === 'EMPTY' && !d.clarificationStatus);
+                
+                if (d.clarificationStatus === 'PENDING') {
+                  badgeClass = 'cell-day-pending';
+                  shortCode = '⏳';
+                } else if (d.clarificationStatus === 'REJECTED') {
+                  badgeClass = 'cell-day-rejected';
+                  shortCode = '⚠️';
+                } else if (d.status === 'HADIR') { badgeClass = 'cell-day-hadir'; shortCode = 'H'; }
+                else if (d.status === 'TK') { badgeClass = 'cell-day-tk'; shortCode = 'TK'; }
+                else if (d.status === 'DL') { badgeClass = 'cell-day-dl'; shortCode = 'DL'; }
+                else if (d.status === 'DL_KUNING') { badgeClass = 'cell-day-dl-kuning'; shortCode = 'DL'; }
+                else if (d.status === 'TL') { badgeClass = 'cell-day-tl'; shortCode = 'TL'; }
+                else if (d.status === 'PC') { badgeClass = 'cell-day-pc'; shortCode = 'PC'; }
+                else if (d.status === 'ST') { badgeClass = 'cell-day-st'; shortCode = 'ST'; }
+                else if (d.status === 'CT') { badgeClass = 'cell-day-ct'; shortCode = 'CT'; }
+                else if (d.status === 'LIBUR') { badgeClass = 'cell-day-weekend'; shortCode = 'L'; }
+                else if (d.status === 'EMPTY') { badgeClass = 'bg-transparent text-transparent border-0'; shortCode = ''; }
+            %>
+              <div class="flex flex-col items-center shrink-0 w-7 relative">
+                <span class="text-[9px] <%= isWithoutBadge ? 'text-slate-300' : 'text-slate-400' %> font-medium"><%= d.tanggal %></span>
+                
+                <% if (isWithoutBadge) { %>
+                  <% if (isAdmin) { %>
+                    <button type="button" 
+                            class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] bg-transparent text-transparent border-0 hover:bg-slate-100 cursor-pointer transition-all"
+                            title="Tgl <%= d.tanggal %>: Belum Ada Data (Klik untuk ubah)"
+                            @click="handleCellClick(<%= JSON.stringify(item.employee) %>, <%= JSON.stringify(d) %>, <%= JSON.stringify(item.days) %>)">
+                    </button>
+                  <% } else { %>
+                    <div class="w-7 h-7"></div>
+                  <% } %>
+                <% } else { %>
+                  <button type="button" 
+                          class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] <%= badgeClass %> shadow-xs cursor-pointer hover:scale-110 active:scale-95 transition-all"
+                          title="Tgl <%= d.tanggal %>: <%= d.keterangan || d.status %><%= d.clarificationStatus === 'PENDING' ? ' (Sedang Dalam Review)' : d.clarificationStatus === 'REJECTED' ? ' (Ditolak: ' + d.clarificationNote + ')' : '' %>"
+                          @click="handleCellClick(<%= JSON.stringify(item.employee) %>, <%= JSON.stringify(d) %>, <%= JSON.stringify(item.days) %>)">
+                    <%= shortCode %>
+                  </button>
+                <% } %>
+              </div>
+            <% }); %>
+          </div>
+        </div>
+
+        <!-- Action Button for Consecutive Dates -->
+        <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+          <span class="text-[11px] text-slate-500">Ajukan tanggal berturut-turut:</span>
+          <% if (isAdmin || isDefaultPeriod) { %>
+            <button @click="openKlarifikasiWithDays(<%= JSON.stringify(item.employee) %>, <%= JSON.stringify(item.days) %>, '', 'TK', true)" 
+                    class="btn-secondary py-1.5 px-3 text-xs gap-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border-indigo-200">
+              <i data-lucide="calendar-range" class="w-3.5 h-3.5"></i>
+              <span>Rentang Tanggal</span>
+            </button>
+          <% } else { %>
+            <span class="text-xs text-slate-400 italic">Periode Terkunci</span>
+          <% } %>
+        </div>
+
+      </div>
+    <% }); %>
+
+    <!-- Mobile Pagination -->
+    <div class="custom-card overflow-hidden">
+      <%- include('partials/pagination') %>
+    </div>
+  </div>
+
+  <!-- DESKTOP VIEW: ULTRA-COMPACT 31-DAY GRID (FREEZE HEADER + HORIZONTAL ALIGNMENT) -->
+  <div class="hidden lg:block custom-card overflow-hidden bg-white shadow-sm border border-slate-200">
+    <div class="overflow-x-auto overflow-y-auto max-h-[640px] xl:max-h-[720px] custom-scrollbar relative">
+      <table class="w-full text-left text-xs border-collapse table-auto">
+        <thead class="sticky top-0 z-30 bg-slate-100 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200 shadow-2xs">
+          <tr class="h-9">
+            <!-- Sticky Left: Nama & NIP Pegawai (Full Uncut Name) -->
+            <th class="sticky left-0 top-0 z-40 bg-slate-100 px-3 py-2 min-w-[155px] max-w-[185px] sticky-shadow text-slate-800 font-bold align-middle" title="Nama Pegawai & NIP">
+              Pegawai
+            </th>
+            <!-- Unit Kerja (Full Uncut Name) -->
+            <th class="px-2.5 py-2 min-w-[110px] max-w-[130px] border-r border-slate-200 text-slate-700 font-bold align-middle" title="Unit Kerja">
+              Unit Kerja
+            </th>
+            <!-- Days 1 to 31 (Ultra-compact 21.5px per column) -->
+            <% for(let d = 1; d <= 31; d++) { %>
+              <th class="p-0 text-center min-w-[21px] max-w-[22px] w-[21.5px] border-r border-slate-200/60 font-bold text-[9.5px] text-slate-600 align-middle <%= isSuperAdminOrDinas ? 'cursor-pointer hover:bg-violet-100 hover:text-violet-800 transition-colors group' : '' %>"
+                  title="<%= isSuperAdminOrDinas ? 'Klik untuk Ubah Status Vertikal Tanggal ' + d + ' (Semua Pegawai)' : 'Tanggal ' + d %>"
+                  <% if (isSuperAdminOrDinas) { %>
+                    @click="openBulkDateModal(<%= d %>)"
+                  <% } %>>
+                <span class="inline-flex items-center justify-center w-full h-full py-2 <%= isSuperAdminOrDinas ? 'group-hover:scale-110 transition-transform' : '' %>">
+                  <%= d %>
+                </span>
+              </th>
+            <% } %>
+            <!-- Summary Columns (H, TK, %) -->
+            <th class="px-1.5 py-2 text-center text-emerald-700 bg-emerald-50/70 border-l border-slate-200 w-7 min-w-[28px] text-[10px] align-middle" title="Total Hadir">H</th>
+            <th class="px-1.5 py-2 text-center text-rose-700 bg-rose-50/70 w-7 min-w-[28px] text-[10px] align-middle" title="Tanpa Keterangan">TK</th>
+            <th class="px-1.5 py-2 text-center font-extrabold text-slate-800 bg-slate-200/60 border-r border-slate-200 w-8 min-w-[32px] text-[10px] align-middle">%</th>
+            
+            <!-- STICKY RIGHT COLUMN: Minimalis Icon Action Rentang Tanggal -->
+            <th class="sticky right-0 top-0 z-40 bg-slate-100 px-1 py-2 text-center w-8 min-w-[32px] sticky-right-shadow align-middle" title="Aksi Rentang Tanggal">
+              <i data-lucide="calendar-range" class="w-3.5 h-3.5 mx-auto text-slate-500"></i>
+            </th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <% if (recap.length === 0) { %>
+            <tr>
+              <td colspan="37" class="py-12 text-center text-slate-500">
+                <i data-lucide="user-x" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
+                <p class="font-bold text-sm text-slate-700">Tidak ada pegawai ditemukan</p>
+              </td>
+            </tr>
+          <% } %>
+
+          <% recap.forEach(function(item) { %>
+            <tr class="hover:bg-indigo-50/30 transition-colors h-[38px]">
+              
+              <!-- Sticky Left: Nama Pegawai (Full Uncut Name + NIP) -->
+              <td class="sticky left-0 z-20 bg-white hover:bg-indigo-50/30 px-3 py-1.5 sticky-shadow border-r border-slate-100 min-w-[155px] max-w-[185px] align-middle">
+                <div class="font-bold text-slate-900 text-xs leading-snug break-words">
+                  <%= item.employee.nama %>
+                </div>
+                <div class="font-mono text-[9.5px] text-slate-400 mt-0.5">
+                  <%= item.employee.nip %>
+                </div>
+              </td>
+
+              <!-- Unit Kerja (Full Uncut Name) -->
+              <td class="px-2.5 py-1.5 text-[10.5px] font-medium text-slate-600 border-r border-slate-100 min-w-[110px] max-w-[130px] leading-tight break-words align-middle" title="<%= item.employee.unitNama %>">
+                <%= item.employee.unitNama %>
+              </td>
+
+              <!-- 31 Days Columns (Ultra-compact 21.5px with 20px button) -->
+              <% item.days.forEach(function(d) { 
+                  let bgCol = '';
+                  let char = '';
+                  let isWithoutBadge = (d.status === 'EMPTY' && !d.clarificationStatus);
+                  
+                  if (d.clarificationStatus === 'PENDING') {
+                    bgCol = 'cell-day-pending';
+                    char = '⏳';
+                  } else if (d.clarificationStatus === 'REJECTED') {
+                    bgCol = 'cell-day-rejected';
+                    char = '⚠️';
+                  } else if (d.status === 'HADIR') { bgCol = 'cell-day-hadir'; char = 'H'; }
+                  else if (d.status === 'TK') { bgCol = 'cell-day-tk'; char = 'TK'; }
+                  else if (d.status === 'DL') { bgCol = 'cell-day-dl'; char = 'DL'; }
+                  else if (d.status === 'DL_KUNING') { bgCol = 'cell-day-dl-kuning'; char = 'DL'; }
+                  else if (d.status === 'TL') { bgCol = 'cell-day-tl'; char = 'TL'; }
+                  else if (d.status === 'PC') { bgCol = 'cell-day-pc'; char = 'PC'; }
+                  else if (d.status === 'ST') { bgCol = 'cell-day-st'; char = 'ST'; }
+                  else if (d.status === 'CT') { bgCol = 'cell-day-ct'; char = 'CT'; }
+                  else if (d.status === 'LIBUR') { bgCol = 'cell-day-weekend'; char = 'L'; }
+                  else if (d.status === 'EMPTY') { bgCol = 'bg-transparent text-transparent border-0'; char = ''; }
+              %>
+                <td class="p-0 text-center border-r border-slate-100/50 min-w-[21px] max-w-[22px] w-[21.5px] align-middle">
+                  <% if (isWithoutBadge) { %>
+                    <% if (isAdmin) { %>
+                      <button type="button" 
+                              class="inline-flex items-center justify-center w-5 h-5 rounded text-[8px] bg-transparent text-transparent hover:bg-slate-100/80 cursor-pointer transition-all"
+                              title="Tgl <%= d.tanggal %>: Belum Ada Data (Klik untuk ubah)"
+                              @click="handleCellClick(<%= JSON.stringify(item.employee) %>, <%= JSON.stringify(d) %>, <%= JSON.stringify(item.days) %>)">
+                      </button>
+                    <% } else { %>
+                      <span class="inline-block w-5 h-5"></span>
+                    <% } %>
+                  <% } else { %>
+                    <button type="button" 
+                            class="inline-flex items-center justify-center w-5 h-5 rounded text-[8px] <%= bgCol %> cursor-pointer hover:scale-120 active:scale-95 transition-all shadow-2xs font-bold leading-none"
+                            title="Tgl <%= d.tanggal %>: <%= d.keterangan || d.status %><%= d.clarificationStatus === 'PENDING' ? ' (Sedang Dalam Review)' : d.clarificationStatus === 'REJECTED' ? ' (Ditolak: ' + d.clarificationNote + ')' : '' %>"
+                            @click="handleCellClick(<%= JSON.stringify(item.employee) %>, <%= JSON.stringify(d) %>, <%= JSON.stringify(item.days) %>)">
+                      <%= char %>
+                    </button>
+                  <% } %>
+                </td>
+              <% }); %>
+
+              <!-- Summary Cells (ONLY H, TK, %) -->
+              <td class="px-1 py-1.5 text-center font-bold text-emerald-700 bg-emerald-50/40 border-l border-slate-100 text-[11px] w-7 min-w-[28px] align-middle">
+                <%= item.summary.hadir %>
+              </td>
+              <td class="px-1 py-1.5 text-center font-bold text-rose-700 bg-rose-50/40 text-[11px] w-7 min-w-[28px] align-middle">
+                <%= item.summary.tk %>
+              </td>
+              <td class="px-1 py-1.5 text-center font-extrabold text-slate-800 bg-slate-100/50 border-r border-slate-100 text-[11px] w-8 min-w-[32px] align-middle">
+                <%= item.summary.persentase %>%
+              </td>
+
+              <!-- STICKY RIGHT: Ramping Icon-Only Button for Rentang Tanggal -->
+              <td class="sticky right-0 z-20 bg-white hover:bg-indigo-50/30 px-1 py-1 text-center whitespace-nowrap sticky-right-shadow w-8 min-w-[32px] align-middle">
+                <% if (isAdmin || isDefaultPeriod) { %>
+                  <button @click="openKlarifikasiWithDays(<%= JSON.stringify(item.employee) %>, <%= JSON.stringify(item.days) %>, '', 'TK', true)" 
+                          class="p-1 rounded-md text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 border border-indigo-200 transition-all inline-flex items-center justify-center shadow-2xs"
+                          title="Ajukan Rentang Tanggal untuk <%= item.employee.nama %>">
+                    <i data-lucide="calendar-range" class="w-3 h-3"></i>
+                  </button>
+                <% } else { %>
+                  <span class="text-slate-300 text-[10px]">-</span>
+                <% } %>
+              </td>
+
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Desktop Pagination -->
+    <%- include('partials/pagination') %>
+  </div>
+
+  <!-- ALPINE.JS MODAL 1: KLARIFIKASI ABSENSI (HANYA PILIH TANGGAL BERSTATUS TK / DL KUNING UNTUK PUBLIK) -->
+  <div x-show="klarifikasiModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    
+    <div @click.away="klarifikasiModal = false"
+         class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i data-lucide="file-text" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900" x-text="isRentang ? 'Klarifikasi Tanggal Berurutan' : 'Form Klarifikasi Presensi'"></h2>
+            <p class="text-xs text-slate-500">Pilih tanggal berstatus TK / DL Kuning untuk diajukan</p>
+          </div>
+        </div>
+        <button @click="klarifikasiModal = false" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Modal Form -->
+      <template x-if="selectedEmployee">
+        <form action="/absensi/klarifikasi" method="POST" enctype="multipart/form-data" class="space-y-4">
+          <input type="hidden" name="employeeId" :value="selectedEmployee.id">
+          <input type="hidden" name="statusAwal" :value="currentStatus">
+          <input type="hidden" name="isRentang" :value="isRentang ? 'true' : 'false'">
+
+          <!-- Selected Employee Display Card (NIP Hidden) -->
+          <div class="p-3.5 rounded-2xl bg-indigo-50/80 border border-indigo-100 flex items-start gap-3">
+            <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+              <i data-lucide="user-check" class="w-4 h-4"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-600 block">Pegawai Terpilih:</span>
+              <h3 class="font-bold text-sm text-slate-900 truncate" x-text="selectedEmployee.nama"></h3>
+              <p class="text-xs text-slate-500 mt-0.5" x-text="selectedEmployee.unitNama"></p>
+            </div>
+          </div>
+
+          <!-- Mode Toggle -->
+          <div class="flex items-center gap-4 text-xs font-semibold text-slate-700 bg-slate-50 p-2 rounded-xl border border-slate-100">
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" name="rentangToggle" :value="false" x-model="isRentang" class="text-indigo-600">
+              <span>Satu Tanggal</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" name="rentangToggle" :value="true" x-model="isRentang" class="text-indigo-600">
+              <span>Rentang Tanggal Berurutan</span>
+            </label>
+          </div>
+
+          <!-- DATE SELECTOR: KHUSUS TANGGAL BERSTATUS TK / DL KUNING UNTUK PUBLIK -->
+          <template x-if="!isRentang">
+            <div>
+              <label for="tanggalAbsenSelect" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+                Pilih Tanggal Presensi (TK / DL Kuning) *
+              </label>
+
+              <template x-if="!isAdmin">
+                <select name="tanggalAbsen" 
+                        id="tanggalAbsenSelect" 
+                        x-model="selectedDate" 
+                        @change="onDateSelected($event.target.value)" 
+                        required 
+                        class="form-select text-xs font-semibold">
+                  <template x-for="item in eligibleDays" :key="item.dateStr">
+                    <option :value="item.dateStr" x-text="item.label"></option>
+                  </template>
+                </select>
+              </template>
+
+              <template x-if="isAdmin">
+                <input type="date" name="tanggalAbsen" id="tanggalAbsenAdmin" x-model="selectedDate" required class="form-input text-xs">
+              </template>
+            </div>
+          </template>
+
+          <template x-if="isRentang">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label for="tanggalMulaiSelect" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Tanggal Mulai *</label>
+                <template x-if="!isAdmin">
+                  <select name="tanggalMulai" id="tanggalMulaiSelect" x-model="tanggalMulai" required class="form-select text-xs font-semibold">
+                    <template x-for="item in eligibleDays" :key="'start-' + item.dateStr">
+                      <option :value="item.dateStr" x-text="item.label"></option>
+                    </template>
+                  </select>
+                </template>
+                <template x-if="isAdmin">
+                  <input type="date" name="tanggalMulai" id="tanggalMulaiAdmin" x-model="tanggalMulai" required class="form-input text-xs">
+                </template>
+              </div>
+
+              <div>
+                <label for="tanggalSelesaiSelect" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Tanggal Selesai *</label>
+                <template x-if="!isAdmin">
+                  <select name="tanggalSelesai" id="tanggalSelesaiSelect" x-model="tanggalSelesai" required class="form-select text-xs font-semibold">
+                    <template x-for="item in eligibleDays" :key="'end-' + item.dateStr">
+                      <option :value="item.dateStr" x-text="item.label"></option>
+                    </template>
+                  </select>
+                </template>
+                <template x-if="isAdmin">
+                  <input type="date" name="tanggalSelesai" id="tanggalSelesaiAdmin" x-model="tanggalSelesai" required class="form-input text-xs">
+                </template>
+              </div>
+            </div>
+          </template>
+
+          <!-- Status Seharusnya Dropdown (PUBLIK: Hanya DL, ST, CT; ADMIN: Semua) -->
+          <div>
+            <label for="statusPengganti" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+              Status Seharusnya *
+            </label>
+            
+            <template x-if="!isAdmin">
+              <select name="statusPengganti" id="statusPenggantiPublik" x-model="selectedStatus" class="form-select text-xs font-semibold">
+                <option value="DL">Dinas Luar Sesuai (DL)</option>
+                <option value="ST">Sakit (ST)</option>
+                <option value="CT">Cuti (CT)</option>
+              </select>
+            </template>
+
+            <template x-if="isAdmin">
+              <select name="statusPengganti" id="statusPenggantiAdmin" x-model="selectedStatus" class="form-select text-xs font-semibold">
+                <option value="HADIR">Hadir (H)</option>
+                <option value="DL">Dinas Luar Sesuai (DL)</option>
+                <option value="DL_KUNING">Dinas Luar Belum Sesuai (DL Kuning)</option>
+                <option value="TL">Terlambat (TL)</option>
+                <option value="PC">Pulang Cepat (PC)</option>
+                <option value="ST">Sakit (ST)</option>
+                <option value="CT">Cuti (CT)</option>
+                <option value="TK">Tanpa Keterangan (TK)</option>
+              </select>
+            </template>
+          </div>
+
+          <!-- Alasan Klarifikasi -->
+          <div>
+            <label for="alasan" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Alasan Klarifikasi *</label>
+            <textarea name="alasan" 
+                      id="alasan" 
+                      rows="3" 
+                      required 
+                      placeholder="Contoh: Mengikuti kegiatan pelatihan dinas luar / Surat tugas nomor 800/123/Disdik..." 
+                      class="form-input text-xs"></textarea>
+          </div>
+
+          <!-- Upload PDF File Proof -->
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Upload Surat Tugas / Bukti Dokter / SK Cuti (PDF) *</label>
+            <div class="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-2xl p-4 text-center cursor-pointer transition-colors bg-slate-50 relative">
+              <input type="file" 
+                     name="file" 
+                     id="fileProof" 
+                     accept=".pdf" 
+                     required
+                     @change="fileName = $event.target.files[0] ? $event.target.files[0].name : ''"
+                     class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+              <div class="space-y-1">
+                <i data-lucide="upload-cloud" class="w-7 h-7 mx-auto text-indigo-500"></i>
+                <p class="text-xs font-semibold text-slate-700 truncate max-w-xs mx-auto" x-text="fileName ? fileName : 'Klik atau seret file PDF ke sini'"></p>
+                <p class="text-[10px] text-slate-400">Format: PDF (Maksimal 10MB)</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Modal Actions -->
+          <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+            <button type="button" @click="klarifikasiModal = false" class="btn-secondary py-2.5 px-4 text-xs">
+              Batal
+            </button>
+            <button type="submit" class="btn-primary py-2.5 px-5 text-xs gap-2">
+              <i data-lucide="send" class="w-4 h-4"></i>
+              <span>Kirim Klarifikasi</span>
+            </button>
+          </div>
+
+        </form>
+      </template>
+
+    </div>
+  </div>
+
+  <!-- ALPINE.JS MODAL 2: ADMIN UBAH STATUS LANGSUNG -->
+  <div x-show="adminDirectModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    
+    <div @click.away="adminDirectModal = false"
+         class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold">
+            <i data-lucide="edit-3" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">Ubah Status Langsung</h2>
+            <p class="text-xs text-slate-500">Perbarui data presensi tanpa antrean klarifikasi</p>
+          </div>
+        </div>
+        <button @click="adminDirectModal = false" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <template x-if="selectedEmployee">
+        <form action="/absensi/direct-update" method="POST" class="space-y-4">
+          <input type="hidden" name="employeeId" :value="selectedEmployee.id">
+          <input type="hidden" name="tahun" value="<%= tahun %>">
+          <input type="hidden" name="bulan" value="<%= bulan %>">
+          <input type="hidden" name="tanggal" :value="selectedDay">
+
+          <div class="p-3 rounded-2xl bg-indigo-50/80 border border-indigo-100 text-xs">
+            <p class="font-bold text-slate-900" x-text="selectedEmployee.nama"></p>
+            <p class="text-slate-500 mt-0.5" x-text="selectedEmployee.unitNama + ' • Tanggal ' + selectedDay + '/' + '<%= bulan %>' + '/' + '<%= tahun %>'"></p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Pilih Status Baru *</label>
+            <select name="status" x-model="directTargetStatus" class="form-select text-xs font-bold">
+              <option value="HADIR">Hadir (H)</option>
+              <option value="LIBUR">Libur / Akhir Pekan (L)</option>
+              <option value="TK">Tanpa Keterangan (TK)</option>
+              <option value="DL">Dinas Luar Sesuai (DL)</option>
+              <option value="DL_KUNING">Dinas Luar Belum Sesuai (DL Kuning)</option>
+              <option value="TL">Terlambat (TL)</option>
+              <option value="PC">Pulang Cepat (PC)</option>
+              <option value="ST">Sakit (ST)</option>
+              <option value="CT">Cuti (CT)</option>
+              <option value="EMPTY">🗑️ Kosongkan / Hapus Record (Status Kembali Kosong)</option>
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Keterangan Tambahan</label>
+            <input type="text" name="keterangan" x-model="directKeterangan" placeholder="Contoh: Izin lisan / Penugasan khusus" class="form-input text-xs">
+          </div>
+
+          <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+            <button type="button" @click="adminDirectModal = false" class="btn-secondary py-2.5 px-4 text-xs">
+              Batal
+            </button>
+            <button type="submit" class="btn-primary py-2.5 px-5 text-xs gap-2">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>Simpan Perubahan Langsung</span>
+            </button>
+          </div>
+        </form>
+      </template>
+
+    </div>
+  </div>
+
+  <!-- ALPINE.JS MODAL 2B: SUPER ADMIN / ADMIN DINAS UBAH STATUS MASSAL PER TANGGAL (VERTIKAL) -->
+  <div x-show="bulkDateModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    
+    <div @click.away="bulkDateModal = false"
+         class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center font-bold">
+            <i data-lucide="layers" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">Ubah Status Vertikal Tanggal</h2>
+            <p class="text-xs text-slate-500">Terapkan status presensi untuk seluruh pegawai di tanggal ini</p>
+          </div>
+        </div>
+        <button @click="bulkDateModal = false" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form action="/absensi/bulk-date-update" method="POST" class="space-y-4">
+        <input type="hidden" name="tahun" value="<%= tahun %>">
+        <input type="hidden" name="bulan" value="<%= bulan %>">
+        <input type="hidden" name="tanggal" :value="bulkTargetDay">
+
+        <div class="p-3.5 rounded-2xl bg-violet-50/80 border border-violet-100 text-xs">
+          <p class="font-bold text-violet-950 flex items-center gap-1.5">
+            <i data-lucide="calendar" class="w-4 h-4 text-violet-600"></i>
+            <span x-text="'Target Tanggal: ' + bulkTargetDay + ' ' + '<%= ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'][bulan - 1] %>' + ' <%= tahun %>'"></span>
+          </p>
+          <p class="text-violet-700 text-[11px] mt-1">
+            Status yang dipilih akan diterapkan secara vertikal ke <strong>seluruh pegawai aktif</strong> di periode ini.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Pilih Status Baru *</label>
+          <select name="status" x-model="bulkTargetStatus" class="form-select text-xs font-bold">
+            <option value="HADIR">Hadir (H)</option>
+            <option value="LIBUR">Libur / Hari Libur Nasional (L)</option>
+            <option value="TK">Tanpa Keterangan (TK)</option>
+            <option value="DL">Dinas Luar Sesuai (DL)</option>
+            <option value="DL_KUNING">Dinas Luar Belum Sesuai (DL Kuning)</option>
+            <option value="TL">Terlambat (TL)</option>
+            <option value="PC">Pulang Cepat (PC)</option>
+            <option value="ST">Sakit (ST)</option>
+            <option value="CT">Cuti (CT)</option>
+            <option value="EMPTY">🗑️ Kosongkan / Hapus Record (Kembali Kosong)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Keterangan Tambahan</label>
+          <input type="text" name="keterangan" x-model="bulkKeterangan" placeholder="Contoh: Libur Nasional / Upacara Bendera / Penugasan Wilayah" class="form-input text-xs">
+        </div>
+
+        <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-start gap-2">
+          <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 mt-0.5 text-amber-600"></i>
+          <span>Perubahan ini akan memperbarui baris presensi semua pegawai pada tanggal yang dipilih secara serentak.</span>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <button type="button" @click="bulkDateModal = false" class="btn-secondary py-2.5 px-4 text-xs">
+            Batal
+          </button>
+          <button type="submit" class="btn-primary py-2.5 px-5 text-xs gap-2 bg-violet-600 hover:bg-violet-700">
+            <i data-lucide="check-check" class="w-4 h-4"></i>
+            <span>Terapkan ke Semua Pegawai</span>
+          </button>
+        </div>
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ALPINE.JS MODAL 3: STATUS & CATATAN KLARIFIKASI DITOLAK -->
+  <div x-show="rejectedInfoModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    
+    <div @click.away="rejectedInfoModal = false"
+         class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2.5 text-rose-600">
+          <i data-lucide="alert-octagon" class="w-5 h-5"></i>
+          <h3 class="font-bold text-base text-slate-900">Klarifikasi Presensi Ditolak</h3>
+        </div>
+        <button @click="rejectedInfoModal = false" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="p-3.5 rounded-2xl bg-rose-50 border border-rose-200/80 text-xs space-y-2">
+        <div class="flex items-center justify-between font-bold text-slate-800">
+          <span x-text="rejectedEmployeeName"></span>
+          <span class="text-rose-700" x-text="'Tgl: ' + rejectedDate"></span>
+        </div>
+        <div class="pt-2 border-t border-rose-200/60 text-slate-700">
+          <span class="font-bold text-rose-800 uppercase tracking-wider text-[10px] block">Alasan Penolakan Admin:</span>
+          <p class="mt-1 text-slate-800 leading-relaxed font-medium bg-white p-2.5 rounded-xl border border-rose-200" x-text="rejectedReason"></p>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-slate-500">
+        Silakan perbaiki berkas bukti sesuai catatan di atas dan ajukan klarifikasi ulang.
+      </p>
+
+      <div class="pt-2 flex justify-end">
+        <button type="button" @click="rejectedInfoModal = false" class="btn-primary py-2 px-4 text-xs">
+          Mengerti
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ALPINE.JS MODAL 4: DAFTAR STATUS KLARIFIKASI SAYA -->
+  <div x-show="statusHistoryModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    
+    <div @click.away="statusHistoryModal = false"
+         class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-4">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2.5">
+          <i data-lucide="list-checks" class="w-5 h-5 text-indigo-600"></i>
+          <h3 class="font-bold text-base text-slate-900">Daftar Status Pengajuan Klarifikasi</h3>
+        </div>
+        <button @click="statusHistoryModal = false" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="max-h-96 overflow-y-auto space-y-3 custom-scrollbar pr-1">
+        <% 
+          const allClars = typeof clarifications !== 'undefined' ? clarifications : [];
+        %>
+        <% if (allClars.length === 0) { %>
+          <div class="p-8 text-center text-slate-400">
+            <p>Belum ada pengajuan klarifikasi.</p>
+          </div>
+        <% } %>
+
+        <% allClars.forEach(function(c) { %>
+          <div class="p-3.5 rounded-2xl border <%= c.statusVerifikasi === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200' : c.statusVerifikasi === 'REJECTED' ? 'bg-rose-50/50 border-rose-200' : 'bg-amber-50/50 border-amber-200' %> text-xs space-y-2">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="font-bold text-slate-900"><%= c.employeeName %></p>
+                <p class="text-slate-500 text-[11px]"><%= c.tanggalAbsen %> • Status: <%= c.statusAwal %> &rarr; <b><%= c.statusPengganti %></b></p>
+              </div>
+              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold <%= c.statusVerifikasi === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : c.statusVerifikasi === 'REJECTED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800' %>">
+                <%= c.statusVerifikasi === 'APPROVED' ? 'Disetujui' : c.statusVerifikasi === 'REJECTED' ? 'Ditolak' : 'Sedang Review' %>
+              </span>
+            </div>
+
+            <!-- Bukti Dokumen PDF Link -->
+            <% if (c.fileUrl) { %>
+              <div class="pt-1.5 flex items-center justify-between border-t border-slate-200/60">
+                <span class="text-slate-500 text-[11px] font-medium">Surat Bukti / Tugas:</span>
+                <button type="button" @click="viewPdf('Bukti Surat Tugas - ' + '<%= c.employeeName %>', '<%= c.fileUrl %>', '<%= c.fileName %>')" class="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline">
+                  <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                  <span class="truncate max-w-[200px]"><%= c.fileName || 'Lihat Dokumen PDF' %></span>
+                </button>
+              </div>
+            <% } %>
+
+            <% if (c.statusVerifikasi === 'REJECTED' && c.catatanAdmin) { %>
+              <div class="p-2 rounded-xl bg-white border border-rose-200 text-rose-900">
+                <span class="font-bold text-[10px] block uppercase">Alasan Penolakan Admin:</span>
+                <p class="mt-0.5 text-[11px]"><%= c.catatanAdmin %></p>
+              </div>
+            <% } %>
+
+            <% if (c.statusVerifikasi === 'APPROVED' && c.catatanAdmin) { %>
+              <div class="p-2 rounded-xl bg-white border border-emerald-200 text-emerald-900">
+                <span class="font-bold text-[10px] block uppercase">Catatan Admin:</span>
+                <p class="mt-0.5 text-[11px]"><%= c.catatanAdmin %></p>
+              </div>
+            <% } %>
+          </div>
+        <% }); %>
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button type="button" @click="statusHistoryModal = false" class="btn-secondary py-2 px-4 text-xs">
+          Tutup
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ALPINE.JS MODAL 5: PDF PREVIEW VIEWER MODAL -->
+  <div x-show="pdfModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+       style="display: none;">
+    
+    <div @click.away="pdfModal = false"
+         class="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl border border-slate-100 space-y-4 flex flex-col max-h-[92vh]">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2.5 min-w-0 pr-4">
+          <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <i data-lucide="file-text" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <h3 class="font-bold text-sm sm:text-base text-slate-900 truncate" x-text="pdfTitle"></h3>
+            <p class="text-[11px] text-slate-400">Dokumen Bukti Surat Keterangan / Surat Tugas</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <a :href="pdfUrl" :download="pdfFileName || 'bukti-absensi.pdf'" class="btn-primary py-1.5 px-3 text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs" title="Unduh Berkas PDF Langsung">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Download</span>
+          </a>
+          <a :href="pdfUrl" target="_blank" class="btn-secondary py-1.5 px-3 text-xs gap-1.5 text-slate-700 hover:text-slate-900" title="Buka Dokumen di Tab Baru Penuh">
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Tab Baru</span>
+          </a>
+          <button @click="pdfModal = false" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Inline PDF Viewer Container -->
+      <div class="flex-1 w-full bg-slate-100 rounded-2xl overflow-hidden min-h-[55vh] max-h-[68vh] border border-slate-200">
+        <iframe :src="pdfUrl" class="w-full h-full min-h-[55vh] rounded-2xl border-0" allowfullscreen></iframe>
+      </div>
+
+      <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+        <div class="flex items-center gap-2">
+          <a :href="pdfUrl" :download="pdfFileName || 'bukti-absensi.pdf'" class="text-indigo-600 hover:underline font-semibold flex items-center gap-1 sm:hidden">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Download PDF</span>
+          </a>
+          <span class="hidden sm:inline text-slate-400">Gunakan tombol Tab Baru jika ingin melihat layar penuh.</span>
+        </div>
+        <button type="button" @click="pdfModal = false" class="btn-secondary py-2 px-4 text-xs">
+          Tutup
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<%- include('partials/footer') %>

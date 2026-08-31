@@ -1,0 +1,829 @@
+<%- include('partials/head') %>
+<%- include('partials/public-nav') %>
+<%- include('partials/toast') %>
+
+<% 
+  const isAdmin = typeof user !== 'undefined' && user !== null;
+  const isDefaultPeriod = (bulan === activeDefaultMonth && tahun === activeDefaultYear);
+%>
+
+<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full"
+      x-data="{
+        isAdmin: <%= isAdmin ? 'true' : 'false' %>,
+        isDefaultPeriod: <%= isDefaultPeriod ? 'true' : 'false' %>,
+        uploadModal: false,
+        pdfModal: false,
+        pdfTitle: '',
+        pdfUrl: '',
+        pdfFileName: '',
+        selectedEmpId: '',
+        selectedEmpName: '',
+        selectedBulan: <%= bulan %>,
+        selectedTahun: <%= tahun %>,
+        fileHarianName: '',
+        fileBulananName: '',
+        viewPdf(title, url, fileName) {
+          this.pdfTitle = title;
+          this.pdfUrl = url;
+          this.pdfFileName = fileName || 'laporan-kinerja.pdf';
+          this.pdfModal = true;
+        },
+        openUpload(emp) {
+          if (!this.isAdmin && !this.isDefaultPeriod) {
+            alert('Pengunggahan laporan e-kinerja hanya dibuka untuk periode aktif (Bulan <%= activeDefaultMonth %> Tahun <%= activeDefaultYear %>). Periode lainnya hanya untuk dilihat.');
+            return;
+          }
+          this.selectedEmpId = emp.id;
+          this.selectedEmpName = emp.nama;
+          this.fileHarianName = '';
+          this.fileBulananName = '';
+          this.uploadModal = true;
+        }
+      }">
+
+  <!-- Header Section -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-xs font-bold uppercase tracking-wider border border-emerald-100">Kinerja ASN</span>
+        <span class="text-xs text-slate-400">Periode Bulan <%= bulan %> / <%= tahun %></span>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">Laporan E-Kinerja Pegawai</h1>
+      <p class="text-xs sm:text-sm text-slate-500">
+        <% if (isDefaultPeriod) { %>
+          Unggah berkas laporan kinerja harian dan bulanan (PDF) untuk diverifikasi dan dinilai oleh Korwil
+        <% } else { %>
+          <span class="text-amber-800 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Mode Arsip:</span> Periode ini hanya untuk dilihat. Pengunggahan aktif untuk periode Bulan <%= activeDefaultMonth %> Tahun <%= activeDefaultYear %>.
+        <% } %>
+      </p>
+    </div>
+
+    <!-- Quick Stats Pills -->
+    <div class="flex items-center gap-2 text-xs">
+      <div class="px-3 py-2 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+        <span class="text-slate-600 font-medium">Disetujui: <b class="text-slate-900"><%= list.filter(i => i.report?.statusReview === 'APPROVED').length %></b></span>
+      </div>
+      <div class="px-3 py-2 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+        <span class="text-slate-600 font-medium">Pending: <b class="text-slate-900"><%= list.filter(i => i.report?.statusReview === 'PENDING').length %></b></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Non-Default Period Warning Banner for Public -->
+  <% if (!isAdmin && !isDefaultPeriod) { %>
+    <div class="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-3 mb-6 shadow-xs">
+      <div class="p-1 rounded-lg bg-amber-200 text-amber-800 shrink-0 mt-0.5">
+        <i data-lucide="info" class="w-4 h-4"></i>
+      </div>
+      <div>
+        <span class="font-bold block">Periode Pengunggahan Terkunci:</span>
+        <p class="text-amber-800 mt-0.5">
+          Anda sedang melihat data arsip bulan <b><%= bulan %> / <%= tahun %></b>. Pengunggahan berkas laporan E-Kinerja oleh publik hanya dibuka untuk bulan default yang aktif saat ini, yaitu <b>Bulan <%= activeDefaultMonth %> Tahun <%= activeDefaultYear %></b>.
+        </p>
+      </div>
+    </div>
+  <% } %>
+
+  <!-- Filter & Search Toolbar with Modern Rounded Searchable Dropdowns -->
+  <div class="custom-card p-4 sm:p-5 mb-6 bg-white shadow-xs">
+    <form action="/ekinerja" method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      
+      <!-- 1. Unit Kerja Filter (Custom Searchable Dropdown) -->
+      <div class="relative" 
+           x-data="{
+             open: false,
+             search: '',
+             selectedVal: '<%= selectedUnit %>',
+             options: <%= JSON.stringify(units.map(u => ({ value: u.id, label: u.namaUnit }))) %>,
+             get filteredOptions() {
+               if (!this.search) return this.options;
+               return this.options.filter(o => o.label.toLowerCase().includes(this.search.toLowerCase()));
+             },
+             get selectedLabel() {
+               const found = this.options.find(o => o.value === this.selectedVal);
+               return found ? found.label : 'Pilih Unit Kerja...';
+             },
+             selectOption(val) {
+               this.selectedVal = val;
+               this.open = false;
+               $refs.unitInput.value = val;
+               $nextTick(() => { $refs.unitInput.closest('form').submit(); });
+             }
+           }"
+           @click.away="open = false">
+        
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Unit Kerja</label>
+        <input type="hidden" name="unit" x-ref="unitInput" :value="selectedVal">
+        
+        <button type="button" 
+                @click="open = !open" 
+                class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+          <span class="truncate pr-2" x-text="selectedLabel"></span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+        </button>
+
+        <!-- Dropdown Popover (Max 7 items = max-h-56) -->
+        <!-- Searchable Dropdown Menu (Max 7 Rows with scroll) -->
+        <div x-show="open" 
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+             x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+             class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1.5 min-w-[240px]"
+             style="display: none;"
+             @click.stop>
+          
+          <!-- Search input inside dropdown (Clean without icon, with X on far right) -->
+          <div class="relative" style="position: relative;">
+            <input type="text" 
+                   x-model="search" 
+                   placeholder="Ketik nama unit / sekolah..." 
+                   class="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 text-slate-800 placeholder:text-slate-400"
+                   @click.stop
+                   @keydown.stop>
+            <button type="button" 
+                    x-show="search && search.length > 0" 
+                    @click="search = ''" 
+                    style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);"
+                    class="text-slate-400 hover:text-slate-600 p-1 flex items-center justify-center z-20">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          <div class="max-h-[230px] overflow-y-auto custom-scrollbar space-y-0.5 pt-1">
+            <template x-for="item in filteredOptions" :key="item.value">
+              <button type="button" 
+                      @click="selectOption(item.value)" 
+                      class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                      :class="selectedVal === item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                <span class="truncate" x-text="item.label"></span>
+                <i data-lucide="check" x-show="selectedVal === item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+              </button>
+            </template>
+            <div x-show="filteredOptions.length === 0" class="py-3 text-center text-xs text-slate-400">
+              Tidak ada unit yang cocok
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. Bulan Filter (Custom Searchable Dropdown) -->
+      <div class="relative" 
+           x-data="{
+             open: false,
+             search: '',
+             selectedVal: <%= bulan %>,
+             options: [
+               { value: 1, label: 'Januari' },
+               { value: 2, label: 'Februari' },
+               { value: 3, label: 'Maret' },
+               { value: 4, label: 'April' },
+               { value: 5, label: 'Mei' },
+               { value: 6, label: 'Juni' },
+               { value: 7, label: 'Juli' },
+               { value: 8, label: 'Agustus' },
+               { value: 9, label: 'September' },
+               { value: 10, label: 'Oktober' },
+               { value: 11, label: 'November' },
+               { value: 12, label: 'Desember' }
+             ],
+             get filteredOptions() {
+               if (!this.search || !this.search.trim()) return this.options;
+               const term = this.search.trim().toLowerCase();
+               return this.options.filter(o => o.label.toLowerCase().includes(term));
+             },
+             get selectedLabel() {
+               const found = this.options.find(o => o.value == this.selectedVal);
+               return found ? found.label : 'Pilih Bulan...';
+             },
+             selectOption(val) {
+               this.selectedVal = val;
+               this.open = false;
+               $refs.bulanInput.value = val;
+               $nextTick(() => { $refs.bulanInput.closest('form').submit(); });
+             }
+           }"
+           @click.away="open = false">
+        
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Bulan Laporan</label>
+        <input type="hidden" name="bulan" x-ref="bulanInput" :value="selectedVal">
+        
+        <button type="button" 
+                @click="open = !open" 
+                class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+          <span class="truncate pr-2" x-text="selectedLabel"></span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+        </button>
+
+        <!-- Dropdown Popover (Max 7 items with scroll) -->
+        <div x-show="open" 
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+             x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+             class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1.5 min-w-[200px]"
+             style="display: none;"
+             @click.stop>
+          
+          <!-- Search input inside month dropdown (Clean without icon, with X on far right) -->
+          <div class="relative" style="position: relative;">
+            <input type="text" 
+                   x-model="search" 
+                   placeholder="Ketik nama bulan..." 
+                   class="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 text-slate-800 placeholder:text-slate-400"
+                   @click.stop
+                   @keydown.stop>
+            <button type="button" 
+                    x-show="search && search.length > 0" 
+                    @click="search = ''" 
+                    style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);"
+                    class="text-slate-400 hover:text-slate-600 p-1 flex items-center justify-center z-20">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          <div class="max-h-[230px] overflow-y-auto custom-scrollbar space-y-0.5 pt-1">
+            <template x-for="item in filteredOptions" :key="item.value">
+              <button type="button" 
+                      @click="selectOption(item.value)" 
+                      class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                      :class="selectedVal == item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                <span class="truncate" x-text="item.label"></span>
+                <i data-lucide="check" x-show="selectedVal == item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+              </button>
+            </template>
+            <div x-show="filteredOptions.length === 0" class="py-3 text-center text-xs text-slate-400">
+              Tidak ada bulan yang cocok
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Tahun Filter (Custom Dropdown) -->
+      <div class="relative" 
+           x-data="{
+             open: false,
+             selectedVal: <%= tahun %>,
+             options: [
+               { value: 2026, label: '2026' },
+               { value: 2025, label: '2025' }
+             ],
+             get selectedLabel() {
+               const found = this.options.find(o => o.value == this.selectedVal);
+               return found ? found.label : '2026';
+             },
+             selectOption(val) {
+               this.selectedVal = val;
+               this.open = false;
+               $refs.tahunInput.value = val;
+               $nextTick(() => { $refs.tahunInput.closest('form').submit(); });
+             }
+           }"
+           @click.away="open = false">
+        
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Tahun</label>
+        <input type="hidden" name="tahun" x-ref="tahunInput" :value="selectedVal">
+        
+        <button type="button" 
+                @click="open = !open" 
+                class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+          <span class="truncate pr-2" x-text="selectedLabel"></span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+        </button>
+
+        <div x-show="open" 
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+             x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+             class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1 min-w-[150px]"
+             style="display: none;">
+          <template x-for="item in options" :key="item.value">
+            <button type="button" 
+                    @click="selectOption(item.value)" 
+                    class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                    :class="selectedVal == item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+              <span x-text="item.label"></span>
+              <i data-lucide="check" x-show="selectedVal == item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <!-- 4. Manual Search Input (Real-time auto search + Fixed Right 'X' Button) -->
+      <div>
+        <label for="search" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Cari Pegawai (Nama / NIP)</label>
+        <div class="relative" 
+             style="position: relative;"
+             x-data="{ 
+               q: '<%= search ? search.replace(/'/g, "\\'") : '' %>',
+               timer: null,
+               searchRealtime() {
+                 clearTimeout(this.timer);
+                 this.timer = setTimeout(() => {
+                   this.$el.closest('form').submit();
+                 }, 400);
+               }
+             }">
+          <input type="text" 
+                 name="search" 
+                 id="search" 
+                 x-model="q"
+                 @input="searchRealtime()"
+                 @keydown.enter.prevent="$el.closest('form').submit()"
+                 autocomplete="off"
+                 placeholder="Ketik Nama / NIP..." 
+                 style="padding-left: 18px;"
+                 class="w-full pl-5 pr-10 py-2.5 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 shadow-2xs transition-all">
+          
+          <!-- Clear Button 'X' (Pinned to far right with inline style) -->
+          <button type="button" 
+                  x-show="q && q.length > 0" 
+                  @click="q = ''; $nextTick(() => { $el.closest('form').submit(); })" 
+                  style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"
+                  class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors z-20 flex items-center justify-center"
+                  title="Hapus pencarian">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+
+    </form>
+  </div>
+
+  <!-- MOBILE VIEW: Employee Kinerja Cards (sm and down) (NIP & Status Kepegawaian Hidden) -->
+  <div class="block lg:hidden space-y-4">
+    <% if (list.length === 0) { %>
+      <div class="custom-card p-8 text-center text-slate-500">
+        <i data-lucide="user-x" class="w-10 h-10 mx-auto text-slate-300 mb-2"></i>
+        <p class="font-bold text-slate-700">Tidak ada data pegawai</p>
+        <p class="text-xs text-slate-400 mt-1">Coba ganti filter atau kata kunci pencarian Anda.</p>
+      </div>
+    <% } %>
+
+    <% list.forEach(function(item) { 
+        const status = item.report ? item.report.statusReview : 'NOT_SUBMITTED';
+    %>
+      <div class="custom-card p-4 space-y-3 bg-white">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <h3 class="font-bold text-sm text-slate-900"><%= item.employee.nama %></h3>
+            <p class="text-[11px] text-indigo-600 font-medium mt-0.5"><%= item.employee.unitNama %></p>
+          </div>
+
+          <div class="shrink-0">
+            <% if (status === 'APPROVED') { %>
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                <span>Disetujui</span>
+              </span>
+            <% } else if (status === 'PENDING') { %>
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1">
+                <i data-lucide="clock" class="w-3.5 h-3.5"></i>
+                <span>Menunggu Review</span>
+              </span>
+            <% } else if (status === 'REJECTED') { %>
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1">
+                <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
+                <span>Ditolak</span>
+              </span>
+            <% } else { %>
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200">
+                Belum Upload
+              </span>
+            <% } %>
+          </div>
+        </div>
+
+        <!-- 2 Scores Display: WHEN APPROVED -> SCORES; WHEN PENDING -> HOURGLASS REVIEW BADGE -->
+        <% if (item.report && item.report.statusReview === 'APPROVED') { %>
+          <div class="grid grid-cols-2 gap-3 bg-emerald-50/60 p-3 rounded-2xl border border-emerald-100 text-center">
+            <div class="p-2 rounded-xl bg-white border border-emerald-100 shadow-2xs">
+              <span class="text-[10px] uppercase font-bold text-slate-500">Nilai Harian</span>
+              <p class="text-base font-extrabold text-emerald-700 mt-0.5"><%= item.report.nilaiHarian !== undefined ? item.report.nilaiHarian : '-' %></p>
+            </div>
+            <div class="p-2 rounded-xl bg-white border border-emerald-100 shadow-2xs">
+              <span class="text-[10px] uppercase font-bold text-slate-500">Nilai Bulanan</span>
+              <p class="text-base font-extrabold text-emerald-700 mt-0.5"><%= item.report.nilaiBulanan !== undefined ? item.report.nilaiBulanan : '-' %></p>
+            </div>
+          </div>
+        <% } %>
+
+        <% if (status === 'PENDING') { %>
+          <div class="grid grid-cols-2 gap-3 bg-amber-50/60 p-3 rounded-2xl border border-amber-200/80 text-center">
+            <div class="p-2 rounded-xl bg-white border border-amber-200/60 shadow-2xs">
+              <span class="text-[10px] uppercase font-bold text-slate-500">Nilai Harian</span>
+              <p class="text-xs font-extrabold text-amber-800 mt-1 flex items-center justify-center gap-1 animate-pulse">
+                <span>⏳</span>
+                <span>Sedang Review</span>
+              </p>
+            </div>
+            <div class="p-2 rounded-xl bg-white border border-amber-200/60 shadow-2xs">
+              <span class="text-[10px] uppercase font-bold text-slate-500">Nilai Bulanan</span>
+              <p class="text-xs font-extrabold text-amber-800 mt-1 flex items-center justify-center gap-1 animate-pulse">
+                <span>⏳</span>
+                <span>Sedang Review</span>
+              </p>
+            </div>
+          </div>
+        <% } %>
+
+        <!-- IF REJECTED: Display Prominent Rejection Reason Box -->
+        <% if (status === 'REJECTED') { %>
+          <div class="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-xs space-y-1">
+            <span class="font-bold text-rose-700 text-[10px] uppercase tracking-wider block">Alasan Penolakan:</span>
+            <p class="text-slate-800 text-[11px] font-medium leading-relaxed"><%= item.report?.catatanAdmin || 'Dokumen laporan belum lengkap atau belum ditandatangani atasan langsung.' %></p>
+          </div>
+        <% } %>
+
+        <!-- Mobile Uploaded PDF Links -->
+        <% if (item.report && (item.report.fileHarianUrl || item.report.fileBulananUrl)) { %>
+          <div class="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs space-y-1.5">
+            <% if (item.report.fileHarianUrl) { %>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-500 font-medium text-[11px]">Lap. Harian:</span>
+                <button type="button" @click="viewPdf('Laporan Harian - <%= item.employee.nama %>', '<%= item.report.fileHarianUrl %>', '<%= item.report.fileHarianName %>')" class="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline">
+                  <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                  <span>Lihat PDF Harian</span>
+                </button>
+              </div>
+            <% } %>
+            <% if (item.report.fileBulananUrl) { %>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-500 font-medium text-[11px]">Lap. Bulanan:</span>
+                <button type="button" @click="viewPdf('Laporan Bulanan - <%= item.employee.nama %>', '<%= item.report.fileBulananUrl %>', '<%= item.report.fileBulananName %>')" class="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-800 hover:underline">
+                  <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                  <span>Lihat PDF Bulanan</span>
+                </button>
+              </div>
+            <% } %>
+          </div>
+        <% } %>
+
+        <!-- Mobile Action Button -->
+        <div class="pt-2 border-t border-slate-100 flex items-center justify-end">
+          <% if (item.canUpload && (isAdmin || isDefaultPeriod)) { %>
+            <button @click="openUpload(<%= JSON.stringify(item.employee) %>)" class="btn-primary py-2 px-3 text-xs gap-1.5 w-full sm:w-auto">
+              <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+              <span><%= status === 'REJECTED' ? 'Upload Revisi Laporan' : 'Upload Laporan PDF' %></span>
+            </button>
+          <% } else if (!isDefaultPeriod && !isAdmin) { %>
+            <span class="text-xs text-slate-400 font-medium flex items-center gap-1">
+              <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+              <span>Hanya Lihat (Periode Arsip)</span>
+            </span>
+          <% } else { %>
+            <span class="text-xs text-slate-400 font-medium flex items-center gap-1">
+              <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+              <span>Laporan telah diajukan (Terkunci)</span>
+            </span>
+          <% } %>
+        </div>
+
+      </div>
+    <% }); %>
+
+    <!-- Mobile Pagination -->
+    <div class="custom-card overflow-hidden">
+      <%- include('partials/pagination') %>
+    </div>
+  </div>
+
+  <!-- DESKTOP VIEW: Table Layout (lg and up) (NIP & Status Kepegawaian Hidden) -->
+  <div class="hidden lg:block custom-card overflow-hidden bg-white shadow-sm border border-slate-200">
+    <table class="w-full text-left text-xs border-collapse">
+      <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
+        <tr>
+          <th class="px-5 py-4 min-w-[200px]">Pegawai</th>
+          <th class="px-4 py-4 min-w-[140px]">Unit Kerja</th>
+          <th class="px-4 py-4 text-center">Status Review</th>
+          <th class="px-4 py-4 text-center">Laporan Harian</th>
+          <th class="px-4 py-4 text-center">Laporan Bulanan</th>
+          <th class="px-4 py-4 text-center text-emerald-800 bg-emerald-50/40">Nilai Harian</th>
+          <th class="px-4 py-4 text-center text-emerald-800 bg-emerald-50/40">Nilai Bulanan</th>
+          <th class="px-5 py-4 text-right">Aksi</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-slate-100">
+        <% if (list.length === 0) { %>
+          <tr>
+            <td colspan="8" class="py-12 text-center text-slate-500">
+              <i data-lucide="user-x" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
+              <p class="font-bold text-sm text-slate-700">Tidak ada pegawai ditemukan</p>
+              <p class="text-xs text-slate-400 mt-1">Coba ubah kata kunci pencarian atau unit kerja.</p>
+            </td>
+          </tr>
+        <% } %>
+
+        <% list.forEach(function(item) { 
+            const status = item.report ? item.report.statusReview : 'NOT_SUBMITTED';
+        %>
+          <tr class="hover:bg-slate-50/80 transition-colors">
+            
+            <!-- Pegawai (NIP & Status Kepegawaian Hidden) -->
+            <td class="px-5 py-3.5">
+              <div class="font-bold text-slate-900 text-xs">
+                <%= item.employee.nama %>
+              </div>
+            </td>
+
+            <!-- Unit Kerja -->
+            <td class="px-4 py-3.5 text-slate-600 text-xs">
+              <%= item.employee.unitNama %>
+            </td>
+
+            <!-- Status Review -->
+            <td class="px-4 py-3.5 text-center whitespace-nowrap">
+              <% if (status === 'APPROVED') { %>
+                <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Disetujui
+                </span>
+              <% } else if (status === 'PENDING') { %>
+                <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                  Menunggu Review
+                </span>
+              <% } else if (status === 'REJECTED') { %>
+                <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                  Ditolak
+                </span>
+              <% } else { %>
+                <span class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 text-slate-500">
+                  Belum Upload
+                </span>
+              <% } %>
+            </td>
+
+            <!-- File Harian -->
+            <td class="px-4 py-3.5 text-center whitespace-nowrap">
+              <% if (item.report && item.report.fileHarianUrl) { %>
+                <button type="button" @click="viewPdf('Laporan Harian - <%= item.employee.nama %>', '<%= item.report.fileHarianUrl %>', '<%= item.report.fileHarianName %>')" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-[11px] transition-colors" title="Buka Dokumen PDF Harian">
+                  <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                  <span>Lihat PDF</span>
+                </button>
+              <% } else { %>
+                <span class="text-slate-300 text-xs">-</span>
+              <% } %>
+            </td>
+
+            <!-- File Bulanan -->
+            <td class="px-4 py-3.5 text-center whitespace-nowrap">
+              <% if (item.report && item.report.fileBulananUrl) { %>
+                <button type="button" @click="viewPdf('Laporan Bulanan - <%= item.employee.nama %>', '<%= item.report.fileBulananUrl %>', '<%= item.report.fileBulananName %>')" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-[11px] transition-colors" title="Buka Dokumen PDF Bulanan">
+                  <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                  <span>Lihat PDF</span>
+                </button>
+              <% } else { %>
+                <span class="text-slate-300 text-xs">-</span>
+              <% } %>
+            </td>
+
+            <!-- IF REJECTED: MERGE NILAI HARIAN & BULANAN TO SHOW ALASAN PENOLAKAN -->
+            <% if (status === 'REJECTED') { %>
+              <td colspan="2" class="px-3 py-3.5 text-center bg-rose-50/70 border-x border-rose-100 text-rose-900 text-xs">
+                <span class="font-bold text-rose-700 text-[10px] uppercase block tracking-wider">Alasan Penolakan:</span>
+                <span class="font-semibold block mt-0.5 text-[11px]"><%= item.report?.catatanAdmin || 'Berkas perlu diperbaiki / belum lengkap' %></span>
+              </td>
+            <% } else { %>
+              <!-- Nilai Harian -->
+              <td class="px-4 py-3.5 text-center font-bold bg-emerald-50/20">
+                <% if (item.report && item.report.statusReview === 'APPROVED' && item.report.nilaiHarian !== undefined) { %>
+                  <span class="text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                    <%= item.report.nilaiHarian %>
+                  </span>
+                <% } else if (item.report && item.report.statusReview === 'PENDING') { %>
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse" title="Sedang Menunggu Penilaian">
+                    <span>⏳</span>
+                    <span>Review</span>
+                  </span>
+                <% } else { %>
+                  <span class="text-slate-400 text-xs font-semibold">-</span>
+                <% } %>
+              </td>
+
+              <!-- Nilai Bulanan -->
+              <td class="px-4 py-3.5 text-center font-bold bg-emerald-50/20">
+                <% if (item.report && item.report.statusReview === 'APPROVED' && item.report.nilaiBulanan !== undefined) { %>
+                  <span class="text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
+                    <%= item.report.nilaiBulanan %>
+                  </span>
+                <% } else if (item.report && item.report.statusReview === 'PENDING') { %>
+                  <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 animate-pulse" title="Sedang Menunggu Penilaian">
+                    <span>⏳</span>
+                    <span>Review</span>
+                  </span>
+                <% } else { %>
+                  <span class="text-slate-400 text-xs font-semibold">-</span>
+                <% } %>
+              </td>
+            <% } %>
+
+            <!-- Action Column -->
+            <td class="px-5 py-3.5 text-right whitespace-nowrap">
+              <% if (item.canUpload && (isAdmin || isDefaultPeriod)) { %>
+                <button @click="openUpload(<%= JSON.stringify(item.employee) %>)" class="btn-primary py-1.5 px-3 text-xs gap-1.5">
+                  <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                  <span><%= status === 'REJECTED' ? 'Upload Revisi' : 'Upload Laporan' %></span>
+                </button>
+              <% } else if (!isDefaultPeriod && !isAdmin) { %>
+                <span class="text-slate-400 text-xs italic">Hanya Lihat</span>
+              <% } else { %>
+                <span class="text-slate-400 text-xs italic">Terkunci</span>
+              <% } %>
+            </td>
+
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+    <%- include('partials/pagination') %>
+  </div>
+
+  <!-- ALPINE.JS MODAL: UPLOAD LAPORAN E-KINERJA -->
+  <div x-show="uploadModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    
+    <div @click.away="uploadModal = false"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+         class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="text-base sm:text-lg font-bold text-slate-900">Upload Berkas E-Kinerja</h2>
+            <p class="text-xs text-slate-500">Unggah berkas PDF Harian & Bulanan</p>
+          </div>
+        </div>
+        <button @click="uploadModal = false" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Upload Form -->
+      <form action="/ekinerja/submit" method="POST" enctype="multipart/form-data" class="space-y-4">
+        <input type="hidden" name="employeeId" :value="selectedEmpId">
+        <input type="hidden" name="bulan" :value="selectedBulan">
+        <input type="hidden" name="tahun" :value="selectedTahun">
+
+        <!-- Selected Employee Info Banner (NIP Hidden) -->
+        <div class="p-3.5 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-xs font-bold shrink-0">
+            <i data-lucide="user" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <p class="text-xs font-bold text-slate-900" x-text="selectedEmpName"></p>
+            <p class="text-[11px] text-indigo-600 font-medium">Periode: Bulan <%= bulan %> Tahun <%= tahun %></p>
+          </div>
+        </div>
+
+        <!-- 1. Laporan Harian PDF -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+            1. File Laporan Harian (PDF) *
+          </label>
+          <div class="border-2 border-dashed border-slate-200 hover:border-emerald-500 rounded-2xl p-3.5 text-center cursor-pointer transition-colors bg-slate-50 relative">
+            <input type="file" 
+                   name="fileHarian" 
+                   accept=".pdf" 
+                   required
+                   @change="fileHarianName = $event.target.files[0] ? $event.target.files[0].name : ''"
+                   class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+            <div class="flex items-center justify-center gap-2">
+              <i data-lucide="file-check" class="w-5 h-5 text-emerald-500"></i>
+              <span class="text-xs font-semibold text-slate-700 truncate max-w-xs" x-text="fileHarianName ? fileHarianName : 'Pilih File PDF Laporan Harian'"></span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-0.5">Maksimal ukuran: 10MB (.pdf)</p>
+          </div>
+        </div>
+
+        <!-- 2. Laporan Bulanan PDF -->
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+            2. File Laporan Bulanan (PDF) *
+          </label>
+          <div class="border-2 border-dashed border-slate-200 hover:border-emerald-500 rounded-2xl p-3.5 text-center cursor-pointer transition-colors bg-slate-50 relative">
+            <input type="file" 
+                   name="fileBulanan" 
+                   accept=".pdf" 
+                   required
+                   @change="fileBulananName = $event.target.files[0] ? $event.target.files[0].name : ''"
+                   class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+            <div class="flex items-center justify-center gap-2">
+              <i data-lucide="file-check" class="w-5 h-5 text-emerald-500"></i>
+              <span class="text-xs font-semibold text-slate-700 truncate max-w-xs" x-text="fileBulananName ? fileBulananName : 'Pilih File PDF Laporan Bulanan'"></span>
+            </div>
+            <p class="text-[10px] text-slate-400 mt-0.5">Maksimal ukuran: 10MB (.pdf)</p>
+          </div>
+        </div>
+
+        <!-- Notice -->
+        <div class="p-3 rounded-xl bg-amber-50 border border-amber-200/60 text-[11px] text-amber-800 space-y-1">
+          <p class="font-bold flex items-center gap-1">
+            <i data-lucide="alert-triangle" class="w-3.5 h-3.5 text-amber-600"></i>
+            <span>Ketentuan Pengunggahan:</span>
+          </p>
+          <p>Pastikan kedua dokumen PDF telah ditandatangani oleh atasan langsung / Kepala Sekolah sebelum dikirim.</p>
+        </div>
+
+        <!-- Modal Actions -->
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <button type="button" @click="uploadModal = false" class="btn-secondary py-2.5 px-4 text-xs">
+            Batal
+          </button>
+          <button type="submit" class="btn-primary py-2.5 px-5 text-xs gap-2 bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200">
+            <i data-lucide="upload" class="w-4 h-4"></i>
+            <span>Upload Berkas</span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ALPINE.JS MODAL 2: PDF PREVIEW VIEWER MODAL -->
+  <div x-show="pdfModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+       style="display: none;">
+    
+    <div @click.away="pdfModal = false"
+         class="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl border border-slate-100 space-y-4 flex flex-col max-h-[92vh]">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2.5 min-w-0 pr-4">
+          <div class="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+            <i data-lucide="file-text" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <h3 class="font-bold text-sm sm:text-base text-slate-900 truncate" x-text="pdfTitle"></h3>
+            <p class="text-[11px] text-slate-400">Dokumen Laporan Kinerja Terunggah</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <a :href="pdfUrl" :download="pdfFileName || 'laporan-kinerja.pdf'" class="btn-primary py-1.5 px-3 text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs" title="Unduh Berkas PDF Langsung">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Download</span>
+          </a>
+          <a :href="pdfUrl" target="_blank" class="btn-secondary py-1.5 px-3 text-xs gap-1.5 text-slate-700 hover:text-slate-900" title="Buka Dokumen di Tab Baru Penuh">
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Tab Baru</span>
+          </a>
+          <button @click="pdfModal = false" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Inline PDF Viewer Container -->
+      <div class="flex-1 w-full bg-slate-100 rounded-2xl overflow-hidden min-h-[55vh] max-h-[68vh] border border-slate-200">
+        <iframe :src="pdfUrl" class="w-full h-full min-h-[55vh] rounded-2xl border-0" allowfullscreen></iframe>
+      </div>
+
+      <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+        <div class="flex items-center gap-2">
+          <a :href="pdfUrl" :download="pdfFileName || 'laporan-kinerja.pdf'" class="text-emerald-600 hover:underline font-semibold flex items-center gap-1 sm:hidden">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Download PDF</span>
+          </a>
+          <span class="hidden sm:inline text-slate-400">Gunakan tombol Tab Baru jika ingin melihat layar penuh.</span>
+        </div>
+        <button type="button" @click="pdfModal = false" class="btn-secondary py-2 px-4 text-xs">
+          Tutup
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<%- include('partials/footer') %>

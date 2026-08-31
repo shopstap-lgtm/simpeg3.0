@@ -1,0 +1,575 @@
+<%- include('../partials/head') %>
+<%- include('../partials/admin-nav') %>
+<%- include('../partials/toast') %>
+
+<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-8"
+      x-data="{
+        activeTab: '<%= activeTab || 'pending' %>',
+        actionModal: false,
+        deleteModal: false,
+        pdfModal: false,
+        pdfUrl: '',
+        pdfTitle: '',
+        pdfFileName: '',
+        actionType: 'approve',
+        selectedItem: null,
+        catatanAdmin: '',
+        excelFileList: [],
+        viewPdf(title, url, fileName) {
+          this.pdfTitle = title;
+          this.pdfUrl = url;
+          this.pdfFileName = fileName || 'dokumen.pdf';
+          this.pdfModal = true;
+        },
+        openAction(item, type) {
+          this.selectedItem = item;
+          this.actionType = type;
+          this.catatanAdmin = type === 'approve' ? 'Klarifikasi absensi disetujui.' : 'Bukti dokumen tidak sesuai / belum ditandatangani Kepala Sekolah.';
+          this.actionModal = true;
+        },
+        openDelete(item) {
+          this.selectedItem = item;
+          this.deleteModal = true;
+        },
+        handleFiles(files) {
+          this.excelFileList = Array.from(files).map(f => f.name);
+        }
+      }">
+
+  <!-- Page Header -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider border border-indigo-100">Verifikasi & Sinkronisasi</span>
+        <span class="text-xs text-slate-400">Presensi Pegawai</span>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">Klarifikasi Absensi & Sync Excel</h1>
+      <p class="text-xs sm:text-sm text-slate-500">Tinjau permohonan klarifikasi pegawai dan kelola arsip riwayat verifikasi</p>
+    </div>
+
+    <!-- Counters -->
+    <div class="flex items-center gap-2 text-xs">
+      <div class="px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 font-semibold flex items-center gap-2">
+        <i data-lucide="clock" class="w-4 h-4 text-amber-600"></i>
+        <span>Menunggu: <b><%= pendingCount %></b></span>
+      </div>
+      <div class="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-semibold flex items-center gap-2">
+        <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600"></i>
+        <span>Disetujui: <b><%= approvedCount %></b></span>
+      </div>
+      <div class="px-3.5 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 font-semibold flex items-center gap-2">
+        <i data-lucide="x-circle" class="w-4 h-4 text-rose-600"></i>
+        <span>Ditolak: <b><%= rejectedCount %></b></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECTION 1: TABBED REVIEW & ARCHIVE QUEUE -->
+  <div class="custom-card p-5 sm:p-6 bg-white shadow-xs space-y-6">
+    
+    <!-- Tab Headers & Filter Toolbar -->
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+      
+      <!-- Tab Buttons -->
+      <div class="flex items-center gap-2 bg-slate-100 p-1.5 rounded-2xl w-full sm:w-auto">
+        <button type="button" 
+                @click="activeTab = 'pending'" 
+                :class="activeTab === 'pending' ? 'bg-white text-indigo-600 shadow-sm font-bold' : 'text-slate-600 font-semibold hover:text-slate-900'"
+                class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs transition-all">
+          <i data-lucide="inbox" class="w-4 h-4"></i>
+          <span>Antrean Menunggu</span>
+          <span class="px-1.5 py-0.5 rounded-md text-[10px] <%= pendingCount > 0 ? 'bg-amber-100 text-amber-800 font-bold' : 'bg-slate-200 text-slate-600' %>">
+            <%= pendingCount %>
+          </span>
+        </button>
+
+        <button type="button" 
+                @click="activeTab = 'history'" 
+                :class="activeTab === 'history' ? 'bg-white text-indigo-600 shadow-sm font-bold' : 'text-slate-600 font-semibold hover:text-slate-900'"
+                class="flex-1 sm:flex-none flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs transition-all">
+          <i data-lucide="archive" class="w-4 h-4"></i>
+          <span>Riwayat & Arsip Selesai</span>
+          <span class="px-1.5 py-0.5 rounded-md text-[10px] bg-slate-200 text-slate-600">
+            <%= approvedCount + rejectedCount %>
+          </span>
+        </button>
+      </div>
+
+      <!-- Unit Filter (Modern Searchable Dropdown) -->
+      <form action="/admin/klarifikasi" method="GET" class="flex items-center gap-2 relative"
+            x-data="{
+              open: false,
+              search: '',
+              selectedVal: '<%= filterUnit %>',
+              options: <%= JSON.stringify(units.map(u => ({ value: u.id, label: u.namaUnit }))) %>,
+              get filteredOptions() {
+                if (!this.search) return this.options;
+                return this.options.filter(o => o.label.toLowerCase().includes(this.search.toLowerCase()));
+              },
+              get selectedLabel() {
+                const found = this.options.find(o => o.value === this.selectedVal);
+                return found ? found.label : 'Semua Unit Kerja';
+              },
+              selectOption(val) {
+                this.selectedVal = val;
+                this.open = false;
+                $refs.unitInput.value = val;
+                $nextTick(() => { $refs.unitInput.closest('form').submit(); });
+              }
+            }"
+            @click.away="open = false">
+        <input type="hidden" name="tab" :value="activeTab">
+        <input type="hidden" name="unit" x-ref="unitInput" :value="selectedVal">
+        
+        <button type="button" 
+                @click="open = !open" 
+                class="w-48 sm:w-60 flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+          <span class="truncate pr-2" x-text="selectedLabel"></span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+        </button>
+
+        <div x-show="open" 
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+             x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+             class="absolute right-0 top-full mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1.5 min-w-[240px]"
+             style="display: none;"
+             @click.stop>
+          
+          <!-- Search input inside dropdown (Clean without icon, with X on far right) -->
+          <div class="relative" style="position: relative;">
+            <input type="text" 
+                   x-model="search" 
+                   placeholder="Ketik nama unit / sekolah..." 
+                   class="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 text-slate-800 placeholder:text-slate-400"
+                   @click.stop
+                   @keydown.stop>
+            <button type="button" 
+                    x-show="search && search.length > 0" 
+                    @click="search = ''" 
+                    style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);"
+                    class="text-slate-400 hover:text-slate-600 p-1 flex items-center justify-center z-20">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+
+          <div class="max-h-[230px] overflow-y-auto custom-scrollbar space-y-0.5 pt-1">
+            <template x-for="item in filteredOptions" :key="item.value">
+              <button type="button" 
+                      @click="selectOption(item.value)" 
+                      class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                      :class="selectedVal === item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                <span class="truncate" x-text="item.label"></span>
+                <i data-lucide="check" x-show="selectedVal === item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+              </button>
+            </template>
+            <div x-show="filteredOptions.length === 0" class="py-3 text-center text-xs text-slate-400">
+              Tidak ada unit yang cocok
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- TAB 1: ANTREAN MENUNGGU VERIFIKASI (ONLY PENDING) -->
+    <div x-show="activeTab === 'pending'" class="space-y-4">
+      
+      <!-- Mobile Cards -->
+      <div class="block lg:hidden space-y-4">
+        <% if (pendingList.length === 0) { %>
+          <div class="p-8 text-center text-slate-400">
+            <i data-lucide="check-check" class="w-8 h-8 mx-auto text-emerald-500 mb-2"></i>
+            <p class="font-bold text-slate-700 text-sm">Semua antrean klarifikasi telah diproses!</p>
+          </div>
+        <% } %>
+
+        <% pendingList.forEach(function(item) { %>
+          <div class="p-4 rounded-2xl border border-amber-200 bg-amber-50/20 space-y-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h3 class="font-bold text-sm text-slate-900"><%= item.employeeName %></h3>
+                <p class="text-xs text-slate-500">NIP: <%= item.employeeNip %></p>
+                <p class="text-[11px] text-indigo-600 font-medium"><%= item.unitNama %></p>
+              </div>
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                Menunggu
+              </span>
+            </div>
+
+            <div class="p-2.5 rounded-xl bg-white border border-slate-200/80 text-xs space-y-1.5">
+              <div class="flex items-center justify-between text-slate-600">
+                <span class="font-semibold">Tanggal Absen:</span>
+                <span class="font-bold text-slate-800"><%= item.tanggalAbsen %></span>
+              </div>
+              <div class="flex items-center justify-between text-slate-600">
+                <span class="font-semibold">Perubahan Status:</span>
+                <span class="text-[11px]"><b class="text-rose-600"><%= item.statusAwal %></b> &rarr; <b class="text-emerald-600"><%= item.statusPengganti %></b></span>
+              </div>
+              <div class="pt-1 border-t border-slate-100">
+                <span class="font-semibold text-slate-700 block text-[11px]">Alasan:</span>
+                <p class="text-slate-600 mt-0.5 text-[11px]"><%= item.alasan %></p>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between text-xs">
+              <% if (item.fileUrl) { %>
+                <button type="button" @click="viewPdf('Bukti Surat Tugas - ' + '<%= item.employeeName %>', '<%= item.fileUrl %>')" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-xs transition-colors">
+                  <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                  <span class="truncate max-w-[180px]"><%= item.fileName || 'Lihat Berkas PDF' %></span>
+                </button>
+              <% } else { %>
+                <span class="text-slate-300 italic text-[11px]">Tidak ada berkas</span>
+              <% } %>
+            </div>
+
+            <div class="pt-2 border-t border-slate-200 flex items-center justify-between gap-2">
+              <button @click="openDelete(<%= JSON.stringify(item) %>)" class="p-2 rounded-xl text-rose-600 hover:bg-rose-50 border border-rose-200" title="Hapus Pengajuan">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+              </button>
+              <div class="flex items-center gap-2">
+                <button @click="openAction(<%= JSON.stringify(item) %>, 'reject')" class="btn-danger py-1.5 px-3 text-xs gap-1">
+                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                  <span>Tolak</span>
+                </button>
+                <button @click="openAction(<%= JSON.stringify(item) %>, 'approve')" class="btn-primary py-1.5 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200">
+                  <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                  <span>Setujui</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+
+      <!-- Desktop Table -->
+      <div class="hidden lg:block w-full overflow-hidden">
+        <table class="w-full text-left text-xs border-collapse table-auto">
+          <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
+            <tr>
+              <th class="px-3.5 py-3 w-[20%]">Pegawai & NIP</th>
+              <th class="px-3 py-3 w-[15%]">Unit Kerja</th>
+              <th class="px-2.5 py-3 text-center w-[9%]">Tgl Absen</th>
+              <th class="px-2.5 py-3 text-center w-[13%]">Perubahan Status</th>
+              <th class="px-3 py-3 w-[21%]">Alasan Pegawai</th>
+              <th class="px-2.5 py-3 text-center w-[9%]">Bukti</th>
+              <th class="px-3 py-3 text-right w-[13%]">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <% if (pendingList.length === 0) { %>
+              <tr>
+                <td colspan="7" class="py-12 text-center text-slate-500">
+                  <i data-lucide="check-check" class="w-8 h-8 mx-auto text-emerald-500 mb-2"></i>
+                  <p class="font-bold text-sm text-slate-700">Semua antrean klarifikasi telah diproses!</p>
+                </td>
+              </tr>
+            <% } %>
+
+            <% pendingList.forEach(function(item) { %>
+              <tr class="hover:bg-amber-50/30 transition-colors">
+                <td class="px-3.5 py-3 align-middle">
+                  <div class="font-bold text-slate-900 text-xs leading-tight"><%= item.employeeName %></div>
+                  <div class="text-[11px] text-slate-400 mt-0.5">NIP: <%= item.employeeNip %></div>
+                </td>
+
+                <td class="px-3 py-3 text-slate-600 align-middle text-[11px] leading-tight">
+                  <%= item.unitNama %>
+                </td>
+
+                <td class="px-2.5 py-3 text-center font-bold text-slate-800 align-middle whitespace-nowrap">
+                  <%= item.tanggalAbsen %>
+                </td>
+
+                <td class="px-2.5 py-3 text-center align-middle whitespace-nowrap">
+                  <span class="text-rose-600 font-bold text-[11px]"><%= item.statusAwal %></span>
+                  <span class="text-slate-400 mx-0.5">&rarr;</span>
+                  <span class="text-emerald-600 font-bold text-[11px]"><%= item.statusPengganti %></span>
+                </td>
+
+                <td class="px-3 py-3 text-slate-600 text-[11px] align-middle leading-snug break-words">
+                  <%= item.alasan %>
+                </td>
+
+                <td class="px-2.5 py-3 text-center align-middle whitespace-nowrap">
+                  <% if (item.fileUrl) { %>
+                    <button type="button" @click="viewPdf('Bukti Surat Tugas - ' + '<%= item.employeeName %>', '<%= item.fileUrl %>', '<%= item.fileName %>')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] transition-colors" title="Lihat Berkas PDF">
+                      <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                      <span>PDF</span>
+                    </button>
+                  <% } else { %>
+                    <span class="text-slate-300 text-xs">-</span>
+                  <% } %>
+                </td>
+
+                <td class="px-3 py-3 text-right align-middle whitespace-nowrap">
+                  <div class="flex items-center justify-end gap-1">
+                    <button @click="openAction(<%= JSON.stringify(item) %>, 'approve')" class="px-2 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[11px] hover:bg-emerald-700 transition-colors flex items-center gap-1 shadow-xs" title="Setujui Klarifikasi">
+                      <i data-lucide="check" class="w-3 h-3"></i>
+                      <span>Setujui</span>
+                    </button>
+                    <button @click="openAction(<%= JSON.stringify(item) %>, 'reject')" class="px-2 py-1 rounded-lg bg-amber-600 text-white font-bold text-[11px] hover:bg-amber-700 transition-colors flex items-center gap-1 shadow-xs" title="Tolak Klarifikasi">
+                      <i data-lucide="x" class="w-3 h-3"></i>
+                      <span>Tolak</span>
+                    </button>
+                    <button @click="openDelete(<%= JSON.stringify(item) %>)" class="p-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors" title="Hapus Pengajuan">
+                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                    </button>
+                  </div>
+                </td>
+
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+    <!-- TAB 2: RIWAYAT & ARSIP SELESAI (APPROVED & REJECTED) -->
+    <div x-show="activeTab === 'history'" class="space-y-4" style="display: none;">
+      
+      <!-- Desktop Archive Table -->
+      <div class="hidden lg:block w-full overflow-hidden">
+        <table class="w-full text-left text-xs border-collapse table-auto">
+          <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
+            <tr>
+              <th class="px-3.5 py-3 w-[18%]">Pegawai & NIP</th>
+              <th class="px-3 py-3 w-[14%]">Unit Kerja</th>
+              <th class="px-2.5 py-3 text-center w-[8%]">Tgl</th>
+              <th class="px-2.5 py-3 text-center w-[12%]">Perubahan</th>
+              <th class="px-2.5 py-3 text-center w-[9%]">Keputusan</th>
+              <th class="px-3 py-3 w-[18%]">Catatan Admin</th>
+              <th class="px-2.5 py-3 text-center w-[10%]">Reviewer</th>
+              <th class="px-2.5 py-3 text-center w-[11%]">Waktu</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <% if (archiveList.length === 0) { %>
+              <tr>
+                <td colspan="8" class="py-12 text-center text-slate-500">
+                  <i data-lucide="archive" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
+                  <p class="font-bold text-sm text-slate-700">Belum ada riwayat verifikasi</p>
+                </td>
+              </tr>
+            <% } %>
+
+            <% archiveList.forEach(function(item) { %>
+              <tr class="hover:bg-slate-50/80 transition-colors">
+                <td class="px-3.5 py-3 align-middle">
+                  <div class="font-bold text-slate-900 text-xs leading-tight"><%= item.employeeName %></div>
+                  <div class="text-[11px] text-slate-400 mt-0.5">NIP: <%= item.employeeNip %></div>
+                </td>
+
+                <td class="px-3 py-3 text-slate-600 align-middle text-[11px] leading-tight">
+                  <%= item.unitNama %>
+                </td>
+
+                <td class="px-2.5 py-3 text-center font-semibold text-slate-800 align-middle whitespace-nowrap">
+                  <%= item.tanggalAbsen %>
+                </td>
+
+                <td class="px-2.5 py-3 text-center align-middle whitespace-nowrap">
+                  <span class="text-rose-600 font-bold text-[11px]"><%= item.statusAwal %></span>
+                  <span class="text-slate-400 mx-0.5">&rarr;</span>
+                  <span class="text-emerald-600 font-bold text-[11px]"><%= item.statusPengganti %></span>
+                </td>
+
+                <td class="px-2.5 py-3 text-center align-middle whitespace-nowrap">
+                  <% if (item.statusVerifikasi === 'APPROVED') { %>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Disetujui
+                    </span>
+                  <% } else { %>
+                    <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                      Ditolak
+                    </span>
+                  <% } %>
+                </td>
+
+                <td class="px-3 py-3 text-slate-600 text-[11px] align-middle leading-snug break-words">
+                  <%= item.catatanAdmin || '-' %>
+                </td>
+
+                <td class="px-2.5 py-3 text-center text-slate-600 text-[11px] align-middle whitespace-nowrap">
+                  <%= item.reviewedBy || 'Admin' %>
+                </td>
+
+                <td class="px-2.5 py-3 text-center text-slate-400 text-[10px] align-middle whitespace-nowrap">
+                  <%= item.reviewedAt || '-' %>
+                </td>
+
+                <td class="px-2.5 py-3 text-right align-middle whitespace-nowrap">
+                  <button @click="openDelete(<%= JSON.stringify(item) %>)" class="p-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors" title="Hapus dari Riwayat (Status dipulihkan)">
+                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  </button>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- ALPINE.JS MODAL 1: APPROVE / REJECT CONFIRMATION -->
+  <div x-show="actionModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    
+    <div @click.away="actionModal = false"
+         class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="font-bold text-base text-slate-900" x-text="actionType === 'approve' ? 'Setujui Klarifikasi Absensi' : 'Tolak Klarifikasi Absensi'"></h3>
+        <button @click="actionModal = false" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <template x-if="selectedItem">
+        <form :action="'/admin/klarifikasi/' + selectedItem.id + '/' + actionType" method="POST" class="space-y-3">
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs space-y-1">
+            <p class="font-bold text-slate-800" x-text="selectedItem.employeeName"></p>
+            <p class="text-slate-500" x-text="'Tanggal: ' + selectedItem.tanggalAbsen + ' (' + selectedItem.statusAwal + ' → ' + selectedItem.statusPengganti + ')'"></p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+              <span x-text="actionType === 'approve' ? 'Catatan Persetujuan (Opsional)' : 'Alasan Penolakan (Wajib agar diketahui pegawai)'"></span>
+            </label>
+            <textarea name="catatanAdmin" rows="2" x-model="catatanAdmin" required class="form-input text-xs"></textarea>
+          </div>
+
+          <div class="pt-2 flex items-center justify-end gap-2">
+            <button type="button" @click="actionModal = false" class="btn-secondary py-2 px-3.5 text-xs">
+              Batal
+            </button>
+            <button type="submit" 
+                    :class="actionType === 'approve' ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-rose-600 hover:bg-rose-700 text-white'"
+                    class="btn-primary py-2 px-4 text-xs font-bold">
+              <span x-text="actionType === 'approve' ? 'Konfirmasi Setujui & Update Tabel' : 'Konfirmasi Tolak'"></span>
+            </button>
+          </div>
+        </form>
+      </template>
+
+    </div>
+  </div>
+
+  <!-- ALPINE.JS MODAL 2: DELETE CONFIRMATION -->
+  <div x-show="deleteModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    
+    <div @click.away="deleteModal = false"
+         class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+      
+      <div class="flex items-center gap-2.5 text-rose-600 pb-3 border-b border-slate-100">
+        <i data-lucide="trash-2" class="w-5 h-5"></i>
+        <h3 class="font-bold text-base text-slate-900">Hapus Klarifikasi Absensi</h3>
+      </div>
+
+      <template x-if="selectedItem">
+        <form :action="'/admin/klarifikasi/' + selectedItem.id + '/delete?tab=' + activeTab" method="POST" class="space-y-3">
+          <div class="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs space-y-1">
+            <p class="font-bold text-slate-900" x-text="selectedItem.employeeName"></p>
+            <p class="text-slate-600" x-text="'Tanggal: ' + selectedItem.tanggalAbsen"></p>
+            <p class="text-rose-700 text-[11px] font-semibold mt-1">
+              ⚠️ Peringatan: Menghapus klarifikasi ini akan mengembalikan status absensi pegawai ke status awal (<span x-text="selectedItem.statusAwal"></span>) dan menghapus catatan permohonan.
+            </p>
+          </div>
+
+          <div class="pt-2 flex items-center justify-end gap-2">
+            <button type="button" @click="deleteModal = false" class="btn-secondary py-2 px-3.5 text-xs">
+              Batal
+            </button>
+            <button type="submit" class="btn-danger py-2 px-4 text-xs font-bold">
+              Ya, Hapus Sekarang
+            </button>
+          </div>
+        </form>
+      </template>
+
+    </div>
+  </div>
+
+  <!-- ALPINE.JS MODAL 3: PDF PREVIEW VIEWER MODAL -->
+  <div x-show="pdfModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+       style="display: none;">
+    
+    <div @click.away="pdfModal = false"
+         class="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl border border-slate-100 space-y-4 flex flex-col max-h-[92vh]">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2.5 min-w-0 pr-4">
+          <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <i data-lucide="file-text" class="w-5 h-5"></i>
+          </div>
+          <div class="min-w-0">
+            <h3 class="font-bold text-sm sm:text-base text-slate-900 truncate" x-text="pdfTitle"></h3>
+            <p class="text-[11px] text-slate-400">Dokumen Bukti Surat Keterangan / Surat Tugas</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <a :href="pdfUrl" :download="pdfFileName || 'dokumen.pdf'" class="btn-primary py-1.5 px-3 text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs" title="Unduh Berkas PDF Langsung">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Download</span>
+          </a>
+          <a :href="pdfUrl" target="_blank" class="btn-secondary py-1.5 px-3 text-xs gap-1.5 text-slate-700 hover:text-slate-900" title="Buka Dokumen di Tab Baru Penuh">
+            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">Tab Baru</span>
+          </a>
+          <button @click="pdfModal = false" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Inline PDF Viewer Container -->
+      <div class="flex-1 w-full bg-slate-100 rounded-2xl overflow-hidden min-h-[55vh] max-h-[68vh] border border-slate-200">
+        <iframe :src="pdfUrl" class="w-full h-full min-h-[55vh] rounded-2xl border-0" allowfullscreen></iframe>
+      </div>
+
+      <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+        <div class="flex items-center gap-2">
+          <a :href="pdfUrl" :download="pdfFileName || 'dokumen.pdf'" class="text-indigo-600 hover:underline font-semibold flex items-center gap-1 sm:hidden">
+            <i data-lucide="download" class="w-3.5 h-3.5"></i>
+            <span>Download PDF</span>
+          </a>
+          <span class="hidden sm:inline text-slate-400">Gunakan tombol Tab Baru jika ingin melihat layar penuh.</span>
+        </div>
+        <button type="button" @click="pdfModal = false" class="btn-secondary py-2 px-4 text-xs">
+          Tutup
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+</main>
+
+<%- include('../partials/admin-footer') %>

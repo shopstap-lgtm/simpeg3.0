@@ -1,0 +1,423 @@
+<%- include('../partials/head') %>
+<%- include('../partials/admin-nav') %>
+<%- include('../partials/toast') %>
+
+<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-6"
+      x-data="{
+        addUserModal: false,
+        editUserModal: false,
+        username: '',
+        email: '',
+        namaLengkap: '',
+        password: '',
+        role: 'ADMIN_KORWIL',
+        editUserData: {
+          id: '',
+          username: '',
+          namaLengkap: '',
+          email: '',
+          role: 'ADMIN_KORWIL',
+          password: ''
+        },
+        openEdit(admin) {
+          this.editUserData = {
+            id: admin.id,
+            username: admin.username,
+            namaLengkap: admin.namaLengkap,
+            email: admin.email || '',
+            role: admin.role,
+            password: ''
+          };
+          this.editUserModal = true;
+        }
+      }">
+
+  <!-- Page Header -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider border border-indigo-100">Super Admin Only</span>
+        <span class="text-xs text-slate-400">Hak Akses & Pengguna</span>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">Kelola Akun Administrator</h1>
+      <p class="text-xs sm:text-sm text-slate-500">Kelola akun dan hak akses Super Admin, Admin Korwil, dan Admin Dinas</p>
+    </div>
+  </div>
+
+  <!-- Master Data Overview Cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="custom-card p-4 bg-white flex items-center gap-3.5">
+      <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+        <i data-lucide="users" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <span class="text-xs text-slate-400 font-semibold block uppercase">Total Pegawai Terdaftar</span>
+        <p class="text-xl font-extrabold text-slate-900 mt-0.5"><%= totalEmployees || 0 %> Pegawai</p>
+      </div>
+    </div>
+
+    <div class="custom-card p-4 bg-white flex items-center gap-3.5">
+      <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+        <i data-lucide="building-2" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <span class="text-xs text-slate-400 font-semibold block uppercase">Unit Kerja / Sekolah</span>
+        <p class="text-xl font-extrabold text-slate-900 mt-0.5"><%= totalUnits || 0 %> Unit</p>
+      </div>
+    </div>
+
+    <div class="custom-card p-4 bg-white flex items-center gap-3.5">
+      <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+        <i data-lucide="shield-check" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <span class="text-xs text-slate-400 font-semibold block uppercase">Akun Administrator</span>
+        <p class="text-xl font-extrabold text-slate-900 mt-0.5"><%= admins.length %> Akun Aktif</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Users Table / Cards Card -->
+  <div class="custom-card p-5 sm:p-6 bg-white shadow-xs space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+          <i data-lucide="shield" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-slate-900">Daftar Akun Pengelola Portal</h2>
+          <p class="text-xs text-slate-500">Super Admin, Admin Korwil, dan Admin Dinas</p>
+        </div>
+      </div>
+
+      <!-- Tambah Admin Baru Button -->
+      <button @click="addUserModal = true" class="btn-primary gap-1.5 text-xs shadow-indigo-100 self-start sm:self-auto">
+        <i data-lucide="user-plus" class="w-4 h-4"></i>
+        <span>Tambah Admin Baru</span>
+      </button>
+    </div>
+
+    <!-- MOBILE VIEW: Stacked Cards (sm and down) -->
+    <div class="block lg:hidden space-y-4">
+      <% admins.forEach(function(admin) { 
+          let roleBadgeClass = 'bg-indigo-100 text-indigo-800';
+          let roleLabel = 'Admin Korwil';
+          if (admin.role === 'SUPER_ADMIN') {
+            roleBadgeClass = 'bg-amber-100 text-amber-800 border-amber-200';
+            roleLabel = 'Super Admin';
+          } else if (admin.role === 'ADMIN_DINAS') {
+            roleBadgeClass = 'bg-purple-100 text-purple-800 border-purple-200';
+            roleLabel = 'Admin Dinas';
+          } else {
+            roleBadgeClass = 'bg-blue-100 text-blue-800 border-blue-200';
+            roleLabel = 'Admin Korwil';
+          }
+      %>
+        <div class="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-3">
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white font-bold flex items-center justify-center text-sm">
+                <%= admin.namaLengkap.charAt(0) %>
+              </div>
+              <div>
+                <h3 class="font-bold text-sm text-slate-900"><%= admin.namaLengkap %></h3>
+                <p class="text-xs text-indigo-600 font-semibold">@<%= admin.username %></p>
+              </div>
+            </div>
+
+            <span class="px-2.5 py-1 rounded-full text-[11px] font-bold border <%= roleBadgeClass %>">
+              <%= roleLabel %>
+            </span>
+          </div>
+
+          <div class="p-3 rounded-xl bg-white border border-slate-200 text-xs space-y-1.5">
+            <div class="flex items-center justify-between text-slate-600">
+              <span class="text-slate-400">Email:</span>
+              <span class="font-semibold text-slate-800"><%= admin.email || '-' %></span>
+            </div>
+            <div class="flex items-center justify-between text-slate-600">
+              <span class="text-slate-400">Dibuat:</span>
+              <span class="text-slate-700"><%= admin.createdAt %></span>
+            </div>
+          </div>
+
+          <!-- Actions -->
+          <div class="pt-2 border-t border-slate-200 flex items-center justify-end gap-2">
+            <button type="button" 
+                    @click="openEdit(<%= JSON.stringify(admin) %>)" 
+                    class="btn-secondary py-1.5 px-3 text-xs gap-1">
+              <i data-lucide="edit-3" class="w-3.5 h-3.5 text-indigo-600"></i>
+              <span>Edit</span>
+            </button>
+
+            <% if (admin.role !== 'SUPER_ADMIN' || admin.username !== 'superadmin') { %>
+              <form action="/admin/users/<%= admin.id %>/delete" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus akun ini?');" class="inline">
+                <button type="submit" class="btn-danger py-1.5 px-3 text-xs gap-1">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  <span>Hapus</span>
+                </button>
+              </form>
+            <% } else { %>
+              <span class="text-[11px] text-slate-400 italic">Akun Utama</span>
+            <% } %>
+          </div>
+        </div>
+      <% }); %>
+    </div>
+
+    <!-- DESKTOP VIEW: Clean Modern Table (lg and up) -->
+    <div class="hidden lg:block overflow-x-auto custom-scrollbar">
+      <table class="w-full text-left text-xs border-collapse">
+        <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
+          <tr>
+            <th class="px-5 py-3.5 min-w-[220px]">Pengguna</th>
+            <th class="px-4 py-3.5 min-w-[140px]">Username</th>
+            <th class="px-4 py-3.5 min-w-[180px]">Email Resmi</th>
+            <th class="px-4 py-3.5 text-center min-w-[160px]">Peran / Akses</th>
+            <th class="px-4 py-3.5 text-center">Tanggal Dibuat</th>
+            <th class="px-5 py-3.5 text-right">Aksi</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <% admins.forEach(function(admin) { 
+              let roleBadgeClass = 'bg-indigo-100 text-indigo-800';
+              let roleLabel = 'Admin Korwil';
+              if (admin.role === 'SUPER_ADMIN') {
+                roleBadgeClass = 'bg-amber-100 text-amber-800 border-amber-200';
+                roleLabel = 'Super Admin';
+              } else if (admin.role === 'ADMIN_DINAS') {
+                roleBadgeClass = 'bg-purple-100 text-purple-800 border-purple-200';
+                roleLabel = 'Admin Dinas';
+              } else {
+                roleBadgeClass = 'bg-blue-100 text-blue-800 border-blue-200';
+                roleLabel = 'Admin Korwil';
+              }
+          %>
+            <tr class="hover:bg-slate-50/80 transition-colors">
+              
+              <!-- Pengguna -->
+              <td class="px-5 py-3.5">
+                <div class="flex items-center gap-3">
+                  <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-xs shadow-xs">
+                    <%= admin.namaLengkap.charAt(0) %>
+                  </div>
+                  <div>
+                    <div class="font-bold text-slate-900 text-xs"><%= admin.namaLengkap %></div>
+                    <div class="text-[11px] text-slate-400">ID: <%= admin.id.substring(0, 8) %>...</div>
+                  </div>
+                </div>
+              </td>
+
+              <!-- Username -->
+              <td class="px-4 py-3.5 font-mono text-slate-700 font-semibold">
+                @<%= admin.username %>
+              </td>
+
+              <!-- Email -->
+              <td class="px-4 py-3.5 text-slate-600">
+                <%= admin.email || '-' %>
+              </td>
+
+              <!-- Role -->
+              <td class="px-4 py-3.5 text-center whitespace-nowrap">
+                <span class="px-2.5 py-1 rounded-full text-[11px] font-bold border <%= roleBadgeClass %>">
+                  <%= roleLabel %>
+                </span>
+              </td>
+
+              <!-- Tanggal Dibuat -->
+              <td class="px-4 py-3.5 text-center text-slate-500 text-[11px]">
+                <%= admin.createdAt %>
+              </td>
+
+              <!-- Aksi -->
+              <td class="px-5 py-3.5 text-right whitespace-nowrap">
+                <div class="flex items-center justify-end gap-1.5">
+                  <!-- Edit Button -->
+                  <button type="button" 
+                          @click="openEdit(<%= JSON.stringify(admin) %>)" 
+                          class="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-indigo-600 transition-colors" 
+                          title="Ubah Akun Admin">
+                    <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                  </button>
+
+                  <!-- Delete Button -->
+                  <% if (admin.role !== 'SUPER_ADMIN' || admin.username !== 'superadmin') { %>
+                    <form action="/admin/users/<%= admin.id %>/delete" method="POST" onsubmit="return confirm('Apakah Anda yakin ingin menghapus akun ini?');" class="inline">
+                      <button type="submit" class="p-1.5 rounded-lg border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors shadow-2xs" title="Hapus Akun">
+                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                      </button>
+                    </form>
+                  <% } else { %>
+                    <span class="text-slate-400 text-xs italic px-1">Permanen</span>
+                  <% } %>
+                </div>
+              </td>
+
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+
+  <!-- ALPINE.JS MODAL 1: TAMBAH ADMIN BARU (3 ROLES) -->
+  <div x-show="addUserModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    
+    <div @click.away="addUserModal = false"
+         class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i data-lucide="user-plus" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-bold text-slate-900">Tambah Administrator Baru</h3>
+            <p class="text-xs text-slate-500">Pilih salah satu dari 3 hak akses peran</p>
+          </div>
+        </div>
+        <button @click="addUserModal = false" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Add Form -->
+      <form action="/admin/users/create" method="POST" class="space-y-3.5">
+        
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Username *</label>
+          <input type="text" name="username" required class="form-input text-xs font-bold" placeholder="Contoh: adminkorwil">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Nama Lengkap</label>
+          <input type="text" name="namaLengkap" class="form-input text-xs" placeholder="Contoh: Rahmat Hidayat, S.Pd.">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Email Resmi (Opsional)</label>
+          <input type="email" name="email" class="form-input text-xs" placeholder="Boleh dikosongkan">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Kata Sandi Awal *</label>
+          <input type="password" name="password" required class="form-input text-xs" placeholder="••••••••">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Peran Akses (3 Pilihan Role) *</label>
+          <select name="role" class="form-select text-xs font-semibold">
+            <option value="SUPER_ADMIN">1. Super Admin (Akses Penuh + Kelola Pengguna + CMS)</option>
+            <option value="ADMIN_KORWIL">2. Admin Korwil (Verifikasi Klarifikasi + Penilaian E-Kinerja)</option>
+            <option value="ADMIN_DINAS">3. Admin Dinas (Monitoring & Pengawasan Absensi & Kinerja)</option>
+          </select>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <button type="button" @click="addUserModal = false" class="btn-secondary py-2 px-4 text-xs">
+            Batal
+          </button>
+          <button type="submit" class="btn-primary py-2 px-5 text-xs gap-2">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>Simpan Akun</span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ALPINE.JS MODAL 2: EDIT AKUN ADMIN -->
+  <div x-show="editUserModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    
+    <div @click.away="editUserModal = false"
+         class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
+      
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <i data-lucide="edit-3" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base sm:text-lg font-bold text-slate-900">Ubah Data Administrator</h3>
+            <p class="text-xs text-slate-500">Perbarui profil, hak akses peran, atau kata sandi</p>
+          </div>
+        </div>
+        <button @click="editUserModal = false" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Edit Form -->
+      <form :action="'/admin/users/' + editUserData.id + '/update'" method="POST" class="space-y-3.5">
+        
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Username *</label>
+          <input type="text" name="username" x-model="editUserData.username" required class="form-input text-xs font-bold">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Nama Lengkap</label>
+          <input type="text" name="namaLengkap" x-model="editUserData.namaLengkap" required class="form-input text-xs">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Email Resmi</label>
+          <input type="email" name="email" x-model="editUserData.email" class="form-input text-xs" placeholder="Boleh dikosongkan">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+            Kata Sandi Baru <span class="font-normal text-slate-400">(Kosongkan jika tidak diubah)</span>
+          </label>
+          <input type="password" name="password" class="form-input text-xs" placeholder="••••••••">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Peran Akses *</label>
+          <select name="role" x-model="editUserData.role" class="form-select text-xs font-semibold">
+            <option value="SUPER_ADMIN">1. Super Admin (Akses Penuh + Kelola Pengguna + CMS)</option>
+            <option value="ADMIN_KORWIL">2. Admin Korwil (Verifikasi Klarifikasi + Penilaian E-Kinerja)</option>
+            <option value="ADMIN_DINAS">3. Admin Dinas (Monitoring & Pengawasan Absensi & Kinerja)</option>
+          </select>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+          <button type="button" @click="editUserModal = false" class="btn-secondary py-2 px-4 text-xs">
+            Batal
+          </button>
+          <button type="submit" class="btn-primary py-2 px-5 text-xs gap-2">
+            <i data-lucide="check" class="w-4 h-4"></i>
+            <span>Simpan Perubahan</span>
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+</main>
+
+<%- include('../partials/admin-footer') %>

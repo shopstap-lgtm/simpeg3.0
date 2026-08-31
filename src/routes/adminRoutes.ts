@@ -1,0 +1,82 @@
+import { Router } from 'express';
+import multer from 'multer';
+import { authController } from '../controllers/admin/authController';
+import { klarifikasiController } from '../controllers/admin/klarifikasiController';
+import { ekinerjaReviewController } from '../controllers/admin/ekinerjaReviewController';
+import { cmsController } from '../controllers/admin/cmsController';
+import { usersController } from '../controllers/admin/usersController';
+import { pegawaiAdminController } from '../controllers/admin/pegawaiAdminController';
+import { employeeController } from '../controllers/admin/employeeController';
+import { uploadAbsensiController } from '../controllers/admin/uploadAbsensiController';
+import { requireAdmin, requireSuperAdmin, requireSuperAdminOrDinas } from '../middleware/requireAdmin';
+
+const router = Router();
+
+const diskStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, 'public/uploads');
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + '-' + file.originalname.replace(/\s+/g, '_'));
+  }
+});
+
+const diskUpload = multer({
+  storage: diskStorage,
+  limits: { fileSize: 15 * 1024 * 1024 }
+});
+
+const memoryUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 }
+});
+
+// 1. Public Admin Auth Routes
+router.get('/login', authController.showLogin);
+router.post('/login', authController.login);
+router.get('/logout', authController.logout);
+
+// 2. Protected Admin Routes (Require Admin Authentication)
+router.use(requireAdmin);
+
+// Klarifikasi Absensi
+router.get('/klarifikasi', klarifikasiController.show);
+router.post('/klarifikasi/:id/approve', klarifikasiController.approve);
+router.post('/klarifikasi/:id/reject', klarifikasiController.reject);
+router.post('/klarifikasi/:id/delete', klarifikasiController.delete);
+
+// Upload Rekap Absensi (SUPER_ADMIN & ADMIN_DINAS Only)
+router.get('/upload-absensi', requireSuperAdminOrDinas, uploadAbsensiController.show);
+router.post('/upload-absensi', requireSuperAdminOrDinas, diskUpload.array('excelFiles', 40), uploadAbsensiController.processUpload);
+
+// Ekinerja Review
+router.get('/ekinerja-review', ekinerjaReviewController.show);
+router.post('/ekinerja-review/:id/review', ekinerjaReviewController.review);
+router.post('/ekinerja-review/:id/score', ekinerjaReviewController.review);
+router.post('/ekinerja-review/:id/delete', ekinerjaReviewController.deleteReview);
+
+// Master Data Pegawai Import (Excel / CSV)
+router.get('/employees/template', employeeController.downloadTemplate);
+router.post('/employees/import', memoryUpload.single('employeeFile'), employeeController.importExcel);
+
+// 3. Super Admin Only Protected Routes
+// Master Data Pegawai CRUD
+router.get('/pegawai', requireSuperAdmin, pegawaiAdminController.show);
+router.post('/pegawai/create', requireSuperAdmin, pegawaiAdminController.create);
+router.post('/pegawai/:id/update', requireSuperAdmin, pegawaiAdminController.update);
+router.post('/pegawai/:id/toggle', requireSuperAdmin, pegawaiAdminController.toggleActive);
+router.post('/pegawai/:id/delete', requireSuperAdmin, pegawaiAdminController.delete);
+
+// CMS Config
+router.get('/cms', requireSuperAdmin, cmsController.show);
+router.post('/cms', requireSuperAdmin, cmsController.update);
+
+// User Management
+router.get('/users', requireSuperAdmin, usersController.show);
+router.post('/users/create', requireSuperAdmin, usersController.create);
+router.post('/users/:id/update', requireSuperAdmin, usersController.updateUser);
+router.post('/users/:id/toggle', requireSuperAdmin, usersController.toggleActive);
+router.post('/users/:id/delete', requireSuperAdmin, usersController.deleteUser);
+
+export default router;

@@ -1,0 +1,37 @@
+<footer class="mt-auto border-t border-slate-200/80 bg-white py-8 text-slate-600">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex flex-col md:flex-row items-center justify-between gap-4 text-center md:text-left">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-xs font-bold shadow-sm">
+          <i data-lucide="building-2" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <p class="text-xs font-bold text-slate-800 tracking-tight">KORWIL BIDIK KECAMATAN CIBITUNG</p>
+          <p class="text-[11px] text-slate-500">Dinas Pendidikan Kabupaten Bekasi - Jawa Barat</p>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center justify-center gap-6 text-xs text-slate-500">
+        <a href="/" class="hover:text-indigo-600 transition-colors">Dashboard</a>
+        <a href="/absensi" class="hover:text-indigo-600 transition-colors">Rekap Absensi</a>
+        <a href="/ekinerja" class="hover:text-indigo-600 transition-colors">Laporan E-Kinerja</a>
+        <a href="/admin/login" class="hover:text-indigo-600 transition-colors">Portal Admin</a>
+      </div>
+
+      <p class="text-[11px] text-slate-400">
+        &copy; <%= new Date().getFullYear() %> SIMPEG 2.0. Sistem Non-Google Apps Script.
+      </p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Initialize Lucide icons on page load
+  document.addEventListener('DOMContentLoaded', () => {
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+  });
+</script>
+</body>
+</html>
