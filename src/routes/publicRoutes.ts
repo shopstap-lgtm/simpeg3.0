@@ -44,6 +44,9 @@ const upload = multer({
 });
 
 // Public Menus
+router.get('/ping', (req, res) => {
+  res.json({ status: 'ok', time: new Date().toISOString(), env: process.env.NODE_ENV });
+});
 router.get('/', dashboardController.show);
 
 // Absensi & Klarifikasi
