@@ -34,5 +34,6 @@
       "src": "/(.*)",
       "dest": "/api/index.ts"
     }
-  ]
+  ],
+  "installCommand": "npm install --ignore-scripts && npx prisma generate"
 }
