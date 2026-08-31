@@ -27,7 +27,7 @@ export function createApp(): Express {
       saveUninitialized: false,
       proxy: true,
       cookie: {
-        secure: 'auto',
+        secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 Days
       }

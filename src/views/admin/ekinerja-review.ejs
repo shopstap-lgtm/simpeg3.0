@@ -43,6 +43,19 @@
         openDelete(item) {
           this.selectedReport = item;
           this.deleteModal = true;
+        },
+
+        submitReview() {
+          if (!this.selectedReport) return;
+          const form = this.$refs.reviewForm;
+          form.action = '/admin/ekinerja-review/' + this.selectedReport.id + '/review?tab=history';
+          const statusEl = form.querySelector('input[name="statusReview"]');
+          if (statusEl) statusEl.value = this.reviewAction === 'approve' ? 'APPROVED' : 'REJECTED';
+          const approveNote = document.getElementById('approveNoteInput');
+          const rejectNote = document.getElementById('rejectNoteInput');
+          if (approveNote) approveNote.disabled = (this.reviewAction !== 'approve');
+          if (rejectNote) rejectNote.disabled = (this.reviewAction !== 'reject');
+          form.submit();
         }
       }">
 
@@ -547,21 +560,10 @@
           <!-- RIGHT: Review Form — INTENTIONALLY NOT inside <template x-if> -->
           <!-- Form action is set via JS at submit time to avoid Alpine reactive issues -->
           <div class="lg:col-span-5 overflow-y-auto custom-scrollbar" style="max-height: 76vh;">
-            <form id="ekinerjaReviewForm"
+            <form x-ref="reviewForm"
                   method="POST"
                   action="/admin/ekinerja-review/placeholder/review"
-                  @submit.prevent="
-                    if (!selectedReport) { alert('Pilih laporan terlebih dahulu'); return; }
-                    const formEl = $el;
-                    formEl.action = '/admin/ekinerja-review/' + selectedReport.id + '/review?tab=history';
-                    const statusInput = formEl.querySelector('[name=statusReview]');
-                    if (statusInput) statusInput.value = (reviewAction === 'approve') ? 'APPROVED' : 'REJECTED';
-                    const approveNote = document.getElementById('approveNoteInput');
-                    const rejectNote = document.getElementById('rejectNoteInput');
-                    if (approveNote) approveNote.disabled = (reviewAction !== 'approve');
-                    if (rejectNote) rejectNote.disabled = (reviewAction !== 'reject');
-                    formEl.submit();
-                  "
+                  @submit.prevent="submitReview()"
                   class="space-y-4 p-4 sm:p-5 rounded-2xl bg-slate-50 border border-slate-200/80">
 
               <!-- Hidden status field -->
