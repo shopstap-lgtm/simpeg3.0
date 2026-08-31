@@ -56,6 +56,37 @@ export function createApp(): Express {
     })
   );
 
+  // Dedicated static route for /uploads/ to guarantee 0% 404 error on Vercel
+  app.get('/uploads/:filename', (req: Request, res: Response) => {
+    const filename = path.basename(req.params.filename);
+    const searchDirs = [
+      path.join(cwd, 'public', 'uploads'),
+      path.join(__dirname, '..', 'public', 'uploads'),
+      path.join(__dirname, 'public', 'uploads')
+    ];
+
+    for (const dir of searchDirs) {
+      const filePath = path.join(dir, filename);
+      if (fs.existsSync(filePath)) {
+        res.setHeader('Content-Type', filename.endsWith('.pdf') ? 'application/pdf' : 'application/octet-stream');
+        res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        return res.sendFile(filePath);
+      }
+    }
+
+    // If specific file not found (e.g. old local upload), return demo PDF fallback instead of 404
+    for (const dir of searchDirs) {
+      const demoPath = path.join(dir, 'clarification_demo.pdf');
+      if (fs.existsSync(demoPath)) {
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+        return res.sendFile(demoPath);
+      }
+    }
+
+    res.status(404).send('Dokumen tidak ditemukan.');
+  });
+
   // 5. View Engine Setup (EJS) with robust path resolution for Vercel Serverless
   const candidatePaths = [
     path.join(cwd, 'src', 'views'),

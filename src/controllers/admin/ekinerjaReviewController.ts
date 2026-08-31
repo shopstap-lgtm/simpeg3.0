@@ -89,7 +89,10 @@ export const ekinerjaReviewController = {
   review: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      const tab = (req.query.tab as string) || 'pending';
       const { nilaiHarian, nilaiBulanan, statusReview, catatanAdmin } = req.body;
+
+      console.log('[EkinerjaReview] Received review submission:', { id, tab, statusReview, nilaiHarian, nilaiBulanan, catatanAdmin });
 
       const isApproved = statusReview === 'APPROVED';
       const nHarian = isApproved && nilaiHarian !== undefined && nilaiHarian !== '' ? parseFloat(nilaiHarian) : null;
@@ -104,23 +107,36 @@ export const ekinerjaReviewController = {
           nilaiHarian: nHarian,
           nilaiBulanan: nBulanan,
           statusReview: isApproved ? 'APPROVED' : 'REJECTED',
-          catatanAdmin: catatanAdmin || (isApproved ? 'Dokumen laporan disetujui.' : 'Berkas perlu diperbaiki.'),
+          catatanAdmin: catatanAdmin || (isApproved ? 'Dokumen laporan kinerja telah disetujui.' : 'Berkas laporan belum lengkap / perlu diperbaiki.'),
           reviewedBy: reviewer,
           reviewedAt: reviewTimestamp
         },
         include: { employee: true }
       });
 
+      console.log('[EkinerjaReview] Update success for:', updated.employee.nama, 'Status:', updated.statusReview);
+
       if ((req as any).session) {
         (req as any).session.toast = {
           type: isApproved ? 'success' : 'warning',
-          message: `Penilaian E-Kinerja untuk ${updated.employee.nama} telah disimpan (${isApproved ? 'Disetujui' : 'Ditolak'}).`
+          message: `Laporan kinerja ${updated.employee.nama} berhasil ${isApproved ? 'disetujui dan dinilai' : 'ditolak'}.`
         };
+        return (req as any).session.save((saveErr: any) => {
+          if (saveErr) console.error('[EkinerjaReview] Session save error:', saveErr);
+          return res.redirect(`/admin/ekinerja-review?tab=${isApproved ? 'history' : 'history'}`);
+        });
       }
 
       res.redirect('/admin/ekinerja-review?tab=history');
     } catch (error) {
       console.error('Error in ekinerjaReviewController.review:', error);
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'danger',
+          message: 'Terjadi kesalahan saat memproses review laporan.'
+        };
+        return (req as any).session.save(() => res.redirect('/admin/ekinerja-review?tab=pending'));
+      }
       res.redirect('/admin/ekinerja-review?tab=pending');
     }
   },
@@ -138,8 +154,9 @@ export const ekinerjaReviewController = {
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'warning',
-          message: `Laporan E-Kinerja pegawai ${deleted.employee.nama} telah dihapus dari antrean/riwayat.`
+          message: `Laporan E-Kinerja pegawai ${deleted.employee.nama} telah dihapus.`
         };
+        return (req as any).session.save(() => res.redirect(`/admin/ekinerja-review?tab=${tab}`));
       }
 
       res.redirect(`/admin/ekinerja-review?tab=${tab}`);
