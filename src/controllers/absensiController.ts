@@ -419,7 +419,9 @@ export const absensiController = {
         return res.redirect('/absensi');
       }
 
-      const fileUrl = file ? `/uploads/${file.filename}` : '/uploads/clarification_demo.pdf';
+      const fileUrl = file
+        ? `data:${file.mimetype || 'application/pdf'};base64,${file.buffer.toString('base64')}`
+        : '/uploads/clarification_demo.pdf';
       const fileName = file ? file.originalname : 'Surat_Keterangan.pdf';
 
       await prisma.clarification.create({

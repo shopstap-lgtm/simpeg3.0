@@ -168,9 +168,13 @@ export const ekinerjaController = {
         return res.redirect('/ekinerja');
       }
 
-      const fileHarianUrl = fileHarian ? `/uploads/${fileHarian.filename}` : undefined;
+      const fileHarianUrl = fileHarian
+        ? `data:${fileHarian.mimetype || 'application/pdf'};base64,${fileHarian.buffer.toString('base64')}`
+        : undefined;
       const fileHarianName = fileHarian ? fileHarian.originalname : undefined;
-      const fileBulananUrl = fileBulanan ? `/uploads/${fileBulanan.filename}` : undefined;
+      const fileBulananUrl = fileBulanan
+        ? `data:${fileBulanan.mimetype || 'application/pdf'};base64,${fileBulanan.buffer.toString('base64')}`
+        : undefined;
       const fileBulananName = fileBulanan ? fileBulanan.originalname : undefined;
 
       await prisma.ekinerjaReport.upsert({

@@ -27,19 +27,9 @@ const getUploadDir = () => {
   }
 };
 
-// Configure multer for disk storage
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, getUploadDir());
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + '-' + file.originalname.replace(/\s+/g, '_'));
-  }
-});
-
+// Configure multer for memory storage (Serverless compatibility - Base64 Data URI)
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB
 });
 
