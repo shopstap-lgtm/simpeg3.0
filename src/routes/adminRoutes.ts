@@ -11,6 +11,7 @@ import { usersController } from '../controllers/admin/usersController';
 import { pegawaiAdminController } from '../controllers/admin/pegawaiAdminController';
 import { employeeController } from '../controllers/admin/employeeController';
 import { uploadAbsensiController } from '../controllers/admin/uploadAbsensiController';
+import { unitKerjaController } from '../controllers/admin/unitKerjaController';
 import { requireAdmin, requireSuperAdmin, requireSuperAdminOrDinas } from '../middleware/requireAdmin';
 
 const router = Router();
@@ -76,6 +77,9 @@ router.get('/ekinerja-review', ekinerjaReviewController.show);
 router.post('/ekinerja-review/:id/review', ekinerjaReviewController.review);
 router.post('/ekinerja-review/:id/score', ekinerjaReviewController.review);
 router.post('/ekinerja-review/:id/delete', ekinerjaReviewController.deleteReview);
+// Export Laporan E-Kinerja (SUPER_ADMIN & ADMIN_KORWIL only - enforced in controller)
+router.get('/ekinerja-review/export/excel', ekinerjaReviewController.exportExcel);
+router.get('/ekinerja-review/export/pdf', ekinerjaReviewController.exportPdf);
 
 // Master Data Pegawai Import (Excel / CSV)
 router.get('/employees/template', employeeController.downloadTemplate);
@@ -99,5 +103,11 @@ router.post('/users/create', requireSuperAdmin, usersController.create);
 router.post('/users/:id/update', requireSuperAdmin, usersController.updateUser);
 router.post('/users/:id/toggle', requireSuperAdmin, usersController.toggleActive);
 router.post('/users/:id/delete', requireSuperAdmin, usersController.deleteUser);
+
+// Data Unit Kerja / Sekolah (SUPER_ADMIN only)
+router.get('/unit-kerja', requireSuperAdmin, unitKerjaController.show);
+router.post('/unit-kerja/create', requireSuperAdmin, unitKerjaController.create);
+router.post('/unit-kerja/:id/update', requireSuperAdmin, unitKerjaController.update);
+router.post('/unit-kerja/:id/delete', requireSuperAdmin, unitKerjaController.delete);
 
 export default router;

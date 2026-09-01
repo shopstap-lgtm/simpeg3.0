@@ -9,9 +9,10 @@ generator client {
 }
 
 model Unit {
-  id        String     @id @default(cuid())
-  namaUnit  String
-  employees Employee[]
+  id             String     @id @default(cuid())
+  namaUnit       String
+  kepalaSekolah  String?
+  employees      Employee[]
 
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt

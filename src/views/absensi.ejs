@@ -537,7 +537,7 @@
         <div class="flex items-start justify-between gap-3">
           <div class="flex-1 min-w-0">
             <h3 class="font-bold text-sm text-slate-900 leading-snug break-words"><%= item.employee.nama %></h3>
-            <p class="text-[11px] font-mono text-slate-400 mt-0.5"><%= item.employee.nip %></p>
+            <% if (isAdmin) { %><p class="text-[11px] font-mono text-slate-400 mt-0.5"><%= item.employee.nip %></p><% } %>
             <p class="text-[11px] text-indigo-600 font-medium truncate mt-0.5"><%= item.employee.unitNama %></p>
           </div>
           
@@ -699,9 +699,9 @@
                 <div class="font-bold text-slate-900 text-xs leading-snug break-words">
                   <%= item.employee.nama %>
                 </div>
-                <div class="font-mono text-[9.5px] text-slate-400 mt-0.5">
+                <% if (isAdmin) { %><div class="font-mono text-[9.5px] text-slate-400 mt-0.5">
                   <%= item.employee.nip %>
-                </div>
+                </div><% } %>
               </td>
 
               <!-- Unit Kerja (Full Uncut Name) -->

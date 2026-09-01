@@ -24,7 +24,7 @@ export const absensiController = {
       }
       if (search) {
         whereEmp.OR = [
-          { nama: { contains: search } },
+          { nama: { contains: search, mode: 'insensitive' } },
           { nip: { contains: search } }
         ];
       }
