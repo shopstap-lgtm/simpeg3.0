@@ -425,8 +425,8 @@
          x-transition:leave="transition ease-in duration-150"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
-         class="fixed inset-0 !m-0 !mt-0 z-[9999] overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4"
-         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
+         class="fixed inset-0 !m-0 !mt-0 modal-overlay z-modal overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4"
+         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 999999 !important;">
       
       <div @click.away="actionModal = false"
            class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
@@ -478,8 +478,8 @@
          x-transition:leave="transition ease-in duration-150"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
-         class="fixed inset-0 !m-0 !mt-0 z-[9999] overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4"
-         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
+         class="fixed inset-0 !m-0 !mt-0 modal-overlay z-modal overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4"
+         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 999999 !important;">
       
       <div @click.away="deleteModal = false"
            class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
@@ -523,13 +523,13 @@
          x-transition:leave="transition ease-in duration-150"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
-         class="fixed inset-0 !m-0 !mt-0 z-[9999] overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
-         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
+         class="fixed inset-0 !m-0 !mt-0 modal-overlay z-modal overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 999999 !important;">
       
       <div @click.away="pdfModal = false"
-           class="bg-white rounded-3xl max-w-5xl w-full p-5 sm:p-6 shadow-2xl border border-slate-100 space-y-4 flex flex-col max-h-[96vh]">
+           class="bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-5 shadow-2xl border border-slate-100 flex flex-col h-[94vh] max-h-[95vh]">
         
-        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
           <div class="flex items-center gap-2.5 min-w-0 pr-4">
             <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
               <i data-lucide="file-text" class="w-5 h-5"></i>
@@ -554,12 +554,12 @@
           </div>
         </div>
 
-        <!-- Inline PDF Viewer Container -->
-        <div class="flex-1 w-full bg-slate-100 rounded-2xl overflow-hidden min-h-[72vh] h-[75vh] border border-slate-200">
-          <iframe :src="pdfUrl ? (pdfUrl.includes('#') ? pdfUrl : pdfUrl + '#toolbar=1&navpanes=0&view=FitH') : ''" class="w-full h-full min-h-[72vh] rounded-2xl border-0" allowfullscreen></iframe>
+        <!-- Inline PDF Viewer Container - Tall & Well-Proportioned for A4 documents -->
+        <div class="flex-1 w-full bg-slate-100 rounded-2xl overflow-hidden min-h-[76vh] h-[80vh] border border-slate-200">
+          <iframe :src="pdfUrl ? (pdfUrl.includes('#') ? pdfUrl : pdfUrl + '#toolbar=1&navpanes=0&view=FitH') : ''" class="w-full h-full min-h-[76vh] rounded-2xl border-0" allowfullscreen></iframe>
         </div>
 
-        <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+        <div class="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 shrink-0">
           <div class="flex items-center gap-2">
             <a :href="pdfUrl" :download="pdfFileName || 'dokumen.pdf'" class="text-indigo-600 hover:underline font-semibold flex items-center gap-1 sm:hidden">
               <i data-lucide="download" class="w-3.5 h-3.5"></i>
@@ -567,7 +567,7 @@
             </a>
             <span class="hidden sm:inline text-slate-400">Gunakan tombol Tab Baru jika ingin melihat layar penuh.</span>
           </div>
-          <button type="button" @click="pdfModal = false" class="btn-secondary py-2 px-4 text-xs">
+          <button type="button" @click="pdfModal = false" class="btn-secondary py-2 px-4 text-xs font-semibold">
             Tutup
           </button>
         </div>

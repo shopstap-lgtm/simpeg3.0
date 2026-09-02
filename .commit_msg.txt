@@ -1,5 +1,0 @@
-fix: lazy supabase init, hide nip in absensi, and flexible kepala sekolah picker
-
-- Fix Supabase client initialization: initialize lazily and gracefully fallback to Base64 without crashing if SUPABASE_URL env is not set
-- Hide NIP completely from public rekap absensi mobile cards and desktop table
-- Unit Kerja: enable choosing Kepala Sekolah from registered employee list or typing custom name manually (with datalist autocomplete and quick select helper)

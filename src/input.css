@@ -2,6 +2,15 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =========================================================
+   UNIVERSAL MODAL & BACKDROP STACKING (ALWAYS TOP LEVEL)
+   ========================================================= */
+.modal-overlay,
+.modal-backdrop,
+.z-modal {
+  z-index: 999999 !important;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
