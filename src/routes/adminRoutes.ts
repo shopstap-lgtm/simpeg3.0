@@ -73,13 +73,13 @@ router.get('/upload-absensi', requireSuperAdminOrDinas, uploadAbsensiController.
 router.post('/upload-absensi', requireSuperAdminOrDinas, diskUpload.array('excelFiles', 40), uploadAbsensiController.processUpload);
 
 // Ekinerja Review
+// ⚠️ Export routes MUST be before :id routes, otherwise Express treats "export" as :id value
+router.get('/ekinerja-review/export/excel', ekinerjaReviewController.exportExcel);
+router.get('/ekinerja-review/export/pdf', ekinerjaReviewController.exportPdf);
 router.get('/ekinerja-review', ekinerjaReviewController.show);
 router.post('/ekinerja-review/:id/review', ekinerjaReviewController.review);
 router.post('/ekinerja-review/:id/score', ekinerjaReviewController.review);
 router.post('/ekinerja-review/:id/delete', ekinerjaReviewController.deleteReview);
-// Export Laporan E-Kinerja (SUPER_ADMIN & ADMIN_KORWIL only - enforced in controller)
-router.get('/ekinerja-review/export/excel', ekinerjaReviewController.exportExcel);
-router.get('/ekinerja-review/export/pdf', ekinerjaReviewController.exportPdf);
 
 // Master Data Pegawai Import (Excel / CSV)
 router.get('/employees/template', employeeController.downloadTemplate);
