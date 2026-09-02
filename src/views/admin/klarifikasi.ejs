@@ -424,8 +424,8 @@
        x-transition:leave="transition ease-in duration-150"
        x-transition:leave-start="opacity-100"
        x-transition:leave-end="opacity-0"
-       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-       style="display: none;">
+       class="fixed inset-0 !m-0 !mt-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
     
     <div @click.away="actionModal = false"
          class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
@@ -475,8 +475,8 @@
        x-transition:leave="transition ease-in duration-150"
        x-transition:leave-start="opacity-100"
        x-transition:leave-end="opacity-0"
-       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-       style="display: none;">
+       class="fixed inset-0 !m-0 !mt-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
     
     <div @click.away="deleteModal = false"
          class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
@@ -518,11 +518,11 @@
        x-transition:leave="transition ease-in duration-150"
        x-transition:leave-start="opacity-100"
        x-transition:leave-end="opacity-0"
-       class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
-       style="display: none;">
+       class="fixed inset-0 !m-0 !mt-0 z-[100] overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+       style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
     
     <div @click.away="pdfModal = false"
-         class="bg-white rounded-3xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl border border-slate-100 space-y-4 flex flex-col max-h-[92vh]">
+         class="bg-white rounded-3xl max-w-5xl w-full p-5 sm:p-6 shadow-2xl border border-slate-100 space-y-4 flex flex-col max-h-[96vh]">
       
       <div class="flex items-center justify-between pb-3 border-b border-slate-100">
         <div class="flex items-center gap-2.5 min-w-0 pr-4">
@@ -550,8 +550,8 @@
       </div>
 
       <!-- Inline PDF Viewer Container -->
-      <div class="flex-1 w-full bg-slate-100 rounded-2xl overflow-hidden min-h-[55vh] max-h-[68vh] border border-slate-200">
-        <iframe :src="pdfUrl" class="w-full h-full min-h-[55vh] rounded-2xl border-0" allowfullscreen></iframe>
+      <div class="flex-1 w-full bg-slate-100 rounded-2xl overflow-hidden min-h-[72vh] h-[75vh] border border-slate-200">
+        <iframe :src="pdfUrl ? (pdfUrl.includes('#') ? pdfUrl : pdfUrl + '#toolbar=1&navpanes=0&view=FitH') : ''" class="w-full h-full min-h-[72vh] rounded-2xl border-0" allowfullscreen></iframe>
       </div>
 
       <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
