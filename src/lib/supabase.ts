@@ -1,19 +1,37 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+let supabaseClientInstance: SupabaseClient | null = null;
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.error('[Supabase] ERROR: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set!');
-}
-
-// Use service role key for server-side uploads (bypasses RLS)
-export const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false
+/**
+ * Get Supabase client lazily and safely.
+ * Returns null if SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not configured.
+ */
+export function getSupabaseClient(): SupabaseClient | null {
+  if (supabaseClientInstance) {
+    return supabaseClientInstance;
   }
-});
+
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!supabaseUrl || !supabaseKey || !supabaseUrl.startsWith('http')) {
+    console.warn('[Supabase] SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is not set or invalid. Storage uploads will fallback to Base64.');
+    return null;
+  }
+
+  try {
+    supabaseClientInstance = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    });
+    return supabaseClientInstance;
+  } catch (err) {
+    console.error('[Supabase] Failed to initialize Supabase client:', err);
+    return null;
+  }
+}
 
 const BULAN_NAMES = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -46,10 +64,15 @@ export async function uploadToStorage(
   folder: string,
   filename: string
 ): Promise<{ url: string; path: string } | null> {
+  const client = getSupabaseClient();
+  if (!client) {
+    return null;
+  }
+
   try {
     const filePath = `${folder}/${filename}`;
 
-    const { data, error } = await supabase.storage
+    const { data, error } = await client.storage
       .from(bucket)
       .upload(filePath, fileBuffer, {
         contentType: mimetype,
@@ -62,7 +85,7 @@ export async function uploadToStorage(
     }
 
     // Get public URL
-    const { data: urlData } = supabase.storage
+    const { data: urlData } = client.storage
       .from(bucket)
       .getPublicUrl(data.path);
 

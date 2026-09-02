@@ -14,7 +14,7 @@ export const unitKerjaController = {
         ];
       }
 
-      const [units, totalUnits] = await Promise.all([
+      const [units, totalUnits, activeEmployees] = await Promise.all([
         prisma.unit.findMany({
           where: whereClause,
           include: {
@@ -22,7 +22,18 @@ export const unitKerjaController = {
           },
           orderBy: { namaUnit: 'asc' }
         }),
-        prisma.unit.count()
+        prisma.unit.count(),
+        prisma.employee.findMany({
+          where: { aktif: true },
+          select: {
+            id: true,
+            nama: true,
+            nip: true,
+            unitId: true,
+            unit: { select: { namaUnit: true } }
+          },
+          orderBy: { nama: 'asc' }
+        })
       ]);
 
       const formatted = units.map(u => ({
@@ -42,6 +53,13 @@ export const unitKerjaController = {
         title: 'Data Unit Kerja / Sekolah - Admin SIMPEG',
         page: 'admin-unit-kerja',
         units: formatted,
+        employees: activeEmployees.map(e => ({
+          id: e.id,
+          nama: e.nama,
+          nip: e.nip,
+          unitId: e.unitId,
+          unitNama: e.unit.namaUnit
+        })),
         totalUnits,
         search,
         toast,

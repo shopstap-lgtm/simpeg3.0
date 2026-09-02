@@ -1,8 +1,5 @@
-feat: migrate file upload to Supabase Storage with auto filename and fix unit-kerja partial
+fix: lazy supabase init, hide nip in absensi, and flexible kepala sekolah picker
 
-- Fix unit-kerja.ejs: ganti partial scripts yang tidak ada dengan admin-footer yang benar
-- Tambah @supabase/supabase-js dependency
-- Buat src/lib/supabase.ts: client storage + helper generateEkinerjaFilename dan generateKlarifikasiFilename
-- Migrate ekinerjaController: upload PDF ke bucket supabase/ekinerja dengan nama otomatis format Bulan_UnitKerja_NamaPegawai_Harian/Bulanan
-- Migrate absensiController: upload klarifikasi ke bucket supabase/klarifikasi dengan nama otomatis Klarifikasi_NamaPegawai_Tanggal
-- Fallback ke Base64 jika Supabase upload gagal untuk resilience
+- Fix Supabase client initialization: initialize lazily and gracefully fallback to Base64 without crashing if SUPABASE_URL env is not set
+- Hide NIP completely from public rekap absensi mobile cards and desktop table
+- Unit Kerja: enable choosing Kepala Sekolah from registered employee list or typing custom name manually (with datalist autocomplete and quick select helper)

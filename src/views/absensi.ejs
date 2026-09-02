@@ -429,7 +429,7 @@
 
       <!-- 4. Manual Search Input (Real-time auto search + Fixed Right 'X' Button) -->
       <div>
-        <label for="search" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Cari Pegawai (Nama / NIP)</label>
+        <label for="search" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Cari Pegawai</label>
         <div class="relative" 
              style="position: relative;"
              x-data="{ 
@@ -449,7 +449,7 @@
                  @input="searchRealtime()"
                  @keydown.enter.prevent="$el.closest('form').submit()"
                  autocomplete="off"
-                 placeholder="Ketik Nama / NIP..." 
+                 placeholder="Ketik Nama Pegawai..." 
                  style="padding-left: 18px;"
                  class="w-full pl-5 pr-10 py-2.5 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 shadow-2xs transition-all">
           
@@ -537,7 +537,6 @@
         <div class="flex items-start justify-between gap-3">
           <div class="flex-1 min-w-0">
             <h3 class="font-bold text-sm text-slate-900 leading-snug break-words"><%= item.employee.nama %></h3>
-            <% if (isAdmin) { %><p class="text-[11px] font-mono text-slate-400 mt-0.5"><%= item.employee.nip %></p><% } %>
             <p class="text-[11px] text-indigo-600 font-medium truncate mt-0.5"><%= item.employee.unitNama %></p>
           </div>
           
@@ -650,8 +649,8 @@
       <table class="w-full text-left text-xs border-collapse table-auto">
         <thead class="sticky top-0 z-30 bg-slate-100 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200 shadow-2xs">
           <tr class="h-9">
-            <!-- Sticky Left: Nama & NIP Pegawai (Full Uncut Name) -->
-            <th class="sticky left-0 top-0 z-40 bg-slate-100 px-3 py-2 min-w-[155px] max-w-[185px] sticky-shadow text-slate-800 font-bold align-middle" title="Nama Pegawai & NIP">
+            <!-- Sticky Left: Nama Pegawai (Full Uncut Name) -->
+            <th class="sticky left-0 top-0 z-40 bg-slate-100 px-3 py-2 min-w-[155px] max-w-[185px] sticky-shadow text-slate-800 font-bold align-middle" title="Nama Pegawai">
               Pegawai
             </th>
             <!-- Unit Kerja (Full Uncut Name) -->
@@ -694,14 +693,11 @@
           <% recap.forEach(function(item) { %>
             <tr class="hover:bg-indigo-50/30 transition-colors h-[38px]">
               
-              <!-- Sticky Left: Nama Pegawai (Full Uncut Name + NIP) -->
+              <!-- Sticky Left: Nama Pegawai (Full Uncut Name) -->
               <td class="sticky left-0 z-20 bg-white hover:bg-indigo-50/30 px-3 py-1.5 sticky-shadow border-r border-slate-100 min-w-[155px] max-w-[185px] align-middle">
                 <div class="font-bold text-slate-900 text-xs leading-snug break-words">
                   <%= item.employee.nama %>
                 </div>
-                <% if (isAdmin) { %><div class="font-mono text-[9.5px] text-slate-400 mt-0.5">
-                  <%= item.employee.nip %>
-                </div><% } %>
               </td>
 
               <!-- Unit Kerja (Full Uncut Name) -->

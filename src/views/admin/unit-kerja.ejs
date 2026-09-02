@@ -280,16 +280,35 @@
                  class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 placeholder:text-slate-400 transition-all">
         </div>
         <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1.5">
-            Nama Kepala Sekolah / Unit
-            <span class="text-slate-400 font-normal">(opsional)</span>
-          </label>
-          <input type="text"
-                 name="kepalaSekolah"
-                 id="add-kepalaSekolah"
-                 placeholder="cth: Drs. Budi Santoso, M.Pd"
-                 autocomplete="off"
-                 class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 placeholder:text-slate-400 transition-all">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-bold text-slate-700">
+              Nama Kepala Sekolah / Unit
+              <span class="text-slate-400 font-normal">(opsional)</span>
+            </label>
+            <span class="text-[10.5px] text-amber-600 font-medium">Bisa pilih atau ketik manual</span>
+          </div>
+          
+          <div class="space-y-2">
+            <% if (typeof employees !== 'undefined' && employees.length > 0) { %>
+              <!-- Quick Select from Registered Employees -->
+              <select @change="if ($event.target.value) { $el.closest('form').querySelector('input[name=kepalaSekolah]').value = $event.target.value; }"
+                      class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 bg-slate-50 focus:outline-none focus:border-amber-500 transition-all">
+                <option value="">-- Pilih dari Daftar Pegawai (Otomatis Isi) --</option>
+                <% employees.forEach(function(emp) { %>
+                  <option value="<%= emp.nama %>"><%= emp.nama %> (<%= emp.unitNama %>)</option>
+                <% }); %>
+              </select>
+            <% } %>
+
+            <!-- Text Input (with Datalist Autocomplete & Manual typing) -->
+            <input type="text"
+                   name="kepalaSekolah"
+                   id="add-kepalaSekolah"
+                   list="employeeList"
+                   placeholder="Ketik nama manual atau pilih dari daftar di atas..."
+                   autocomplete="off"
+                   class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 placeholder:text-slate-400 transition-all">
+          </div>
         </div>
         <div class="flex items-center gap-3 pt-1">
           <button type="button" @click="addModal = false"
@@ -351,16 +370,35 @@
                    class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 transition-all">
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1.5">
-              Nama Kepala Sekolah / Unit
-              <span class="text-slate-400 font-normal">(opsional)</span>
-            </label>
-            <input type="text"
-                   name="kepalaSekolah"
-                   :value="editData.kepalaSekolah"
-                   placeholder="cth: Drs. Budi Santoso, M.Pd"
-                   autocomplete="off"
-                   class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 transition-all">
+            <div class="flex items-center justify-between mb-1.5">
+              <label class="block text-xs font-bold text-slate-700">
+                Nama Kepala Sekolah / Unit
+                <span class="text-slate-400 font-normal">(opsional)</span>
+              </label>
+              <span class="text-[10.5px] text-indigo-600 font-medium">Bisa pilih atau ketik manual</span>
+            </div>
+
+            <div class="space-y-2">
+              <% if (typeof employees !== 'undefined' && employees.length > 0) { %>
+                <!-- Quick Select from Registered Employees -->
+                <select @change="if ($event.target.value) { editData.kepalaSekolah = $event.target.value; }"
+                        class="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs text-slate-700 bg-slate-50 focus:outline-none focus:border-indigo-500 transition-all">
+                  <option value="">-- Pilih dari Daftar Pegawai (Otomatis Isi) --</option>
+                  <% employees.forEach(function(emp) { %>
+                    <option value="<%= emp.nama %>"><%= emp.nama %> (<%= emp.unitNama %>)</option>
+                  <% }); %>
+                </select>
+              <% } %>
+
+              <!-- Text Input (with Datalist Autocomplete & Manual typing) -->
+              <input type="text"
+                     name="kepalaSekolah"
+                     x-model="editData.kepalaSekolah"
+                     list="employeeList"
+                     placeholder="Ketik nama manual atau pilih dari daftar di atas..."
+                     autocomplete="off"
+                     class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-800 bg-white focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 transition-all">
+            </div>
           </div>
           <div class="flex items-center gap-3 pt-1">
             <button type="button" @click="editModal = false"
@@ -377,6 +415,15 @@
       </template>
     </div>
   </div>
+
+  <!-- Shared Global Employee Datalist -->
+  <datalist id="employeeList">
+    <% if (typeof employees !== 'undefined' && employees.length > 0) { %>
+      <% employees.forEach(function(emp) { %>
+        <option value="<%= emp.nama %>"><%= emp.nama %> &mdash; <%= emp.unitNama %></option>
+      <% }); %>
+    <% } %>
+  </datalist>
 
   <!-- =====================================================================
        MODAL: KONFIRMASI HAPUS
