@@ -168,14 +168,62 @@ export const ekinerjaController = {
         return res.redirect('/ekinerja');
       }
 
-      const fileHarianUrl = fileHarian
-        ? `data:${fileHarian.mimetype || 'application/pdf'};base64,${fileHarian.buffer.toString('base64')}`
-        : undefined;
-      const fileHarianName = fileHarian ? fileHarian.originalname : undefined;
-      const fileBulananUrl = fileBulanan
-        ? `data:${fileBulanan.mimetype || 'application/pdf'};base64,${fileBulanan.buffer.toString('base64')}`
-        : undefined;
-      const fileBulananName = fileBulanan ? fileBulanan.originalname : undefined;
+      // Fetch employee + unit info for filename generation
+      const employee = await prisma.employee.findUnique({
+        where: { id: employeeId },
+        include: { unit: true }
+      });
+
+      if (!employee) {
+        if ((req as any).session) {
+          (req as any).session.toast = { type: 'warning', message: 'Data pegawai tidak ditemukan.' };
+        }
+        return res.redirect('/ekinerja');
+      }
+
+      // Import storage helpers
+      const { uploadToStorage, generateEkinerjaFilename } = await import('../lib/supabase');
+      const folder = `${t}/${b < 10 ? '0' + b : b}`; // e.g. "2026/07"
+
+      let fileHarianUrl: string | undefined;
+      let fileHarianName: string | undefined;
+      let fileBulananUrl: string | undefined;
+      let fileBulananName: string | undefined;
+
+      if (fileHarian) {
+        const ext = fileHarian.originalname.includes('.') 
+          ? '.' + fileHarian.originalname.split('.').pop()!.toLowerCase() 
+          : '.pdf';
+        const autoName = generateEkinerjaFilename(b, t, employee.unit.namaUnit, employee.nama, 'Harian', ext);
+        
+        const result = await uploadToStorage('ekinerja', fileHarian.buffer, fileHarian.mimetype, folder, autoName);
+        if (result) {
+          fileHarianUrl = result.url;
+          fileHarianName = autoName;
+        } else {
+          // Fallback to Base64 if Supabase upload fails
+          console.warn('[Upload] Supabase upload failed, falling back to Base64 for fileHarian');
+          fileHarianUrl = `data:${fileHarian.mimetype};base64,${fileHarian.buffer.toString('base64')}`;
+          fileHarianName = fileHarian.originalname;
+        }
+      }
+
+      if (fileBulanan) {
+        const ext = fileBulanan.originalname.includes('.')
+          ? '.' + fileBulanan.originalname.split('.').pop()!.toLowerCase()
+          : '.pdf';
+        const autoName = generateEkinerjaFilename(b, t, employee.unit.namaUnit, employee.nama, 'Bulanan', ext);
+        
+        const result = await uploadToStorage('ekinerja', fileBulanan.buffer, fileBulanan.mimetype, folder, autoName);
+        if (result) {
+          fileBulananUrl = result.url;
+          fileBulananName = autoName;
+        } else {
+          console.warn('[Upload] Supabase upload failed, falling back to Base64 for fileBulanan');
+          fileBulananUrl = `data:${fileBulanan.mimetype};base64,${fileBulanan.buffer.toString('base64')}`;
+          fileBulananName = fileBulanan.originalname;
+        }
+      }
 
       await prisma.ekinerjaReport.upsert({
         where: {
@@ -227,3 +275,4 @@ export const ekinerjaController = {
     }
   }
 };
+

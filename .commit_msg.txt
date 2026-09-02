@@ -1,1 +1,8 @@
-fix: remove duplicate controller declaration and fix route order for export endpoints
+feat: migrate file upload to Supabase Storage with auto filename and fix unit-kerja partial
+
+- Fix unit-kerja.ejs: ganti partial scripts yang tidak ada dengan admin-footer yang benar
+- Tambah @supabase/supabase-js dependency
+- Buat src/lib/supabase.ts: client storage + helper generateEkinerjaFilename dan generateKlarifikasiFilename
+- Migrate ekinerjaController: upload PDF ke bucket supabase/ekinerja dengan nama otomatis format Bulan_UnitKerja_NamaPegawai_Harian/Bulanan
+- Migrate absensiController: upload klarifikasi ke bucket supabase/klarifikasi dengan nama otomatis Klarifikasi_NamaPegawai_Tanggal
+- Fallback ke Base64 jika Supabase upload gagal untuk resilience

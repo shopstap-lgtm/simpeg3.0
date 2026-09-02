@@ -419,10 +419,39 @@ export const absensiController = {
         return res.redirect('/absensi');
       }
 
-      const fileUrl = file
-        ? `data:${file.mimetype || 'application/pdf'};base64,${file.buffer.toString('base64')}`
-        : '/uploads/clarification_demo.pdf';
-      const fileName = file ? file.originalname : 'Surat_Keterangan.pdf';
+      let fileUrl = '/uploads/clarification_demo.pdf';
+      let fileName = 'Surat_Keterangan.pdf';
+
+      if (file) {
+        // Fetch employee name for auto-naming
+        const employee = await prisma.employee.findUnique({
+          where: { id: employeeId },
+          select: { nama: true }
+        });
+
+        const { uploadToStorage, generateKlarifikasiFilename } = await import('../lib/supabase');
+        const ext = file.originalname.includes('.')
+          ? '.' + file.originalname.split('.').pop()!.toLowerCase()
+          : '.pdf';
+        const autoName = generateKlarifikasiFilename(
+          employee?.nama || 'Pegawai',
+          tanggalAbsen,
+          ext
+        );
+        // Folder: klarifikasi/2026
+        const year = new Date().getFullYear().toString();
+        const result = await uploadToStorage('klarifikasi', file.buffer, file.mimetype, year, autoName);
+
+        if (result) {
+          fileUrl = result.url;
+          fileName = autoName;
+        } else {
+          // Fallback to Base64
+          console.warn('[Upload] Supabase upload failed, falling back to Base64 for klarifikasi');
+          fileUrl = `data:${file.mimetype || 'application/pdf'};base64,${file.buffer.toString('base64')}`;
+          fileName = file.originalname;
+        }
+      }
 
       await prisma.clarification.create({
         data: {
@@ -457,3 +486,4 @@ export const absensiController = {
     }
   }
 };
+
