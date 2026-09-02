@@ -24,10 +24,11 @@ export const pegawaiAdminController = {
       }
 
       if (search.trim() !== '') {
+        const q = search.trim();
         whereClause.OR = [
-          { nama: { contains: search } },
-          { nip: { contains: search } },
-          { jabatan: { contains: search } }
+          { nama: { contains: q, mode: 'insensitive' } },
+          { nip: { contains: q, mode: 'insensitive' } },
+          { jabatan: { contains: q, mode: 'insensitive' } }
         ];
       }
 

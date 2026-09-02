@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { holidayService } from '../services/holidayService';
 
 export const absensiController = {
   show: async (req: Request, res: Response) => {
@@ -82,6 +83,8 @@ export const absensiController = {
         let ctCount = 0;
         let totalEfektif = 0;
 
+        const holidaysMap = holidayService.getHolidaysForMonth(tahun, bulan);
+
         for (let day = 1; day <= 31; day++) {
           if (day > daysInMonth) {
             days.push({ tanggal: day, status: 'EMPTY', keterangan: null, clarificationStatus: null, clarificationNote: null });
@@ -91,6 +94,7 @@ export const absensiController = {
           const date = new Date(tahun, bulan - 1, day);
           const dayOfWeek = date.getDay();
           const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+          const nationalHoliday = holidayService.getHoliday(tahun, bulan, day);
 
           let status = 'EMPTY';
           let keterangan: string | null = null;
@@ -99,6 +103,9 @@ export const absensiController = {
             const existing = empDaysMap.get(day);
             status = existing.status;
             keterangan = existing.keterangan;
+          } else if (nationalHoliday) {
+            status = 'LIBUR';
+            keterangan = `Libur Nasional: ${nationalHoliday.name}`;
           } else if (isWeekend) {
             status = 'LIBUR';
             keterangan = 'Akhir Pekan';
@@ -129,7 +136,8 @@ export const absensiController = {
             }
           }
 
-          if (!isWeekend && status !== 'EMPTY') {
+          const isHolidayOrWeekend = isWeekend || nationalHoliday !== null;
+          if (!isHolidayOrWeekend && status !== 'EMPTY') {
             totalEfektif++;
             if (status === 'HADIR') hadirCount++;
             else if (status === 'TK') tkCount++;
@@ -216,6 +224,7 @@ export const absensiController = {
         daysInMonth,
         search,
         isDefaultPeriod,
+        holidays: Object.fromEntries(holidayService.getHolidaysForMonth(tahun, bulan)),
         isAdmin: (req as any).session?.user?.role === 'ADMIN' || (req as any).session?.user?.role === 'SUPERADMIN',
         pagination: {
           page,

@@ -97,11 +97,11 @@ export async function getDashboardStatsFromDB(unitId?: string, bulan: number = 7
   let terlambatHariIni = 0;
   let sakitCutiHariIni = 0;
   let tkHariIni = 0;
-  let avgKehadiran = 96;
+  let avgKehadiran = 0;
 
   if (period && employees.length > 0) {
     const empIds = employees.map(e => e.id);
-    const todayDay = new Date().getDate() || 26;
+    const todayDay = new Date().getDate();
 
     const days = await prisma.attendanceDay.findMany({
       where: {
@@ -131,12 +131,12 @@ export async function getDashboardStatsFromDB(unitId?: string, bulan: number = 7
   return {
     totalPegawai,
     persenKehadiran: avgKehadiran,
-    hadirHariIni: hadirHariIni || Math.round(totalPegawai * 0.85),
-    dlHariIni: dlHariIni || Math.round(totalPegawai * 0.08),
-    dlKuningHariIni: dlKuningHariIni || 0,
-    terlambatHariIni: terlambatHariIni || 0,
-    sakitCutiHariIni: sakitCutiHariIni || 0,
-    tkHariIni: tkHariIni || 0,
+    hadirHariIni,
+    dlHariIni,
+    dlKuningHariIni,
+    terlambatHariIni,
+    sakitCutiHariIni,
+    tkHariIni,
     statusBreakdown,
     unitStats: []
   };
