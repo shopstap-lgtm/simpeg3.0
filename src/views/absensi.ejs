@@ -38,10 +38,15 @@
         searchQuery: '<%= search %>',
         unitFilter: '<%= selectedUnit %>',
         fileName: '',
+        currentAllDays: [],
         pdfModal: false,
         pdfTitle: '',
         pdfUrl: '',
         pdfFileName: '',
+
+        isModalOpen() {
+          return this.klarifikasiModal || this.adminDirectModal || this.bulkDateModal || this.statusHistoryModal || this.rejectedInfoModal || this.pdfModal;
+        },
 
         viewPdf(title, url, fileName) {
           this.pdfTitle = title;
@@ -58,11 +63,14 @@
         },
 
         handleCellClick(emp, dayObj, allDays) {
+          this.selectedEmployee = emp;
+          this.selectedDay = dayObj.tanggal;
+          this.selectedDate = '<%= tahun %>-<%= String(bulan).padStart(2, '0') %>-' + String(dayObj.tanggal).padStart(2, '0');
+          this.currentStatus = dayObj.status;
+          this.currentAllDays = allDays;
+
           if (this.isAdmin) {
-            // ADMIN: Ubah Status Langsung
-            this.selectedEmployee = emp;
-            this.selectedDay = dayObj.tanggal;
-            this.selectedDate = '<%= tahun %>-<%= String(bulan).padStart(2, '0') %>-' + String(dayObj.tanggal).padStart(2, '0');
+            // ADMIN: Tampilkan modal aksi (bisa Ubah Langsung atau Form Klarifikasi)
             this.directTargetStatus = dayObj.status !== 'EMPTY' ? dayObj.status : 'HADIR';
             this.directKeterangan = dayObj.keterangan || '';
             this.adminDirectModal = true;
@@ -788,246 +796,380 @@
     <%- include('partials/pagination') %>
   </div>
 
-  <!-- ALPINE.JS MODAL 1: KLARIFIKASI ABSENSI (HANYA PILIH TANGGAL BERSTATUS TK / DL KUNING UNTUK PUBLIK) -->
-  <div x-show="klarifikasiModal" 
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       class="fixed inset-0 !m-0 !mt-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-       style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
-    
-    <div @click.away="klarifikasiModal = false"
-         class="bg-white rounded-3xl max-w-lg w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
+  <!-- ALPINE.JS MODAL 1: KLARIFIKASI ABSENSI (KOMPAK, RAPI, PAS VH) -->
+  <template x-teleport="body">
+    <div x-show="klarifikasiModal" 
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 !m-0 !mt-0 z-[9999] overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
       
-      <!-- Modal Header -->
-      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
-            <i data-lucide="file-text" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <h2 class="text-base sm:text-lg font-bold text-slate-900" x-text="isRentang ? 'Klarifikasi Tanggal Berurutan' : 'Form Klarifikasi Presensi'"></h2>
-            <p class="text-xs text-slate-500">Pilih tanggal berstatus TK / DL Kuning untuk diajukan</p>
-          </div>
-        </div>
-        <button @click="klarifikasiModal = false" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <!-- Modal Form -->
-      <template x-if="selectedEmployee">
-        <form action="/absensi/klarifikasi" method="POST" enctype="multipart/form-data" class="space-y-4">
-          <input type="hidden" name="employeeId" :value="selectedEmployee.id">
-          <input type="hidden" name="statusAwal" :value="currentStatus">
-          <input type="hidden" name="isRentang" :value="isRentang ? 'true' : 'false'">
-
-          <!-- Selected Employee Display Card (NIP Hidden) -->
-          <div class="p-3.5 rounded-2xl bg-indigo-50/80 border border-indigo-100 flex items-start gap-3">
-            <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
-              <i data-lucide="user-check" class="w-4 h-4"></i>
+      <div @click.away="klarifikasiModal = false"
+           class="bg-white rounded-3xl max-w-lg w-full shadow-2xl border border-slate-100 flex flex-col max-h-[90vh] overflow-hidden">
+        
+        <!-- Modal Header (Fixed top) -->
+        <div class="flex items-center justify-between px-5 py-3.5 sm:px-6 sm:py-4 border-b border-slate-100 shrink-0 bg-slate-50/60">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+              <i data-lucide="file-text" class="w-4 h-4 sm:w-5 sm:h-5"></i>
             </div>
-            <div class="flex-1 min-w-0">
-              <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-600 block">Pegawai Terpilih:</span>
-              <h3 class="font-bold text-sm text-slate-900 truncate" x-text="selectedEmployee.nama"></h3>
-              <p class="text-xs text-slate-500 mt-0.5" x-text="selectedEmployee.unitNama"></p>
-            </div>
-          </div>
-
-          <!-- Mode Toggle -->
-          <div class="flex items-center gap-4 text-xs font-semibold text-slate-700 bg-slate-50 p-2 rounded-xl border border-slate-100">
-            <label class="flex items-center gap-1.5 cursor-pointer">
-              <input type="radio" name="rentangToggle" :value="false" x-model="isRentang" class="text-indigo-600">
-              <span>Satu Tanggal</span>
-            </label>
-            <label class="flex items-center gap-1.5 cursor-pointer">
-              <input type="radio" name="rentangToggle" :value="true" x-model="isRentang" class="text-indigo-600">
-              <span>Rentang Tanggal Berurutan</span>
-            </label>
-          </div>
-
-          <!-- DATE SELECTOR: KHUSUS TANGGAL BERSTATUS TK / DL KUNING UNTUK PUBLIK -->
-          <template x-if="!isRentang">
             <div>
-              <label for="tanggalAbsenSelect" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-                Pilih Tanggal Presensi (TK / DL Kuning) *
-              </label>
-
-              <template x-if="!isAdmin">
-                <select name="tanggalAbsen" 
-                        id="tanggalAbsenSelect" 
-                        x-model="selectedDate" 
-                        @change="onDateSelected($event.target.value)" 
-                        required 
-                        class="form-select text-xs font-semibold">
-                  <template x-for="item in eligibleDays" :key="item.dateStr">
-                    <option :value="item.dateStr" x-text="item.label"></option>
-                  </template>
-                </select>
-              </template>
-
-              <template x-if="isAdmin">
-                <input type="date" name="tanggalAbsen" id="tanggalAbsenAdmin" x-model="selectedDate" required class="form-input text-xs">
-              </template>
+              <h2 class="text-sm sm:text-base font-bold text-slate-900 leading-tight" x-text="isRentang ? 'Klarifikasi Rentang Tanggal' : 'Form Klarifikasi Presensi'"></h2>
+              <p class="text-[11px] text-slate-500 mt-0.5">Pengajuan berkas bukti kehadiran pegawai</p>
             </div>
-          </template>
+          </div>
+          <button @click="klarifikasiModal = false" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
+            <i data-lucide="x" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+          </button>
+        </div>
 
-          <template x-if="isRentang">
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label for="tanggalMulaiSelect" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Tanggal Mulai *</label>
-                <template x-if="!isAdmin">
-                  <select name="tanggalMulai" id="tanggalMulaiSelect" x-model="tanggalMulai" required class="form-select text-xs font-semibold">
-                    <template x-for="item in eligibleDays" :key="'start-' + item.dateStr">
-                      <option :value="item.dateStr" x-text="item.label"></option>
-                    </template>
-                  </select>
-                </template>
-                <template x-if="isAdmin">
-                  <input type="date" name="tanggalMulai" id="tanggalMulaiAdmin" x-model="tanggalMulai" required class="form-input text-xs">
-                </template>
+        <!-- Modal Form (Scrollable body) -->
+        <template x-if="selectedEmployee">
+          <form action="/absensi/klarifikasi" method="POST" enctype="multipart/form-data" class="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <input type="hidden" name="employeeId" :value="selectedEmployee.id">
+            <input type="hidden" name="statusAwal" :value="currentStatus">
+            <input type="hidden" name="isRentang" :value="isRentang ? 'true' : 'false'">
+
+            <div class="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-3.5">
+              
+              <!-- Pegawai & Mode Toggle (Compact Box) -->
+              <div class="p-3 rounded-2xl bg-indigo-50/70 border border-indigo-100 flex items-center justify-between gap-3">
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-1.5">
+                    <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-600">Pegawai:</span>
+                    <span class="text-xs font-bold text-slate-900 truncate" x-text="selectedEmployee.nama"></span>
+                  </div>
+                  <p class="text-[11px] text-slate-500 truncate mt-0.5" x-text="selectedEmployee.unitNama"></p>
+                </div>
+
+                <!-- Mode Toggle Pills -->
+                <div class="inline-flex p-0.5 rounded-xl bg-white border border-indigo-100 text-[10.5px] shrink-0 font-medium shadow-2xs">
+                  <button type="button" @click="isRentang = false" 
+                          :class="!isRentang ? 'bg-indigo-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'" 
+                          class="px-2.5 py-1 rounded-lg transition-all">
+                    1 Tanggal
+                  </button>
+                  <button type="button" @click="isRentang = true" 
+                          :class="isRentang ? 'bg-indigo-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'" 
+                          class="px-2.5 py-1 rounded-lg transition-all">
+                    Rentang
+                  </button>
+                </div>
               </div>
 
-              <div>
-                <label for="tanggalSelesaiSelect" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Tanggal Selesai *</label>
-                <template x-if="!isAdmin">
-                  <select name="tanggalSelesai" id="tanggalSelesaiSelect" x-model="tanggalSelesai" required class="form-select text-xs font-semibold">
-                    <template x-for="item in eligibleDays" :key="'end-' + item.dateStr">
-                      <option :value="item.dateStr" x-text="item.label"></option>
+              <!-- Tanggal & Status Seharusnya (2 Kolom di Layar sm+) -->
+              <template x-if="!isRentang">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label for="tanggalAbsenSelect" class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                      Pilih Tanggal Presensi *
+                    </label>
+                    <template x-if="!isAdmin">
+                      <select name="tanggalAbsen" 
+                              id="tanggalAbsenSelect" 
+                              x-model="selectedDate" 
+                              @change="onDateSelected($event.target.value)" 
+                              required 
+                              class="form-select text-xs font-semibold py-2">
+                        <template x-for="item in eligibleDays" :key="item.dateStr">
+                          <option :value="item.dateStr" x-text="item.label"></option>
+                        </template>
+                      </select>
                     </template>
-                  </select>
-                </template>
-                <template x-if="isAdmin">
-                  <input type="date" name="tanggalSelesai" id="tanggalSelesaiAdmin" x-model="tanggalSelesai" required class="form-input text-xs">
-                </template>
+                    <template x-if="isAdmin">
+                      <input type="date" name="tanggalAbsen" id="tanggalAbsenAdmin" x-model="selectedDate" required class="form-input text-xs py-2">
+                    </template>
+                  </div>
+
+                  <div>
+                    <label for="statusPengganti" class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                      Status Seharusnya *
+                    </label>
+                    <template x-if="!isAdmin">
+                      <select name="statusPengganti" id="statusPenggantiPublik" x-model="selectedStatus" class="form-select text-xs font-semibold py-2">
+                        <option value="DL">Dinas Luar Sesuai (DL)</option>
+                        <option value="ST">Sakit (ST)</option>
+                        <option value="CT">Cuti (CT)</option>
+                      </select>
+                    </template>
+                    <template x-if="isAdmin">
+                      <select name="statusPengganti" id="statusPenggantiAdmin" x-model="selectedStatus" class="form-select text-xs font-semibold py-2">
+                        <option value="HADIR">Hadir (H)</option>
+                        <option value="DL">Dinas Luar Sesuai (DL)</option>
+                        <option value="DL_KUNING">Dinas Luar Belum Sesuai (DL Kuning)</option>
+                        <option value="TL">Terlambat (TL)</option>
+                        <option value="PC">Pulang Cepat (PC)</option>
+                        <option value="ST">Sakit (ST)</option>
+                        <option value="CT">Cuti (CT)</option>
+                        <option value="TK">Tanpa Keterangan (TK)</option>
+                      </select>
+                    </template>
+                  </div>
+                </div>
+              </template>
+
+              <!-- If Rentang: Tanggal Mulai & Tanggal Selesai -->
+              <template x-if="isRentang">
+                <div class="space-y-3">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label for="tanggalMulaiSelect" class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">Tanggal Mulai *</label>
+                      <template x-if="!isAdmin">
+                        <select name="tanggalMulai" id="tanggalMulaiSelect" x-model="tanggalMulai" required class="form-select text-xs font-semibold py-2">
+                          <template x-for="item in eligibleDays" :key="'start-' + item.dateStr">
+                            <option :value="item.dateStr" x-text="item.label"></option>
+                          </template>
+                        </select>
+                      </template>
+                      <template x-if="isAdmin">
+                        <input type="date" name="tanggalMulai" id="tanggalMulaiAdmin" x-model="tanggalMulai" required class="form-input text-xs py-2">
+                      </template>
+                    </div>
+
+                    <div>
+                      <label for="tanggalSelesaiSelect" class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">Tanggal Selesai *</label>
+                      <template x-if="!isAdmin">
+                        <select name="tanggalSelesai" id="tanggalSelesaiSelect" x-model="tanggalSelesai" required class="form-select text-xs font-semibold py-2">
+                          <template x-for="item in eligibleDays" :key="'end-' + item.dateStr">
+                            <option :value="item.dateStr" x-text="item.label"></option>
+                          </template>
+                        </select>
+                      </template>
+                      <template x-if="isAdmin">
+                        <input type="date" name="tanggalSelesai" id="tanggalSelesaiAdmin" x-model="tanggalSelesai" required class="form-input text-xs py-2">
+                      </template>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label for="statusPenggantiRentang" class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                      Status Seharusnya (Seluruh Rentang) *
+                    </label>
+                    <template x-if="!isAdmin">
+                      <select name="statusPengganti" id="statusPenggantiRentang" x-model="selectedStatus" class="form-select text-xs font-semibold py-2">
+                        <option value="DL">Dinas Luar Sesuai (DL)</option>
+                        <option value="ST">Sakit (ST)</option>
+                        <option value="CT">Cuti (CT)</option>
+                      </select>
+                    </template>
+                    <template x-if="isAdmin">
+                      <select name="statusPengganti" id="statusPenggantiRentangAdmin" x-model="selectedStatus" class="form-select text-xs font-semibold py-2">
+                        <option value="HADIR">Hadir (H)</option>
+                        <option value="DL">Dinas Luar Sesuai (DL)</option>
+                        <option value="DL_KUNING">Dinas Luar Belum Sesuai (DL Kuning)</option>
+                        <option value="TL">Terlambat (TL)</option>
+                        <option value="PC">Pulang Cepat (PC)</option>
+                        <option value="ST">Sakit (ST)</option>
+                        <option value="CT">Cuti (CT)</option>
+                        <option value="TK">Tanpa Keterangan (TK)</option>
+                      </select>
+                    </template>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Alasan Klarifikasi -->
+              <div>
+                <label for="alasan" class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">Alasan Klarifikasi *</label>
+                <textarea name="alasan" 
+                          id="alasan" 
+                          rows="2" 
+                          required 
+                          placeholder="Contoh: Mengikuti dinas luar / Surat tugas nomor 800/123/Disdik..." 
+                          class="form-input text-xs py-2"></textarea>
               </div>
+
+              <!-- Upload PDF File Proof (Compact Bar) -->
+              <div>
+                <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                  Upload Bukti Surat / Keterangan (PDF) *
+                </label>
+                <div class="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-2xl p-2.5 sm:p-3 text-center cursor-pointer transition-colors bg-slate-50 relative flex items-center justify-center gap-3">
+                  <input type="file" 
+                         name="file" 
+                         id="fileProof" 
+                         accept=".pdf" 
+                         required
+                         @change="fileName = $event.target.files[0] ? $event.target.files[0].name : ''"
+                         class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                  <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                    <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                  </div>
+                  <div class="text-left min-w-0">
+                    <p class="text-xs font-semibold text-slate-700 truncate" x-text="fileName ? fileName : 'Pilih Berkas PDF (Maks 10MB)'"></p>
+                    <p class="text-[10.5px] text-slate-400">Surat Tugas / Surat Dokter / SK Cuti</p>
+                  </div>
+                </div>
+              </div>
+
             </div>
-          </template>
 
-          <!-- Status Seharusnya Dropdown (PUBLIK: Hanya DL, ST, CT; ADMIN: Semua) -->
-          <div>
-            <label for="statusPengganti" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-              Status Seharusnya *
-            </label>
-            
-            <template x-if="!isAdmin">
-              <select name="statusPengganti" id="statusPenggantiPublik" x-model="selectedStatus" class="form-select text-xs font-semibold">
-                <option value="DL">Dinas Luar Sesuai (DL)</option>
-                <option value="ST">Sakit (ST)</option>
-                <option value="CT">Cuti (CT)</option>
-              </select>
-            </template>
+            <!-- Modal Actions (Fixed bottom) -->
+            <div class="px-5 py-3 sm:px-6 sm:py-3.5 border-t border-slate-100 bg-slate-50/60 flex items-center justify-end gap-2.5 shrink-0">
+              <button type="button" @click="klarifikasiModal = false" class="btn-secondary py-2 px-4 text-xs">
+                Batal
+              </button>
+              <button type="submit" class="btn-primary py-2 px-5 text-xs gap-2">
+                <i data-lucide="send" class="w-4 h-4"></i>
+                <span>Kirim Klarifikasi</span>
+              </button>
+            </div>
 
-            <template x-if="isAdmin">
-              <select name="statusPengganti" id="statusPenggantiAdmin" x-model="selectedStatus" class="form-select text-xs font-semibold">
+          </form>
+        </template>
+
+      </div>
+    </div>
+  </template>
+
+  <!-- ALPINE.JS MODAL 2: ADMIN UBAH STATUS LANGSUNG / KLARIFIKASI -->
+  <template x-teleport="body">
+    <div x-show="adminDirectModal" 
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 !m-0 !mt-0 z-[9999] overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4"
+         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
+      
+      <div @click.away="adminDirectModal = false"
+           class="bg-white rounded-3xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-slate-100 space-y-4">
+        
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">
+              <i data-lucide="shield-check" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <h2 class="text-sm sm:text-base font-bold text-slate-900">Tindakan Presensi Admin</h2>
+              <p class="text-[11px] text-slate-500">Pilih ubah langsung atau ajukan klarifikasi</p>
+            </div>
+          </div>
+          <button @click="adminDirectModal = false" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
+            <i data-lucide="x" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+        <!-- Mode Tab Switcher: Ubah Langsung vs Ajukan Klarifikasi Berkas -->
+        <div class="grid grid-cols-2 gap-1 p-1 bg-slate-100 rounded-2xl border border-slate-200 text-xs">
+          <button type="button" 
+                  class="py-2 px-2.5 rounded-xl font-bold bg-white text-indigo-700 shadow-2xs flex items-center justify-center gap-1.5 transition-all">
+            <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-500"></i>
+            <span>Ubah Langsung</span>
+          </button>
+          <button type="button" 
+                  @click="adminDirectModal = false; openKlarifikasiWithDays(selectedEmployee, currentAllDays, selectedDate, directTargetStatus, false)" 
+                  class="py-2 px-2.5 rounded-xl font-medium text-slate-600 hover:text-indigo-700 hover:bg-white/60 transition-all flex items-center justify-center gap-1.5">
+            <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-500"></i>
+            <span>Form Klarifikasi</span>
+          </button>
+        </div>
+
+        <template x-if="selectedEmployee">
+          <form action="/absensi/direct-update" method="POST" class="space-y-3.5">
+            <input type="hidden" name="employeeId" :value="selectedEmployee.id">
+            <input type="hidden" name="tahun" value="<%= tahun %>">
+            <input type="hidden" name="bulan" value="<%= bulan %>">
+            <input type="hidden" name="tanggal" :value="selectedDay">
+
+            <div class="p-3 rounded-2xl bg-indigo-50/80 border border-indigo-100 text-xs">
+              <p class="font-bold text-slate-900" x-text="selectedEmployee.nama"></p>
+              <p class="text-slate-500 mt-0.5" x-text="selectedEmployee.unitNama + ' • Tanggal ' + selectedDay + '/' + '<%= bulan %>' + '/' + '<%= tahun %>'"></p>
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">Pilih Status Baru *</label>
+              <select name="status" x-model="directTargetStatus" class="form-select text-xs font-bold py-2">
                 <option value="HADIR">Hadir (H)</option>
+                <option value="LIBUR">Libur / Akhir Pekan (L)</option>
+                <option value="TK">Tanpa Keterangan (TK)</option>
                 <option value="DL">Dinas Luar Sesuai (DL)</option>
                 <option value="DL_KUNING">Dinas Luar Belum Sesuai (DL Kuning)</option>
                 <option value="TL">Terlambat (TL)</option>
                 <option value="PC">Pulang Cepat (PC)</option>
                 <option value="ST">Sakit (ST)</option>
                 <option value="CT">Cuti (CT)</option>
-                <option value="TK">Tanpa Keterangan (TK)</option>
+                <option value="EMPTY">🗑️ Kosongkan / Hapus Record (Status Kembali Kosong)</option>
               </select>
-            </template>
-          </div>
+            </div>
 
-          <!-- Alasan Klarifikasi -->
-          <div>
-            <label for="alasan" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Alasan Klarifikasi *</label>
-            <textarea name="alasan" 
-                      id="alasan" 
-                      rows="3" 
-                      required 
-                      placeholder="Contoh: Mengikuti kegiatan pelatihan dinas luar / Surat tugas nomor 800/123/Disdik..." 
-                      class="form-input text-xs"></textarea>
-          </div>
+            <div>
+              <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">Keterangan Tambahan</label>
+              <input type="text" name="keterangan" x-model="directKeterangan" placeholder="Contoh: Izin lisan / Penugasan khusus" class="form-input text-xs py-2">
+            </div>
 
-          <!-- Upload PDF File Proof -->
-          <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Upload Surat Tugas / Bukti Dokter / SK Cuti (PDF) *</label>
-            <div class="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-2xl p-4 text-center cursor-pointer transition-colors bg-slate-50 relative">
-              <input type="file" 
-                     name="file" 
-                     id="fileProof" 
-                     accept=".pdf" 
-                     required
-                     @change="fileName = $event.target.files[0] ? $event.target.files[0].name : ''"
-                     class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-              <div class="space-y-1">
-                <i data-lucide="upload-cloud" class="w-7 h-7 mx-auto text-indigo-500"></i>
-                <p class="text-xs font-semibold text-slate-700 truncate max-w-xs mx-auto" x-text="fileName ? fileName : 'Klik atau seret file PDF ke sini'"></p>
-                <p class="text-[10px] text-slate-400">Format: PDF (Maksimal 10MB)</p>
-              </div>
+            <div class="pt-2 border-t border-slate-100 flex items-center justify-end gap-2.5">
+              <button type="button" @click="adminDirectModal = false" class="btn-secondary py-2 px-3.5 text-xs">
+                Batal
+              </button>
+              <button type="submit" class="btn-primary py-2 px-4 text-xs gap-1.5">
+                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                <span>Simpan Perubahan</span>
+              </button>
+            </div>
+          </form>
+        </template>
+
+      </div>
+    </div>
+  </template>
+
+  <!-- ALPINE.JS MODAL 2B: SUPER ADMIN / ADMIN DINAS UBAH STATUS MASSAL PER TANGGAL (VERTIKAL) -->
+  <template x-teleport="body">
+    <div x-show="bulkDateModal" 
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 !m-0 !mt-0 z-[9999] overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4"
+         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
+      
+      <div @click.away="bulkDateModal = false"
+           class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
+        
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center font-bold">
+              <i data-lucide="layers" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-base sm:text-lg font-bold text-slate-900">Ubah Status Vertikal Tanggal</h2>
+              <p class="text-xs text-slate-500">Terapkan status presensi untuk seluruh pegawai di tanggal ini</p>
             </div>
           </div>
-
-          <!-- Modal Actions -->
-          <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
-            <button type="button" @click="klarifikasiModal = false" class="btn-secondary py-2.5 px-4 text-xs">
-              Batal
-            </button>
-            <button type="submit" class="btn-primary py-2.5 px-5 text-xs gap-2">
-              <i data-lucide="send" class="w-4 h-4"></i>
-              <span>Kirim Klarifikasi</span>
-            </button>
-          </div>
-
-        </form>
-      </template>
-
-    </div>
-  </div>
-
-  <!-- ALPINE.JS MODAL 2: ADMIN UBAH STATUS LANGSUNG -->
-  <div x-show="adminDirectModal" 
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       class="fixed inset-0 !m-0 !mt-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-       style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
-    
-    <div @click.away="adminDirectModal = false"
-         class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
-      
-      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold">
-            <i data-lucide="edit-3" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <h2 class="text-base sm:text-lg font-bold text-slate-900">Ubah Status Langsung</h2>
-            <p class="text-xs text-slate-500">Perbarui data presensi tanpa antrean klarifikasi</p>
-          </div>
+          <button @click="bulkDateModal = false" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
         </div>
-        <button @click="adminDirectModal = false" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
 
-      <template x-if="selectedEmployee">
-        <form action="/absensi/direct-update" method="POST" class="space-y-4">
-          <input type="hidden" name="employeeId" :value="selectedEmployee.id">
+        <form action="/absensi/bulk-date-update" method="POST" class="space-y-4">
           <input type="hidden" name="tahun" value="<%= tahun %>">
           <input type="hidden" name="bulan" value="<%= bulan %>">
-          <input type="hidden" name="tanggal" :value="selectedDay">
+          <input type="hidden" name="tanggal" :value="bulkTargetDay">
 
-          <div class="p-3 rounded-2xl bg-indigo-50/80 border border-indigo-100 text-xs">
-            <p class="font-bold text-slate-900" x-text="selectedEmployee.nama"></p>
-            <p class="text-slate-500 mt-0.5" x-text="selectedEmployee.unitNama + ' • Tanggal ' + selectedDay + '/' + '<%= bulan %>' + '/' + '<%= tahun %>'"></p>
+          <div class="p-3.5 rounded-2xl bg-violet-50/80 border border-violet-100 text-xs">
+            <p class="font-bold text-violet-950 flex items-center gap-1.5">
+              <i data-lucide="calendar" class="w-4 h-4 text-violet-600"></i>
+              <span x-text="'Target Tanggal: ' + bulkTargetDay + ' ' + '<%= ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'][bulan - 1] %>' + ' <%= tahun %>'"></span>
+            </p>
+            <p class="text-violet-700 text-[11px] mt-1">
+              Status yang dipilih akan diterapkan secara vertikal ke <strong>seluruh pegawai aktif</strong> di periode ini.
+            </p>
           </div>
 
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Pilih Status Baru *</label>
-            <select name="status" x-model="directTargetStatus" class="form-select text-xs font-bold">
+            <select name="status" x-model="bulkTargetStatus" class="form-select text-xs font-bold">
               <option value="HADIR">Hadir (H)</option>
-              <option value="LIBUR">Libur / Akhir Pekan (L)</option>
+              <option value="LIBUR">Libur / Hari Libur Nasional (L)</option>
               <option value="TK">Tanpa Keterangan (TK)</option>
               <option value="DL">Dinas Luar Sesuai (DL)</option>
               <option value="DL_KUNING">Dinas Luar Belum Sesuai (DL Kuning)</option>
@@ -1035,304 +1177,231 @@
               <option value="PC">Pulang Cepat (PC)</option>
               <option value="ST">Sakit (ST)</option>
               <option value="CT">Cuti (CT)</option>
-              <option value="EMPTY">🗑️ Kosongkan / Hapus Record (Status Kembali Kosong)</option>
+              <option value="EMPTY">🗑️ Kosongkan / Hapus Record (Kembali Kosong)</option>
             </select>
           </div>
 
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Keterangan Tambahan</label>
-            <input type="text" name="keterangan" x-model="directKeterangan" placeholder="Contoh: Izin lisan / Penugasan khusus" class="form-input text-xs">
+            <input type="text" name="keterangan" x-model="bulkKeterangan" placeholder="Contoh: Libur Nasional / Upacara Bendera / Penugasan Wilayah" class="form-input text-xs">
+          </div>
+
+          <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-start gap-2">
+            <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 mt-0.5 text-amber-600"></i>
+            <span>Perubahan ini akan memperbarui baris presensi semua pegawai pada tanggal yang dipilih secara serentak.</span>
           </div>
 
           <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
-            <button type="button" @click="adminDirectModal = false" class="btn-secondary py-2.5 px-4 text-xs">
+            <button type="button" @click="bulkDateModal = false" class="btn-secondary py-2.5 px-4 text-xs">
               Batal
             </button>
-            <button type="submit" class="btn-primary py-2.5 px-5 text-xs gap-2">
-              <i data-lucide="check" class="w-4 h-4"></i>
-              <span>Simpan Perubahan Langsung</span>
+            <button type="submit" class="btn-primary py-2.5 px-5 text-xs gap-2 bg-violet-600 hover:bg-violet-700">
+              <i data-lucide="check-check" class="w-4 h-4"></i>
+              <span>Terapkan ke Semua Pegawai</span>
             </button>
           </div>
         </form>
-      </template>
 
-    </div>
-  </div>
-
-  <!-- ALPINE.JS MODAL 2B: SUPER ADMIN / ADMIN DINAS UBAH STATUS MASSAL PER TANGGAL (VERTIKAL) -->
-  <div x-show="bulkDateModal" 
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       class="fixed inset-0 !m-0 !mt-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-       style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
-    
-    <div @click.away="bulkDateModal = false"
-         class="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-5">
-      
-      <div class="flex items-center justify-between pb-4 border-b border-slate-100">
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-violet-600 text-white flex items-center justify-center font-bold">
-            <i data-lucide="layers" class="w-5 h-5"></i>
-          </div>
-          <div>
-            <h2 class="text-base sm:text-lg font-bold text-slate-900">Ubah Status Vertikal Tanggal</h2>
-            <p class="text-xs text-slate-500">Terapkan status presensi untuk seluruh pegawai di tanggal ini</p>
-          </div>
-        </div>
-        <button @click="bulkDateModal = false" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
       </div>
-
-      <form action="/absensi/bulk-date-update" method="POST" class="space-y-4">
-        <input type="hidden" name="tahun" value="<%= tahun %>">
-        <input type="hidden" name="bulan" value="<%= bulan %>">
-        <input type="hidden" name="tanggal" :value="bulkTargetDay">
-
-        <div class="p-3.5 rounded-2xl bg-violet-50/80 border border-violet-100 text-xs">
-          <p class="font-bold text-violet-950 flex items-center gap-1.5">
-            <i data-lucide="calendar" class="w-4 h-4 text-violet-600"></i>
-            <span x-text="'Target Tanggal: ' + bulkTargetDay + ' ' + '<%= ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'][bulan - 1] %>' + ' <%= tahun %>'"></span>
-          </p>
-          <p class="text-violet-700 text-[11px] mt-1">
-            Status yang dipilih akan diterapkan secara vertikal ke <strong>seluruh pegawai aktif</strong> di periode ini.
-          </p>
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Pilih Status Baru *</label>
-          <select name="status" x-model="bulkTargetStatus" class="form-select text-xs font-bold">
-            <option value="HADIR">Hadir (H)</option>
-            <option value="LIBUR">Libur / Hari Libur Nasional (L)</option>
-            <option value="TK">Tanpa Keterangan (TK)</option>
-            <option value="DL">Dinas Luar Sesuai (DL)</option>
-            <option value="DL_KUNING">Dinas Luar Belum Sesuai (DL Kuning)</option>
-            <option value="TL">Terlambat (TL)</option>
-            <option value="PC">Pulang Cepat (PC)</option>
-            <option value="ST">Sakit (ST)</option>
-            <option value="CT">Cuti (CT)</option>
-            <option value="EMPTY">🗑️ Kosongkan / Hapus Record (Kembali Kosong)</option>
-          </select>
-        </div>
-
-        <div>
-          <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Keterangan Tambahan</label>
-          <input type="text" name="keterangan" x-model="bulkKeterangan" placeholder="Contoh: Libur Nasional / Upacara Bendera / Penugasan Wilayah" class="form-input text-xs">
-        </div>
-
-        <div class="p-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-[11px] flex items-start gap-2">
-          <i data-lucide="alert-triangle" class="w-4 h-4 shrink-0 mt-0.5 text-amber-600"></i>
-          <span>Perubahan ini akan memperbarui baris presensi semua pegawai pada tanggal yang dipilih secara serentak.</span>
-        </div>
-
-        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
-          <button type="button" @click="bulkDateModal = false" class="btn-secondary py-2.5 px-4 text-xs">
-            Batal
-          </button>
-          <button type="submit" class="btn-primary py-2.5 px-5 text-xs gap-2 bg-violet-600 hover:bg-violet-700">
-            <i data-lucide="check-check" class="w-4 h-4"></i>
-            <span>Terapkan ke Semua Pegawai</span>
-          </button>
-        </div>
-      </form>
-
     </div>
-  </div>
+  </template>
 
   <!-- ALPINE.JS MODAL 3: STATUS & CATATAN KLARIFIKASI DITOLAK -->
-  <div x-show="rejectedInfoModal" 
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       class="fixed inset-0 !m-0 !mt-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-       style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
-    
-    <div @click.away="rejectedInfoModal = false"
-         class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+  <template x-teleport="body">
+    <div x-show="rejectedInfoModal" 
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 !m-0 !mt-0 z-[9999] overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4"
+         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
       
-      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-        <div class="flex items-center gap-2.5 text-rose-600">
-          <i data-lucide="alert-octagon" class="w-5 h-5"></i>
-          <h3 class="font-bold text-base text-slate-900">Klarifikasi Presensi Ditolak</h3>
-        </div>
-        <button @click="rejectedInfoModal = false" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <div class="p-3.5 rounded-2xl bg-rose-50 border border-rose-200/80 text-xs space-y-2">
-        <div class="flex items-center justify-between font-bold text-slate-800">
-          <span x-text="rejectedEmployeeName"></span>
-          <span class="text-rose-700" x-text="'Tgl: ' + rejectedDate"></span>
-        </div>
-        <div class="pt-2 border-t border-rose-200/60 text-slate-700">
-          <span class="font-bold text-rose-800 uppercase tracking-wider text-[10px] block">Alasan Penolakan Admin:</span>
-          <p class="mt-1 text-slate-800 leading-relaxed font-medium bg-white p-2.5 rounded-xl border border-rose-200" x-text="rejectedReason"></p>
-        </div>
-      </div>
-
-      <p class="text-[11px] text-slate-500">
-        Silakan perbaiki berkas bukti sesuai catatan di atas dan ajukan klarifikasi ulang.
-      </p>
-
-      <div class="pt-2 flex justify-end">
-        <button type="button" @click="rejectedInfoModal = false" class="btn-primary py-2 px-4 text-xs">
-          Mengerti
-        </button>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- ALPINE.JS MODAL 4: DAFTAR STATUS KLARIFIKASI SAYA -->
-  <div x-show="statusHistoryModal" 
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       class="fixed inset-0 !m-0 !mt-0 z-[100] overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4"
-       style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
-    
-    <div @click.away="statusHistoryModal = false"
-         class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-4">
-      
-      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-        <div class="flex items-center gap-2.5">
-          <i data-lucide="list-checks" class="w-5 h-5 text-indigo-600"></i>
-          <h3 class="font-bold text-base text-slate-900">Daftar Status Pengajuan Klarifikasi</h3>
-        </div>
-        <button @click="statusHistoryModal = false" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
-      </div>
-
-      <div class="max-h-96 overflow-y-auto space-y-3 custom-scrollbar pr-1">
-        <% 
-          const allClars = typeof clarifications !== 'undefined' ? clarifications : [];
-        %>
-        <% if (allClars.length === 0) { %>
-          <div class="p-8 text-center text-slate-400">
-            <p>Belum ada pengajuan klarifikasi.</p>
+      <div @click.away="rejectedInfoModal = false"
+           class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+        
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2.5 text-rose-600">
+            <i data-lucide="alert-octagon" class="w-5 h-5"></i>
+            <h3 class="font-bold text-base text-slate-900">Klarifikasi Presensi Ditolak</h3>
           </div>
-        <% } %>
-
-        <% allClars.forEach(function(c) { %>
-          <div class="p-3.5 rounded-2xl border <%= c.statusVerifikasi === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200' : c.statusVerifikasi === 'REJECTED' ? 'bg-rose-50/50 border-rose-200' : 'bg-amber-50/50 border-amber-200' %> text-xs space-y-2">
-            <div class="flex items-start justify-between gap-2">
-              <div>
-                <p class="font-bold text-slate-900"><%= c.employeeName %></p>
-                <p class="text-slate-500 text-[11px]"><%= c.tanggalAbsen %> • Status: <%= c.statusAwal %> &rarr; <b><%= c.statusPengganti %></b></p>
-              </div>
-              <span class="px-2.5 py-1 rounded-full text-[10px] font-bold <%= c.statusVerifikasi === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : c.statusVerifikasi === 'REJECTED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800' %>">
-                <%= c.statusVerifikasi === 'APPROVED' ? 'Disetujui' : c.statusVerifikasi === 'REJECTED' ? 'Ditolak' : 'Sedang Review' %>
-              </span>
-            </div>
-
-            <!-- Bukti Dokumen PDF Link -->
-            <% if (c.fileUrl) { %>
-              <div class="pt-1.5 flex items-center justify-between border-t border-slate-200/60">
-                <span class="text-slate-500 text-[11px] font-medium">Surat Bukti / Tugas:</span>
-                <button type="button" @click="viewPdf('Bukti Surat Tugas - ' + '<%= c.employeeName %>', '<%= c.fileUrl %>', '<%= c.fileName %>')" class="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline">
-                  <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
-                  <span class="truncate max-w-[200px]"><%= c.fileName || 'Lihat Dokumen PDF' %></span>
-                </button>
-              </div>
-            <% } %>
-
-            <% if (c.statusVerifikasi === 'REJECTED' && c.catatanAdmin) { %>
-              <div class="p-2 rounded-xl bg-white border border-rose-200 text-rose-900">
-                <span class="font-bold text-[10px] block uppercase">Alasan Penolakan Admin:</span>
-                <p class="mt-0.5 text-[11px]"><%= c.catatanAdmin %></p>
-              </div>
-            <% } %>
-
-            <% if (c.statusVerifikasi === 'APPROVED' && c.catatanAdmin) { %>
-              <div class="p-2 rounded-xl bg-white border border-emerald-200 text-emerald-900">
-                <span class="font-bold text-[10px] block uppercase">Catatan Admin:</span>
-                <p class="mt-0.5 text-[11px]"><%= c.catatanAdmin %></p>
-              </div>
-            <% } %>
-          </div>
-        <% }); %>
-      </div>
-
-      <div class="pt-2 flex justify-end">
-        <button type="button" @click="statusHistoryModal = false" class="btn-secondary py-2 px-4 text-xs">
-          Tutup
-        </button>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- ALPINE.JS MODAL 5: PDF PREVIEW VIEWER MODAL -->
-  <div x-show="pdfModal" 
-       x-transition:enter="transition ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition ease-in duration-150"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       class="fixed inset-0 !m-0 !mt-0 z-[100] overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
-       style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
-    
-    <div @click.away="pdfModal = false"
-         class="bg-white rounded-3xl max-w-5xl w-full p-5 sm:p-6 shadow-2xl border border-slate-100 space-y-4 flex flex-col max-h-[96vh]">
-      
-      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
-        <div class="flex items-center gap-2.5 min-w-0 pr-4">
-          <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-            <i data-lucide="file-text" class="w-5 h-5"></i>
-          </div>
-          <div class="min-w-0">
-            <h3 class="font-bold text-sm sm:text-base text-slate-900 truncate" x-text="pdfTitle"></h3>
-            <p class="text-[11px] text-slate-400">Dokumen Bukti Surat Keterangan / Surat Tugas</p>
-          </div>
-        </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <a :href="pdfUrl" :download="pdfFileName || 'bukti-absensi.pdf'" class="btn-primary py-1.5 px-3 text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs" title="Unduh Berkas PDF Langsung">
-            <i data-lucide="download" class="w-3.5 h-3.5"></i>
-            <span class="hidden sm:inline">Download</span>
-          </a>
-          <a :href="pdfUrl" target="_blank" class="btn-secondary py-1.5 px-3 text-xs gap-1.5 text-slate-700 hover:text-slate-900" title="Buka Dokumen di Tab Baru Penuh">
-            <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
-            <span class="hidden sm:inline">Tab Baru</span>
-          </a>
-          <button @click="pdfModal = false" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
+          <button @click="rejectedInfoModal = false" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
             <i data-lucide="x" class="w-5 h-5"></i>
           </button>
         </div>
-      </div>
 
-      <!-- Inline PDF Viewer Container -->
-      <div class="flex-1 w-full bg-slate-100 rounded-2xl overflow-hidden min-h-[72vh] h-[75vh] border border-slate-200">
-        <iframe :src="pdfUrl ? (pdfUrl.includes('#') ? pdfUrl : pdfUrl + '#toolbar=1&navpanes=0&view=FitH') : ''" class="w-full h-full min-h-[72vh] rounded-2xl border-0" allowfullscreen></iframe>
-      </div>
-
-      <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-        <div class="flex items-center gap-2">
-          <a :href="pdfUrl" :download="pdfFileName || 'bukti-absensi.pdf'" class="text-indigo-600 hover:underline font-semibold flex items-center gap-1 sm:hidden">
-            <i data-lucide="download" class="w-3.5 h-3.5"></i>
-            <span>Download PDF</span>
-          </a>
-          <span class="hidden sm:inline text-slate-400">Gunakan tombol Tab Baru jika ingin melihat layar penuh.</span>
+        <div class="p-3.5 rounded-2xl bg-rose-50 border border-rose-200/80 text-xs space-y-2">
+          <div class="flex items-center justify-between font-bold text-slate-800">
+            <span x-text="rejectedEmployeeName"></span>
+            <span class="text-rose-700" x-text="'Tgl: ' + rejectedDate"></span>
+          </div>
+          <div class="pt-2 border-t border-rose-200/60 text-slate-700">
+            <span class="font-bold text-rose-800 uppercase tracking-wider text-[10px] block">Alasan Penolakan Admin:</span>
+            <p class="mt-1 text-slate-800 leading-relaxed font-medium bg-white p-2.5 rounded-xl border border-rose-200" x-text="rejectedReason"></p>
+          </div>
         </div>
-        <button type="button" @click="pdfModal = false" class="btn-secondary py-2 px-4 text-xs">
-          Tutup
-        </button>
-      </div>
 
+        <p class="text-[11px] text-slate-500">
+          Silakan perbaiki berkas bukti sesuai catatan di atas dan ajukan klarifikasi ulang.
+        </p>
+
+        <div class="pt-2 flex justify-end">
+          <button type="button" @click="rejectedInfoModal = false" class="btn-primary py-2 px-4 text-xs">
+            Mengerti
+          </button>
+        </div>
+
+      </div>
     </div>
-  </div>
+  </template>
+
+  <!-- ALPINE.JS MODAL 4: DAFTAR STATUS KLARIFIKASI SAYA -->
+  <template x-teleport="body">
+    <div x-show="statusHistoryModal" 
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 !m-0 !mt-0 z-[9999] overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4"
+         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
+      
+      <div @click.away="statusHistoryModal = false"
+           class="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-slate-100 space-y-4">
+        
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2.5">
+            <i data-lucide="list-checks" class="w-5 h-5 text-indigo-600"></i>
+            <h3 class="font-bold text-base text-slate-900">Daftar Status Pengajuan Klarifikasi</h3>
+          </div>
+          <button @click="statusHistoryModal = false" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <div class="max-h-96 overflow-y-auto space-y-3 custom-scrollbar pr-1">
+          <% 
+            const allClars = typeof clarifications !== 'undefined' ? clarifications : [];
+          %>
+          <% if (allClars.length === 0) { %>
+            <div class="p-8 text-center text-slate-400">
+              <p>Belum ada pengajuan klarifikasi.</p>
+            </div>
+          <% } %>
+
+          <% allClars.forEach(function(c) { %>
+            <div class="p-3.5 rounded-2xl border <%= c.statusVerifikasi === 'APPROVED' ? 'bg-emerald-50/50 border-emerald-200' : c.statusVerifikasi === 'REJECTED' ? 'bg-rose-50/50 border-rose-200' : 'bg-amber-50/50 border-amber-200' %> text-xs space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <p class="font-bold text-slate-900"><%= c.employeeName %></p>
+                  <p class="text-slate-500 text-[11px]"><%= c.tanggalAbsen %> • Status: <%= c.statusAwal %> &rarr; <b><%= c.statusPengganti %></b></p>
+                </div>
+                <span class="px-2.5 py-1 rounded-full text-[10px] font-bold <%= c.statusVerifikasi === 'APPROVED' ? 'bg-emerald-100 text-emerald-800' : c.statusVerifikasi === 'REJECTED' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800' %>">
+                  <%= c.statusVerifikasi === 'APPROVED' ? 'Disetujui' : c.statusVerifikasi === 'REJECTED' ? 'Ditolak' : 'Sedang Review' %>
+                </span>
+              </div>
+
+              <!-- Bukti Dokumen PDF Link -->
+              <% if (c.fileUrl) { %>
+                <div class="pt-1.5 flex items-center justify-between border-t border-slate-200/60">
+                  <span class="text-slate-500 text-[11px] font-medium">Surat Bukti / Tugas:</span>
+                  <button type="button" @click="viewPdf('Bukti Surat Tugas - ' + '<%= c.employeeName %>', '<%= c.fileUrl %>', '<%= c.fileName %>')" class="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-600 hover:text-indigo-800 hover:underline">
+                    <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                    <span class="truncate max-w-[200px]"><%= c.fileName || 'Lihat Dokumen PDF' %></span>
+                  </button>
+                </div>
+              <% } %>
+
+              <% if (c.statusVerifikasi === 'REJECTED' && c.catatanAdmin) { %>
+                <div class="p-2 rounded-xl bg-white border border-rose-200 text-rose-900">
+                  <span class="font-bold text-[10px] block uppercase">Alasan Penolakan Admin:</span>
+                  <p class="mt-0.5 text-[11px]"><%= c.catatanAdmin %></p>
+                </div>
+              <% } %>
+
+              <% if (c.statusVerifikasi === 'APPROVED' && c.catatanAdmin) { %>
+                <div class="p-2 rounded-xl bg-white border border-emerald-200 text-emerald-900">
+                  <span class="font-bold text-[10px] block uppercase">Catatan Admin:</span>
+                  <p class="mt-0.5 text-[11px]"><%= c.catatanAdmin %></p>
+                </div>
+              <% } %>
+            </div>
+          <% }); %>
+        </div>
+
+        <div class="pt-2 flex justify-end">
+          <button type="button" @click="statusHistoryModal = false" class="btn-secondary py-2 px-4 text-xs">
+            Tutup
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </template>
+
+  <!-- ALPINE.JS MODAL 5: PDF PREVIEW VIEWER MODAL -->
+  <template x-teleport="body">
+    <div x-show="pdfModal" 
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 !m-0 !mt-0 z-[9999] overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;">
+      
+      <div @click.away="pdfModal = false"
+           class="bg-white rounded-3xl max-w-5xl w-full p-5 sm:p-6 shadow-2xl border border-slate-100 space-y-4 flex flex-col max-h-[96vh]">
+        
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2.5 min-w-0 pr-4">
+            <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+              <i data-lucide="file-text" class="w-5 h-5"></i>
+            </div>
+            <div class="min-w-0">
+              <h3 class="font-bold text-sm sm:text-base text-slate-900 truncate" x-text="pdfTitle"></h3>
+              <p class="text-[11px] text-slate-400">Dokumen Bukti Surat Keterangan / Surat Tugas</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <a :href="pdfUrl" :download="pdfFileName || 'bukti-absensi.pdf'" class="btn-primary py-1.5 px-3 text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs" title="Unduh Berkas PDF Langsung">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <span class="hidden sm:inline">Download</span>
+            </a>
+            <a :href="pdfUrl" target="_blank" class="btn-secondary py-1.5 px-3 text-xs gap-1.5 text-slate-700 hover:text-slate-900" title="Buka Dokumen di Tab Baru Penuh">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              <span class="hidden sm:inline">Tab Baru</span>
+            </a>
+            <button @click="pdfModal = false" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100">
+              <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Inline PDF Viewer Container -->
+        <div class="flex-1 w-full bg-slate-100 rounded-2xl overflow-hidden min-h-[72vh] h-[75vh] border border-slate-200">
+          <iframe :src="pdfUrl ? (pdfUrl.includes('#') ? pdfUrl : pdfUrl + '#toolbar=1&navpanes=0&view=FitH') : ''" class="w-full h-full min-h-[72vh] rounded-2xl border-0" allowfullscreen></iframe>
+        </div>
+
+        <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+          <div class="flex items-center gap-2">
+            <a :href="pdfUrl" :download="pdfFileName || 'bukti-absensi.pdf'" class="text-indigo-600 hover:underline font-semibold flex items-center gap-1 sm:hidden">
+              <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              <span>Download PDF</span>
+            </a>
+            <span class="hidden sm:inline text-slate-400">Gunakan tombol Tab Baru jika ingin melihat layar penuh.</span>
+          </div>
+          <button type="button" @click="pdfModal = false" class="btn-secondary py-2 px-4 text-xs">
+            Tutup
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </template>
 
 </main>
 
