@@ -8,11 +8,13 @@ export const ekinerjaController = {
       const activeDefaultMonth = cms?.selectedMonthEkinerja || cms?.selectedMonth || 7;
       const activeDefaultYear = cms?.selectedYear || 2026;
 
+      const isAdmin = !!(req as any).session?.user;
       const bulan = parseInt(req.query.bulan as string) || activeDefaultMonth;
       const tahun = parseInt(req.query.tahun as string) || activeDefaultYear;
       const selectedUnit = (req.query.unit as string) || 'unit-all';
       const search = (req.query.search as string) || '';
-      const selectedStatus = ((req.query.status as string) || 'all').toLowerCase();
+      // Status filter (Belum Kirim, Approved, Pending) is restricted to Admin only
+      const selectedStatus = isAdmin ? ((req.query.status as string) || 'all').toLowerCase() : 'all';
 
       // Pagination setup (default 25 rows)
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -183,7 +185,9 @@ export const ekinerjaController = {
         search,
         pagination,
         toast,
-        user: (req as any).session?.user || null
+        user: (req as any).session?.user || null,
+        isAdmin,
+        isDefaultPeriod: (bulan === activeDefaultMonth && tahun === activeDefaultYear)
       });
     } catch (error) {
       console.error('Error in ekinerjaController.show:', error);
