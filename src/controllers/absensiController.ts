@@ -85,12 +85,7 @@ export const absensiController = {
 
         const holidaysMap = holidayService.getHolidaysForMonth(tahun, bulan);
 
-        for (let day = 1; day <= 31; day++) {
-          if (day > daysInMonth) {
-            days.push({ tanggal: day, status: 'EMPTY', keterangan: null, clarificationStatus: null, clarificationNote: null });
-            continue;
-          }
-
+        for (let day = 1; day <= daysInMonth; day++) {
           const date = new Date(tahun, bulan - 1, day);
           const dayOfWeek = date.getDay();
           const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;

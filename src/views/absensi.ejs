@@ -211,7 +211,7 @@
         <% if (isAdmin) { %>
           <span class="text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded">Mode Admin:</span> Klik sel mana saja untuk langsung memperbarui presensi.
         <% } else if (isDefaultPeriod) { %>
-          Pantau presensi harian 1–31. Klik kotak berstatus <span class="text-rose-600 font-bold">TK</span> atau <span class="text-amber-700 font-bold">DL Kuning</span> untuk mengajukan klarifikasi.
+          Pantau presensi harian 1–<%= daysInMonth %>. Klik kotak berstatus <span class="text-rose-600 font-bold">TK</span> atau <span class="text-amber-700 font-bold">DL Kuning</span> untuk mengajukan klarifikasi.
         <% } else { %>
           <span class="text-amber-800 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Mode Arsip:</span> Periode ini hanya untuk dilihat. Pengajuan klarifikasi dibuka pada periode aktif (Bulan <%= activeDefaultMonth %> Tahun <%= activeDefaultYear %>).
         <% } %>
@@ -580,7 +580,7 @@
     <% if (isSuperAdminOrDinas) { %>
       <div class="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center gap-1.5 text-xs text-violet-800 font-medium">
         <i data-lucide="layers" class="w-3.5 h-3.5 text-violet-600 shrink-0"></i>
-        <span><b>Fitur Super Admin & Admin Dinas:</b> Klik angka tanggal pada header tabel (1–31) untuk mengubah status seluruh pegawai secara vertikal sekaligus.</span>
+        <span><b>Fitur Super Admin & Admin Dinas:</b> Klik angka tanggal pada header tabel (1–<%= daysInMonth %>) untuk mengubah status seluruh pegawai secara vertikal sekaligus.</span>
       </div>
     <% } %>
   </div>
@@ -630,7 +630,7 @@
         <!-- Horizontal Scrollable Day Strip (Badges 1..31) -->
         <div class="pt-1">
           <div class="flex items-center justify-between text-[11px] font-semibold text-slate-500 mb-1">
-            <span>Presensi Hari 1–31:</span>
+            <span>Presensi Hari 1–<%= daysInMonth %>:</span>
             <span class="text-[10px] text-slate-400">
               <%= isAdmin ? 'Klik untuk Ubah Status Langsung' : 'Klik TK / DL Kuning' %>
             </span>
@@ -721,8 +721,8 @@
             <th class="px-2.5 py-2 min-w-[110px] max-w-[130px] border-r border-slate-200 text-slate-700 font-bold align-middle" title="Unit Kerja">
               Unit Kerja
             </th>
-            <!-- Days 1 to 31 (Ultra-compact 21.5px per column with National Holiday Indicator) -->
-            <% for(let d = 1; d <= 31; d++) { 
+            <!-- Days 1 to daysInMonth (Ultra-compact 21.5px per column with National Holiday Indicator) -->
+            <% for(let d = 1; d <= daysInMonth; d++) { 
                 const holiName = typeof holidays !== 'undefined' && holidays[d] ? holidays[d] : null;
                 const dDate = new Date(tahun, bulan - 1, d);
                 const isWknd = (dDate.getDay() === 0 || dDate.getDay() === 6);
@@ -751,7 +751,7 @@
         <tbody class="divide-y divide-slate-100">
           <% if (recap.length === 0) { %>
             <tr>
-              <td colspan="37" class="py-12 text-center text-slate-500">
+              <td colspan="<%= daysInMonth + 6 %>" class="py-12 text-center text-slate-500">
                 <i data-lucide="user-x" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
                 <p class="font-bold text-sm text-slate-700">Tidak ada pegawai ditemukan</p>
               </td>
