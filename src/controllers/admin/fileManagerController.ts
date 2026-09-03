@@ -20,6 +20,7 @@ export interface FileItem {
   bulanPengajuan: number;
   tahunPengajuan: number;
   bulanPengajuanLabel: string;
+  standardFilename?: string;
   relatedId?: string;
   url: string;
 }
@@ -100,6 +101,8 @@ async function getAllEnrichedFiles(): Promise<FileItem[]> {
            (r.fileBulananUrl && r.fileBulananUrl.includes(entry))
     );
 
+    let standardFilename: string | undefined;
+
     if (matchedEkinerja) {
       kategori = 'ekinerja';
       badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
@@ -112,6 +115,11 @@ async function getAllEnrichedFiles(): Promise<FileItem[]> {
       tahunPengajuan = matchedEkinerja.tahun;
       bulanPengajuanLabel = `${BULAN_NAMES[matchedEkinerja.bulan] || matchedEkinerja.bulan} ${matchedEkinerja.tahun}`;
       relatedId = matchedEkinerja.id;
+
+      const typeStr = isHarian ? 'HARIAN' : 'BULANAN';
+      const bName = (BULAN_NAMES[matchedEkinerja.bulan] || `BULAN ${matchedEkinerja.bulan}`).toUpperCase();
+      const cleanNama = (matchedEkinerja.employee?.nama || 'PEGAWAI').replace(/,/g, '').replace(/\./g, ' ').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+      standardFilename = `${typeStr} ${bName} ${cleanNama}${ext}`;
     } else {
       // 2. Check if matching Clarification
       const matchedClar = clarifications.find(c => c.fileUrl && c.fileUrl.includes(entry));
@@ -141,6 +149,12 @@ async function getAllEnrichedFiles(): Promise<FileItem[]> {
           }
         }
         bulanPengajuanLabel = `${BULAN_NAMES[bulanPengajuan] || bulanPengajuan} ${tahunPengajuan}`;
+
+        const bName = (BULAN_NAMES[bulanPengajuan] || `BULAN ${bulanPengajuan}`).toUpperCase();
+        const cleanNama = (matchedClar.employee?.nama || 'PEGAWAI').replace(/,/g, '').replace(/\./g, ' ').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+        const cleanStatus = (matchedClar.statusPengganti || 'DL').trim().toUpperCase();
+        const cleanTgl = (matchedClar.tanggalAbsen || 'TANGGAL').trim().replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ');
+        standardFilename = `KLAR ${bName} ${cleanNama} ${cleanStatus} ${cleanTgl}${ext}`;
       } else if (ext === '.xlsx' || ext === '.xls' || ext === '.csv' || entry.toLowerCase().includes('rekap')) {
         kategori = 'absensi';
         badgeColor = 'bg-teal-50 text-teal-700 border-teal-200';
@@ -182,6 +196,7 @@ async function getAllEnrichedFiles(): Promise<FileItem[]> {
       bulanPengajuan,
       tahunPengajuan,
       bulanPengajuanLabel,
+      standardFilename,
       relatedId,
       url: `/uploads/${entry}`
     });
@@ -652,6 +667,70 @@ export const fileManagerController = {
     } catch (error) {
       console.error('[FileManager] Download selected error:', error);
       res.status(500).send('Gagal mengunduh berkas terpilih.');
+    }
+  },
+
+  /**
+   * POST /admin/files/standardize-names
+   * Automatically standardize all files to official formatting:
+   * 1. KLARIFIKASI = KLAR [BULAN] [NAMA] [STATUS YANG DIAJUKAN] [TANGGAL YANG DIAJUKAN].pdf
+   * 2. EKINERJA = HARIAN/BULANAN [BULAN YANG DIAJUKAN] [NAMA PEGAWAI].pdf
+   */
+  async standardizeNames(req: Request, res: Response) {
+    try {
+      const activeTab = (req.body.activeTab as string) || 'all';
+      const allFiles = await getAllEnrichedFiles();
+      const uploadsDir = getUploadsDirectory();
+      let count = 0;
+
+      for (const item of allFiles) {
+        if (!item.standardFilename || item.filename === item.standardFilename) continue;
+
+        const oldPath = path.join(uploadsDir, item.filename);
+        if (!fs.existsSync(oldPath)) continue;
+
+        let targetName = item.standardFilename;
+        let newPath = path.join(uploadsDir, targetName);
+
+        if (fs.existsSync(newPath) && targetName !== item.filename) {
+          const ext = path.extname(targetName);
+          const base = path.basename(targetName, ext);
+          targetName = `${base} (${Date.now().toString().slice(-4)})${ext}`;
+          newPath = path.join(uploadsDir, targetName);
+        }
+
+        fs.renameSync(oldPath, newPath);
+
+        const oldUrl = `/uploads/${item.filename}`;
+        const newUrl = `/uploads/${targetName}`;
+
+        await Promise.all([
+          prisma.ekinerjaReport.updateMany({
+            where: { fileHarianUrl: oldUrl },
+            data: { fileHarianUrl: newUrl, fileHarianName: targetName }
+          }),
+          prisma.ekinerjaReport.updateMany({
+            where: { fileBulananUrl: oldUrl },
+            data: { fileBulananUrl: newUrl, fileBulananName: targetName }
+          }),
+          prisma.clarification.updateMany({
+            where: { fileUrl: oldUrl },
+            data: { fileUrl: newUrl, fileName: targetName }
+          })
+        ]);
+
+        count++;
+      }
+
+      (req as any).session.toast = {
+        type: 'success',
+        message: `Berhasil menstandarisasi nama ${count} berkas sesuai format resmi!`
+      };
+      return res.redirect(`/admin/files?tab=${activeTab}`);
+    } catch (error) {
+      console.error('[FileManager] Error standardizing names:', error);
+      (req as any).session.toast = { type: 'error', message: 'Gagal menstandarisasi nama berkas.' };
+      return res.redirect('/admin/files');
     }
   }
 };

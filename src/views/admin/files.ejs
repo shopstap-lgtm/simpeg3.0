@@ -9,6 +9,7 @@
         renameModal: false,
         renameOldName: '',
         renameNewName: '',
+        suggestedStandardName: '',
         deleteModal: false,
         deleteTargetName: '',
         bulkDeleteModal: false,
@@ -32,9 +33,10 @@
           this.pdfModal = true;
         },
 
-        openRename(filename) {
+        openRename(filename, standardName) {
           this.renameOldName = filename;
           this.renameNewName = filename;
+          this.suggestedStandardName = standardName || '';
           this.renameModal = true;
         },
 
@@ -64,6 +66,18 @@
 
     <!-- Right Header Actions -->
     <div class="flex flex-wrap items-center gap-2">
+      <!-- Standarisasi Nama Berkas Button -->
+      <form method="POST" action="/admin/files/standardize-names" class="inline">
+        <input type="hidden" name="activeTab" value="<%= activeTab %>">
+        <button type="submit" 
+                onclick="return confirm('Apakah Anda ingin menstandarisasi nama seluruh berkas pada jendela ini secara otomatis sesuai aturan resmi?\n\n1. KLAR [BULAN] [NAMA] [STATUS YANG DIAJUKAN] [TANGGAL YANG DIAJUKAN]\n2. HARIAN/BULANAN [BULAN YANG DIAJUKAN] [NAMA PEGAWAI]')"
+                class="btn-secondary py-2 px-3 text-xs gap-1.5 text-slate-700 hover:text-indigo-600 hover:border-indigo-200 shadow-xs font-bold"
+                title="Format otomatis nama seluruh berkas fisik dan database ke standar resmi">
+          <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-600"></i>
+          <span>Standarisasi Nama</span>
+        </button>
+      </form>
+
       <!-- Upload Manual Button -->
       <button type="button" 
               @click="uploadModal = true"
@@ -395,7 +409,7 @@
 
                     <!-- Rename File -->
                     <button type="button" 
-                            @click="openRename('<%= file.filename %>')"
+                            @click="openRename('<%= file.filename %>', '<%= file.standardFilename ? file.standardFilename.replace(/'/g, "\\'") : '' %>')"
                             class="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition-colors"
                             title="Ubah Nama Berkas">
                       <i data-lucide="edit-3" class="w-4 h-4"></i>
@@ -457,7 +471,8 @@
          style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 999999 !important;">
       
       <div @click.away="pdfModal = false"
-           class="bg-white rounded-3xl max-w-3xl w-full p-3 sm:p-4 shadow-2xl border border-slate-100 flex flex-col h-[96vh] max-h-[96vh]">
+           class="bg-white rounded-3xl max-w-3xl w-full p-3 sm:p-4 shadow-2xl border border-slate-100 flex flex-col"
+           style="height: 94vh !important; max-height: 94vh !important;">
         
         <div class="flex items-center justify-between pb-2.5 border-b border-slate-100 shrink-0">
           <div class="flex items-center gap-2.5 min-w-0 pr-4">
@@ -484,10 +499,11 @@
           </div>
         </div>
 
-        <!-- Inline PDF Viewer Container - dynamically stretching to 100% vertical space -->
-        <div class="flex-1 w-full h-full bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 flex flex-col my-2">
+        <!-- Inline PDF Viewer Container - Guaranteed maximum vertical view (94vh) -->
+        <div class="w-full bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 my-2"
+             style="flex: 1 1 auto; height: calc(94vh - 120px); min-height: 420px;">
           <iframe :src="pdfUrl ? (pdfUrl.includes('#') ? pdfUrl : pdfUrl + '#toolbar=1&navpanes=0&view=FitH') : ''" 
-                  class="w-full h-full flex-1 rounded-2xl border-0" 
+                  style="width: 100%; height: 100%; min-height: 100%; border: 0; display: block;" 
                   allowfullscreen></iframe>
         </div>
 
@@ -600,6 +616,22 @@
                    x-model="renameNewName" 
                    required
                    class="w-full px-3.5 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 font-mono">
+            
+            <!-- Tombol Cepat Saran Format Standar Resmi -->
+            <template x-if="suggestedStandardName && suggestedStandardName !== renameNewName">
+              <div class="mt-2.5 p-2.5 bg-indigo-50/80 border border-indigo-200 rounded-xl">
+                <p class="text-[10px] font-bold text-indigo-700 uppercase tracking-wider flex items-center gap-1 mb-1">
+                  <i data-lucide="sparkles" class="w-3.5 h-3.5 text-indigo-600"></i>
+                  <span>Saran Format Standar Resmi (Klik untuk terapkan):</span>
+                </p>
+                <button type="button" 
+                        @click="renameNewName = suggestedStandardName" 
+                        class="text-xs font-bold text-indigo-900 hover:text-indigo-600 underline font-mono text-left block break-all"
+                        x-text="suggestedStandardName">
+                </button>
+              </div>
+            </template>
+
             <p class="text-[11px] text-slate-400 mt-1">Ekstensi file (.pdf, .xlsx) akan tetap dipertahankan secara otomatis.</p>
           </div>
 

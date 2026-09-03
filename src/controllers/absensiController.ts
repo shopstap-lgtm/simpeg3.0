@@ -445,6 +445,8 @@ export const absensiController = {
         const autoName = generateKlarifikasiFilename(
           employee?.nama || 'Pegawai',
           tanggalAbsen,
+          statusPengganti,
+          undefined,
           ext
         );
         // Folder: klarifikasi/2026

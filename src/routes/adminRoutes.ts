@@ -143,5 +143,6 @@ router.post('/files/bulk-delete', requireSuperAdmin, fileManagerController.bulkD
 router.get('/files/download-all', requireSuperAdmin, fileManagerController.downloadAll);
 router.get('/files/download-month', requireSuperAdmin, fileManagerController.downloadByMonth);
 router.post('/files/download-selected', requireSuperAdmin, fileManagerController.downloadSelected);
+router.post('/files/standardize-names', requireSuperAdmin, fileManagerController.standardizeNames);
 
 export default router;

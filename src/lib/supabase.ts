@@ -75,9 +75,18 @@ export async function uploadToStorage(
         fsModule.mkdirSync(uploadsDir, { recursive: true });
       }
 
-      // Beri prefix timestamp unik agar tidak bentrok
-      const finalFilename = `${Date.now()}-${filename}`;
-      const fullPath = pathModule.join(uploadsDir, finalFilename);
+      // Simpan langsung dengan format nama resmi tanpa prefix timestamp
+      let finalFilename = filename;
+      let fullPath = pathModule.join(uploadsDir, finalFilename);
+      const ext = pathModule.extname(filename);
+      const base = pathModule.basename(filename, ext);
+      let counter = 1;
+      while (fsModule.existsSync(fullPath)) {
+        finalFilename = `${base} (${counter})${ext}`;
+        fullPath = pathModule.join(uploadsDir, finalFilename);
+        counter++;
+      }
+
       fsModule.writeFileSync(fullPath, fileBuffer);
 
       const publicUrl = `/uploads/${finalFilename}`;
@@ -118,7 +127,7 @@ export async function uploadToStorage(
 
 /**
  * Generate nama file otomatis untuk laporan E-Kinerja
- * Format: {Bulan}_{NamaUnitSanitized}_{NamaPegawaiSanitized}_{Harian|Bulanan}.pdf
+ * Format: HARIAN/BULANAN [BULAN YANG DIAJUKAN] [NAMA PEGAWAI].pdf
  */
 export function generateEkinerjaFilename(
   bulan: number,
@@ -128,19 +137,44 @@ export function generateEkinerjaFilename(
   type: 'Harian' | 'Bulanan',
   originalExt: string = '.pdf'
 ): string {
-  const bulanName = BULAN_NAMES[bulan] || `Bulan${bulan}`;
-  return `${bulanName}_${sanitize(namaUnit)}_${sanitize(namaPegawai)}_${type}${originalExt}`;
+  const typeStr = type.toUpperCase();
+  const bName = (BULAN_NAMES[bulan] || `BULAN ${bulan}`).toUpperCase();
+  const cleanNama = namaPegawai.replace(/,/g, '').replace(/\./g, ' ').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+  return `${typeStr} ${bName} ${cleanNama}${originalExt}`;
 }
 
 /**
  * Generate nama file otomatis untuk klarifikasi absensi
- * Format: Klarifikasi_{NamaPegawai}_{Tanggal}.pdf
+ * Format: KLAR [BULAN] [NAMA] [STATUS YANG DIAJUKAN] [TANGGAL YANG DIAJUKAN].pdf
  */
 export function generateKlarifikasiFilename(
   namaPegawai: string,
   tanggalAbsen: string,
+  statusPengganti: string = 'DL',
+  bulan?: number,
   originalExt: string = '.pdf'
 ): string {
-  const tanggalSanitized = tanggalAbsen.replace(/\s/g, '_').replace(/\//g, '-');
-  return `Klarifikasi_${sanitize(namaPegawai)}_${tanggalSanitized}${originalExt}`;
+  let bName = '';
+  if (bulan && BULAN_NAMES[bulan]) {
+    bName = BULAN_NAMES[bulan].toUpperCase();
+  } else {
+    const match = tanggalAbsen.match(/(\d{4})[-/](\d{1,2})/);
+    if (match) {
+      const bNum = parseInt(match[2], 10);
+      bName = (BULAN_NAMES[bNum] || `BULAN ${bNum}`).toUpperCase();
+    } else {
+      const altMatch = tanggalAbsen.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+      if (altMatch) {
+        const bNum = parseInt(altMatch[2], 10);
+        bName = (BULAN_NAMES[bNum] || `BULAN ${bNum}`).toUpperCase();
+      } else {
+        bName = (BULAN_NAMES[new Date().getMonth() + 1] || '').toUpperCase();
+      }
+    }
+  }
+
+  const cleanNama = namaPegawai.replace(/,/g, '').replace(/\./g, ' ').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+  const cleanStatus = (statusPengganti || 'DL').trim().toUpperCase();
+  const cleanTgl = tanggalAbsen.trim().replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ');
+  return `KLAR ${bName} ${cleanNama} ${cleanStatus} ${cleanTgl}${originalExt}`;
 }
