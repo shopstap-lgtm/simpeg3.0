@@ -236,3 +236,10 @@
 .sticky-right-shadow {
   box-shadow: -4px 0 8px -2px rgba(0, 0, 0, 0.06);
 }
+
+/* 7-Column Mini Calendar Grid Utility */
+.calendar-grid-7 {
+  display: grid !important;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+  gap: 5px !important;
+}
