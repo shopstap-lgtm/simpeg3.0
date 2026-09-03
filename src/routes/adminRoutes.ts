@@ -47,12 +47,12 @@ const diskStorage = multer.diskStorage({
 
 const diskUpload = multer({
   storage: diskStorage,
-  limits: { fileSize: 15 * 1024 * 1024 }
+  limits: { fileSize: 1 * 1024 * 1024 } // 1MB
 });
 
 const memoryUpload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 15 * 1024 * 1024 }
+  limits: { fileSize: 1 * 1024 * 1024 } // 1MB
 });
 
 // 1. Public Admin Auth Routes

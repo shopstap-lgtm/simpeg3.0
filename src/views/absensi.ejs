@@ -444,18 +444,33 @@
                q: '<%= search ? search.replace(/'/g, "\\'") : '' %>',
                timer: null,
                searchRealtime() {
+                 sessionStorage.setItem('search_input_active_absensi', '1');
                  clearTimeout(this.timer);
                  this.timer = setTimeout(() => {
                    this.$el.closest('form').submit();
-                 }, 400);
+                 }, 700);
                }
-             }">
+             }"
+             x-init="
+               if (sessionStorage.getItem('search_input_active_absensi') === '1' || (q && q.length > 0)) {
+                 sessionStorage.removeItem('search_input_active_absensi');
+                 $nextTick(() => {
+                   const input = $refs.searchInput;
+                   if (input) {
+                     input.focus();
+                     const len = input.value.length;
+                     input.setSelectionRange(len, len);
+                   }
+                 });
+               }
+             ">
           <input type="text" 
                  name="search" 
                  id="search" 
+                 x-ref="searchInput"
                  x-model="q"
                  @input="searchRealtime()"
-                 @keydown.enter.prevent="$el.closest('form').submit()"
+                 @keydown.enter.prevent="sessionStorage.setItem('search_input_active_absensi', '1'); $el.closest('form').submit()"
                  autocomplete="off"
                  placeholder="Ketik Nama Pegawai..." 
                  style="padding-left: 18px;"
@@ -464,7 +479,7 @@
           <!-- Clear Button 'X' (Pinned to far right with inline style) -->
           <button type="button" 
                   x-show="q && q.length > 0" 
-                  @click="q = ''; $nextTick(() => { $el.closest('form').submit(); })" 
+                  @click="q = ''; sessionStorage.removeItem('search_input_active_absensi'); $nextTick(() => { $el.closest('form').submit(); })" 
                   style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"
                   class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors z-20 flex items-center justify-center"
                   title="Hapus pencarian">
@@ -994,13 +1009,22 @@
                          id="fileProof" 
                          accept=".pdf" 
                          required
-                         @change="fileName = $event.target.files[0] ? $event.target.files[0].name : ''"
+                         @change="
+                           const f = $event.target.files[0];
+                           if (f && f.size > 1024 * 1024) {
+                             alert('Ukuran berkas bukti klarifikasi melebihi batas maksimal 1MB!');
+                             $event.target.value = '';
+                             fileName = '';
+                             return;
+                           }
+                           fileName = f ? f.name : '';
+                         "
                          class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
                   <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
                     <i data-lucide="upload-cloud" class="w-4 h-4"></i>
                   </div>
                   <div class="text-left min-w-0">
-                    <p class="text-xs font-semibold text-slate-700 truncate" x-text="fileName ? fileName : 'Pilih Berkas PDF (Maks 10MB)'"></p>
+                    <p class="text-xs font-semibold text-slate-700 truncate" x-text="fileName ? fileName : 'Pilih Berkas PDF (Maks 1MB)'"></p>
                     <p class="text-[10.5px] text-slate-400">Surat Tugas / Surat Dokter / SK Cuti</p>
                   </div>
                 </div>

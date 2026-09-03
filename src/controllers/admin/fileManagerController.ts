@@ -338,6 +338,17 @@ export const fileManagerController = {
         return res.redirect(`/admin/files?tab=${activeTab}`);
       }
 
+      for (const f of uploadedList) {
+        if (f.size > 1 * 1024 * 1024) {
+          try { fs.unlinkSync(f.path); } catch {}
+          (req as any).session.toast = {
+            type: 'error',
+            message: `Berkas "${f.originalname}" melebihi batas maksimal 1MB!`
+          };
+          return res.redirect(`/admin/files?tab=${activeTab}`);
+        }
+      }
+
       (req as any).session.toast = {
         type: 'success',
         message: `Berhasil mengunggah ${uploadedList.length} berkas fisik ke server!`

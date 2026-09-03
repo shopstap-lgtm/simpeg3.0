@@ -113,9 +113,21 @@ export function createApp(): Express {
   app.use('/', publicRoutes);
   app.use('/admin', adminRoutes);
 
-  // 7. Global Express Error Handler (catches async errors in routes)
-  app.use((err: Error, req: Request, res: Response, _next: NextFunction) => {
-    console.error('[App] Express error handler caught:', err.message, err.stack);
+  // 7. Global Express Error Handler (catches async errors in routes & Multer errors)
+  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
+    console.error('[App] Express error handler caught:', err.message);
+
+    if (err.code === 'LIMIT_FILE_SIZE' || (err.name === 'MulterError' && err.message?.includes('File too large'))) {
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'error',
+          message: 'Gagal upload: Ukuran file melebihi batas maksimal 1MB!'
+        };
+      }
+      const backUrl = req.headers.referer || '/';
+      return res.redirect(backUrl);
+    }
+
     if (!res.headersSent) {
       res.status(500).json({
         error: 'Internal Server Error',

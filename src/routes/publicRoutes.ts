@@ -27,10 +27,10 @@ const getUploadDir = () => {
   }
 };
 
-// Configure multer for memory storage (Serverless compatibility - Base64 Data URI)
+// Configure multer for memory storage (Max 1MB per berkas)
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+  limits: { fileSize: 1 * 1024 * 1024 } // 1MB
 });
 
 // Public Menus

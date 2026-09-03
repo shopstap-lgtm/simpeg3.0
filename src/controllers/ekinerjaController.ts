@@ -168,6 +168,17 @@ export const ekinerjaController = {
         return res.redirect('/ekinerja');
       }
 
+      const MAX_SIZE = 1 * 1024 * 1024; // 1MB
+      if ((fileHarian && fileHarian.size > MAX_SIZE) || (fileBulanan && fileBulanan.size > MAX_SIZE)) {
+        if ((req as any).session) {
+          (req as any).session.toast = {
+            type: 'error',
+            message: 'Ukuran file laporan melebihi batas maksimal 1MB!'
+          };
+        }
+        return res.redirect('/ekinerja');
+      }
+
       // Fetch employee + unit info for filename generation
       const employee = await prisma.employee.findUnique({
         where: { id: employeeId },

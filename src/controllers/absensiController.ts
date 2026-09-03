@@ -432,6 +432,16 @@ export const absensiController = {
       let fileName = 'Surat_Keterangan.pdf';
 
       if (file) {
+        if (file.size > 1 * 1024 * 1024) {
+          if ((req as any).session) {
+            (req as any).session.toast = {
+              type: 'error',
+              message: 'Ukuran berkas bukti klarifikasi melebihi batas maksimal 1MB!'
+            };
+          }
+          return res.redirect('/absensi');
+        }
+
         // Fetch employee name for auto-naming
         const employee = await prisma.employee.findUnique({
           where: { id: employeeId },

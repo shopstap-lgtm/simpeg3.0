@@ -555,8 +555,17 @@
                    name="files" 
                    multiple 
                    required
+                   @change="
+                     for (const f of $event.target.files) {
+                       if (f.size > 1024 * 1024) {
+                         alert('Berkas ' + f.name + ' melebihi batas maksimal 1MB!');
+                         $event.target.value = '';
+                         return;
+                       }
+                     }
+                   "
                    class="w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border border-slate-200 rounded-2xl p-2 bg-slate-50">
-            <p class="text-[11px] text-slate-400 mt-1.5">Maksimal 15MB per berkas. Bisa memilih beberapa berkas sekaligus.</p>
+            <p class="text-[11px] text-slate-400 mt-1.5">Maksimal 1MB per berkas. Bisa memilih beberapa berkas sekaligus.</p>
           </div>
 
           <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
