@@ -158,8 +158,9 @@ export const absensiController = {
           });
         }
 
-        // Percentage computation (TK is absence, everything else counts as present. Default 0% if no data yet)
-        const totalPresent = totalEfektif - tkCount;
+        // Perhitungan persentase kehadiran:
+        // Status yang dihitung hadir: HADIR, CT, DL, DL_KUNING, TL, PC, ST
+        const totalPresent = hadirCount + dlCount + dlKuningCount + tlCount + pcCount + stCount + ctCount;
         const persentase = totalEfektif > 0 ? Math.round((totalPresent / totalEfektif) * 100) : 0;
 
         return {

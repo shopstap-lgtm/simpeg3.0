@@ -41,20 +41,7 @@
 
       <form action="/admin/cms" method="POST" class="space-y-4">
         
-        <!-- 1. Hero Badge -->
-        <div>
-          <label for="heroBadge" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
-            Hero Badge / Label Kecil
-          </label>
-          <input type="text" 
-                 name="heroBadge" 
-                 id="heroBadge" 
-                 x-model="heroBadge"
-                 required 
-                 class="form-input text-xs">
-        </div>
-
-        <!-- 2. Hero Title -->
+        <!-- 1. Hero Title -->
         <div>
           <label for="heroTitle" class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
             Hero Judul Utama
@@ -298,11 +285,6 @@
 
       <!-- Preview Mock Banner -->
       <div class="rounded-3xl bg-gradient-to-b from-indigo-900 via-indigo-800 to-slate-900 text-white p-6 shadow-xl space-y-4 relative overflow-hidden">
-        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-[11px] font-semibold text-indigo-200">
-          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-          <span x-text="heroBadge"></span>
-        </div>
-
         <h3 class="text-xl font-extrabold text-white leading-tight" x-text="heroTitle"></h3>
         <p class="text-xs text-indigo-100/90 leading-relaxed" x-text="heroSubtitle"></p>
 
