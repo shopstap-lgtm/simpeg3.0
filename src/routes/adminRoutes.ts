@@ -12,6 +12,7 @@ import { pegawaiAdminController } from '../controllers/admin/pegawaiAdminControl
 import { employeeController } from '../controllers/admin/employeeController';
 import { uploadAbsensiController } from '../controllers/admin/uploadAbsensiController';
 import { unitKerjaController } from '../controllers/admin/unitKerjaController';
+import { fileManagerController } from '../controllers/admin/fileManagerController';
 import { requireAdmin, requireSuperAdmin, requireSuperAdminOrDinas } from '../middleware/requireAdmin';
 
 const router = Router();
@@ -132,5 +133,15 @@ router.get('/unit-kerja', requireSuperAdmin, unitKerjaController.show);
 router.post('/unit-kerja/create', requireSuperAdmin, unitKerjaController.create);
 router.post('/unit-kerja/:id/update', requireSuperAdmin, unitKerjaController.update);
 router.post('/unit-kerja/:id/delete', requireSuperAdmin, unitKerjaController.delete);
+
+// Manajemen Berkas Upload (SUPER_ADMIN only)
+router.get('/files', requireSuperAdmin, fileManagerController.show);
+router.post('/files/upload', requireSuperAdmin, diskUpload.array('files', 50), fileManagerController.uploadFile);
+router.post('/files/rename', requireSuperAdmin, fileManagerController.renameFile);
+router.post('/files/delete', requireSuperAdmin, fileManagerController.deleteFile);
+router.post('/files/bulk-delete', requireSuperAdmin, fileManagerController.bulkDeleteFiles);
+router.get('/files/download-all', requireSuperAdmin, fileManagerController.downloadAll);
+router.get('/files/download-month', requireSuperAdmin, fileManagerController.downloadByMonth);
+router.post('/files/download-selected', requireSuperAdmin, fileManagerController.downloadSelected);
 
 export default router;
