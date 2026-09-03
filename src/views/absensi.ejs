@@ -564,7 +564,7 @@
           </div>
           
           <div class="text-right shrink-0">
-            <span class="inline-block px-2 py-1 rounded-lg text-xs font-extrabold <%= item.summary.persentase >= 85 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700' %>">
+            <span class="inline-block px-2 py-1 rounded-lg text-xs font-extrabold <%= item.summary.totalEfektif === 0 ? 'bg-slate-100 text-slate-400' : (item.summary.persentase >= 85 ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700') %>">
               <%= item.summary.persentase %>%
             </span>
           </div>
@@ -784,7 +784,7 @@
               <td class="px-1 py-1.5 text-center font-bold text-rose-700 bg-rose-50/40 text-[11px] w-7 min-w-[28px] align-middle">
                 <%= item.summary.tk %>
               </td>
-              <td class="px-1 py-1.5 text-center font-extrabold text-slate-800 bg-slate-100/50 border-r border-slate-100 text-[11px] w-8 min-w-[32px] align-middle">
+              <td class="px-1 py-1.5 text-center font-extrabold <%= item.summary.totalEfektif === 0 ? 'text-slate-400' : 'text-slate-800' %> bg-slate-100/50 border-r border-slate-100 text-[11px] w-8 min-w-[32px] align-middle">
                 <%= item.summary.persentase %>%
               </td>
 

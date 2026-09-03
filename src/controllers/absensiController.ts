@@ -158,9 +158,9 @@ export const absensiController = {
           });
         }
 
-        // Percentage computation (TK is absence, everything else counts as present)
+        // Percentage computation (TK is absence, everything else counts as present. Default 0% if no data yet)
         const totalPresent = totalEfektif - tkCount;
-        const persentase = totalEfektif > 0 ? Math.round((totalPresent / totalEfektif) * 100) : 100;
+        const persentase = totalEfektif > 0 ? Math.round((totalPresent / totalEfektif) * 100) : 0;
 
         return {
           employee: {
