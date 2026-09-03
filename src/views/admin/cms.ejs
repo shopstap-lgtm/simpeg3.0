@@ -10,7 +10,13 @@
         pengumumanText: '<%= cms.pengumumanText %>',
         selectedMonth: <%= cms.selectedMonth %>,
         selectedMonthEkinerja: <%= cms.selectedMonthEkinerja %>,
-        selectedYear: <%= cms.selectedYear %>
+        selectedYear: <%= cms.selectedYear %>,
+        maintenanceDashboard: <%= (typeof cms.maintenanceDashboard !== 'undefined' && cms.maintenanceDashboard) ? 'true' : 'false' %>,
+        maintenanceAbsensi: <%= (typeof cms.maintenanceAbsensi !== 'undefined' && cms.maintenanceAbsensi) ? 'true' : 'false' %>,
+        maintenanceEkinerja: <%= (typeof cms.maintenanceEkinerja !== 'undefined' && cms.maintenanceEkinerja) ? 'true' : 'false' %>,
+        maintenanceKlarifikasi: <%= (typeof cms.maintenanceKlarifikasi !== 'undefined' && cms.maintenanceKlarifikasi) ? 'true' : 'false' %>,
+        maintenanceTitle: '<%= ((typeof cms.maintenanceTitle !== 'undefined' && cms.maintenanceTitle) ? cms.maintenanceTitle : 'Sedang Dalam Pemeliharaan').replace(/'/g, "\\'") %>',
+        maintenanceMessage: '<%= ((typeof cms.maintenanceMessage !== 'undefined' && cms.maintenanceMessage) ? cms.maintenanceMessage : 'Halaman ini sedang dalam proses pemeliharaan dan pembaruan data berkala oleh tim admin Korwil Cibitung. Mohon kembali beberapa saat lagi.').replace(/'/g, "\\'") %>'
       }">
 
   <!-- Page Header -->
@@ -309,6 +315,188 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- ========================================== -->
+  <!-- PANEL KHUSUS: KONTROL MODE PEMELIHARAAN    -->
+  <!-- ========================================== -->
+  <div class="custom-card p-6 sm:p-8 bg-white border border-amber-200 shadow-xs space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+      <div class="flex items-center gap-3.5">
+        <div class="w-11 h-11 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0 border border-amber-500/20">
+          <i data-lucide="power" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">Kontrol Buka / Tutup Halaman (Maintenance Mode)</h2>
+            <span class="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider border border-amber-200">
+              Super Admin Only
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">Tutup sementara akses pengunjung publik pada halaman tertentu. Pengunjung akan dialihkan ke layar pemeliharaan yang elegan.</p>
+        </div>
+      </div>
+    </div>
+
+    <form action="/admin/cms/maintenance" method="POST" class="space-y-6">
+      <!-- 4 Switch Cards Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- 1. Dashboard Utama -->
+        <div class="p-4 rounded-2xl border transition-all"
+             :class="maintenanceDashboard ? 'bg-rose-50/50 border-rose-200 ring-1 ring-rose-300' : 'bg-slate-50/60 border-slate-200'">
+          <div class="flex items-start justify-between gap-3">
+            <div class="space-y-1">
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <i data-lucide="layout-dashboard" class="w-4 h-4 text-indigo-600"></i>
+                <span>Dashboard Utama</span>
+              </span>
+              <p class="text-[11px] text-slate-500">Rute: <code class="text-indigo-600 font-mono">/</code></p>
+            </div>
+            <!-- Toggle Switch -->
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" name="maintenanceDashboard" value="true" x-model="maintenanceDashboard" class="sr-only peer">
+              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+            </label>
+          </div>
+          <div class="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-slate-500">Akses Publik:</span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold"
+                  :class="maintenanceDashboard ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'">
+              <span class="w-1.5 h-1.5 rounded-full" :class="maintenanceDashboard ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'"></span>
+              <span x-text="maintenanceDashboard ? 'Ditutup (Maintenance)' : 'Buka (Publik)'"></span>
+            </span>
+          </div>
+        </div>
+
+        <!-- 2. Rekap Absensi -->
+        <div class="p-4 rounded-2xl border transition-all"
+             :class="maintenanceAbsensi ? 'bg-rose-50/50 border-rose-200 ring-1 ring-rose-300' : 'bg-slate-50/60 border-slate-200'">
+          <div class="flex items-start justify-between gap-3">
+            <div class="space-y-1">
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <i data-lucide="calendar-check-2" class="w-4 h-4 text-emerald-600"></i>
+                <span>Rekap Absensi</span>
+              </span>
+              <p class="text-[11px] text-slate-500">Rute: <code class="text-indigo-600 font-mono">/absensi</code></p>
+            </div>
+            <!-- Toggle Switch -->
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" name="maintenanceAbsensi" value="true" x-model="maintenanceAbsensi" class="sr-only peer">
+              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+            </label>
+          </div>
+          <div class="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-slate-500">Akses Publik:</span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold"
+                  :class="maintenanceAbsensi ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'">
+              <span class="w-1.5 h-1.5 rounded-full" :class="maintenanceAbsensi ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'"></span>
+              <span x-text="maintenanceAbsensi ? 'Ditutup (Maintenance)' : 'Buka (Publik)'"></span>
+            </span>
+          </div>
+        </div>
+
+        <!-- 3. Laporan E-Kinerja -->
+        <div class="p-4 rounded-2xl border transition-all"
+             :class="maintenanceEkinerja ? 'bg-rose-50/50 border-rose-200 ring-1 ring-rose-300' : 'bg-slate-50/60 border-slate-200'">
+          <div class="flex items-start justify-between gap-3">
+            <div class="space-y-1">
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <i data-lucide="file-check-2" class="w-4 h-4 text-blue-600"></i>
+                <span>Laporan E-Kinerja</span>
+              </span>
+              <p class="text-[11px] text-slate-500">Rute: <code class="text-indigo-600 font-mono">/ekinerja</code></p>
+            </div>
+            <!-- Toggle Switch -->
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" name="maintenanceEkinerja" value="true" x-model="maintenanceEkinerja" class="sr-only peer">
+              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+            </label>
+          </div>
+          <div class="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-slate-500">Akses Publik:</span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold"
+                  :class="maintenanceEkinerja ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'">
+              <span class="w-1.5 h-1.5 rounded-full" :class="maintenanceEkinerja ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'"></span>
+              <span x-text="maintenanceEkinerja ? 'Ditutup (Maintenance)' : 'Buka (Publik)'"></span>
+            </span>
+          </div>
+        </div>
+
+        <!-- 4. Pengajuan Klarifikasi -->
+        <div class="p-4 rounded-2xl border transition-all"
+             :class="maintenanceKlarifikasi ? 'bg-rose-50/50 border-rose-200 ring-1 ring-rose-300' : 'bg-slate-50/60 border-slate-200'">
+          <div class="flex items-start justify-between gap-3">
+            <div class="space-y-1">
+              <span class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                <i data-lucide="file-text" class="w-4 h-4 text-purple-600"></i>
+                <span>Upload Klarifikasi</span>
+              </span>
+              <p class="text-[11px] text-slate-500">Form Pengajuan Pegawai</p>
+            </div>
+            <!-- Toggle Switch -->
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" name="maintenanceKlarifikasi" value="true" x-model="maintenanceKlarifikasi" class="sr-only peer">
+              <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-600"></div>
+            </label>
+          </div>
+          <div class="mt-3 pt-2.5 border-t border-slate-200/60 flex items-center justify-between">
+            <span class="text-[11px] font-semibold text-slate-500">Akses Publik:</span>
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold"
+                  :class="maintenanceKlarifikasi ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'">
+              <span class="w-1.5 h-1.5 rounded-full" :class="maintenanceKlarifikasi ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'"></span>
+              <span x-text="maintenanceKlarifikasi ? 'Ditutup (Maintenance)' : 'Buka (Publik)'"></span>
+            </span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Kustomisasi Judul & Pesan Pemeliharaan -->
+      <div class="p-5 rounded-2xl bg-slate-50 border border-slate-200 space-y-4">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+          <i data-lucide="message-square" class="w-4 h-4 text-amber-600"></i>
+          <span>Kustomisasi Teks Layar Pemeliharaan</span>
+        </h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="md:col-span-1 space-y-1.5">
+            <label for="maintenanceTitle" class="block text-xs font-bold text-slate-600">
+              Judul Layar Pemeliharaan
+            </label>
+            <input type="text" 
+                   name="maintenanceTitle" 
+                   id="maintenanceTitle" 
+                   x-model="maintenanceTitle"
+                   placeholder="Sedang Dalam Pemeliharaan"
+                   class="form-input text-xs">
+          </div>
+
+          <div class="md:col-span-2 space-y-1.5">
+            <label for="maintenanceMessage" class="block text-xs font-bold text-slate-600">
+              Pesan Penjelasan untuk Pengunjung Publik
+            </label>
+            <textarea name="maintenanceMessage" 
+                      id="maintenanceMessage" 
+                      rows="2"
+                      x-model="maintenanceMessage"
+                      placeholder="Tuliskan alasan penutupan atau estimasi waktu pembukaan..."
+                      class="form-input text-xs resize-none"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Submit Button -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+        <p class="text-xs text-slate-500 italic">
+          * Catatan: Ketika halaman ditutup, Administrator yang sedang login tetap dapat melihat halaman secara normal untuk keperluan pengecekan data.
+        </p>
+        <button type="submit" class="btn-primary bg-amber-600 hover:bg-amber-700 text-white py-2.5 px-6 gap-2 shrink-0">
+          <i data-lucide="save" class="w-4 h-4"></i>
+          <span>Simpan Status Maintenance</span>
+        </button>
+      </div>
+    </form>
   </div>
 
 </main>

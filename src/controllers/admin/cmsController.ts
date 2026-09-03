@@ -39,7 +39,26 @@ export const cmsController = {
 
   update: async (req: Request, res: Response) => {
     try {
-      const { heroBadge, heroTitle, heroSubtitle, pengumumanText, selectedMonth, selectedMonthEkinerja, selectedYear } = req.body;
+      const { 
+        heroBadge, 
+        heroTitle, 
+        heroSubtitle, 
+        pengumumanText, 
+        selectedMonth, 
+        selectedMonthEkinerja, 
+        selectedYear,
+        maintenanceDashboard,
+        maintenanceAbsensi,
+        maintenanceEkinerja,
+        maintenanceKlarifikasi,
+        maintenanceTitle,
+        maintenanceMessage
+      } = req.body;
+
+      const isDashboard = maintenanceDashboard === 'true' || maintenanceDashboard === 'on' || maintenanceDashboard === '1' || maintenanceDashboard === true;
+      const isAbsensi = maintenanceAbsensi === 'true' || maintenanceAbsensi === 'on' || maintenanceAbsensi === '1' || maintenanceAbsensi === true;
+      const isEkinerja = maintenanceEkinerja === 'true' || maintenanceEkinerja === 'on' || maintenanceEkinerja === '1' || maintenanceEkinerja === true;
+      const isKlarifikasi = maintenanceKlarifikasi === 'true' || maintenanceKlarifikasi === 'on' || maintenanceKlarifikasi === '1' || maintenanceKlarifikasi === true;
 
       await prisma.cmsConfig.upsert({
         where: { id: 'cms-main' },
@@ -50,7 +69,13 @@ export const cmsController = {
           pengumumanText: pengumumanText || undefined,
           selectedMonth: parseInt(selectedMonth) || 7,
           selectedMonthEkinerja: parseInt(selectedMonthEkinerja) || 7,
-          selectedYear: parseInt(selectedYear) || 2026
+          selectedYear: parseInt(selectedYear) || 2026,
+          maintenanceDashboard: isDashboard,
+          maintenanceAbsensi: isAbsensi,
+          maintenanceEkinerja: isEkinerja,
+          maintenanceKlarifikasi: isKlarifikasi,
+          maintenanceTitle: maintenanceTitle || 'Sedang Dalam Pemeliharaan',
+          maintenanceMessage: maintenanceMessage || undefined
         },
         create: {
           id: 'cms-main',
@@ -60,7 +85,13 @@ export const cmsController = {
           pengumumanText: pengumumanText || '',
           selectedMonth: parseInt(selectedMonth) || 7,
           selectedMonthEkinerja: parseInt(selectedMonthEkinerja) || 7,
-          selectedYear: parseInt(selectedYear) || 2026
+          selectedYear: parseInt(selectedYear) || 2026,
+          maintenanceDashboard: isDashboard,
+          maintenanceAbsensi: isAbsensi,
+          maintenanceEkinerja: isEkinerja,
+          maintenanceKlarifikasi: isKlarifikasi,
+          maintenanceTitle: maintenanceTitle || 'Sedang Dalam Pemeliharaan',
+          maintenanceMessage: maintenanceMessage || 'Halaman ini sedang dalam proses pemeliharaan dan pembaruan data berkala oleh tim admin Korwil Cibitung. Mohon kembali beberapa saat lagi.'
         }
       });
 
@@ -74,6 +105,57 @@ export const cmsController = {
       res.redirect('/admin/cms');
     } catch (error) {
       console.error('Error in cmsController.update:', error);
+      res.redirect('/admin/cms');
+    }
+  },
+
+  updateMaintenance: async (req: Request, res: Response) => {
+    try {
+      const {
+        maintenanceDashboard,
+        maintenanceAbsensi,
+        maintenanceEkinerja,
+        maintenanceKlarifikasi,
+        maintenanceTitle,
+        maintenanceMessage
+      } = req.body;
+
+      const isDashboard = maintenanceDashboard === 'true' || maintenanceDashboard === 'on' || maintenanceDashboard === '1' || maintenanceDashboard === true;
+      const isAbsensi = maintenanceAbsensi === 'true' || maintenanceAbsensi === 'on' || maintenanceAbsensi === '1' || maintenanceAbsensi === true;
+      const isEkinerja = maintenanceEkinerja === 'true' || maintenanceEkinerja === 'on' || maintenanceEkinerja === '1' || maintenanceEkinerja === true;
+      const isKlarifikasi = maintenanceKlarifikasi === 'true' || maintenanceKlarifikasi === 'on' || maintenanceKlarifikasi === '1' || maintenanceKlarifikasi === true;
+
+      await prisma.cmsConfig.upsert({
+        where: { id: 'cms-main' },
+        update: {
+          maintenanceDashboard: isDashboard,
+          maintenanceAbsensi: isAbsensi,
+          maintenanceEkinerja: isEkinerja,
+          maintenanceKlarifikasi: isKlarifikasi,
+          maintenanceTitle: maintenanceTitle || 'Sedang Dalam Pemeliharaan',
+          maintenanceMessage: maintenanceMessage || undefined
+        },
+        create: {
+          id: 'cms-main',
+          maintenanceDashboard: isDashboard,
+          maintenanceAbsensi: isAbsensi,
+          maintenanceEkinerja: isEkinerja,
+          maintenanceKlarifikasi: isKlarifikasi,
+          maintenanceTitle: maintenanceTitle || 'Sedang Dalam Pemeliharaan',
+          maintenanceMessage: maintenanceMessage || 'Halaman ini sedang dalam proses pemeliharaan dan pembaruan data berkala oleh tim admin Korwil Cibitung. Mohon kembali beberapa saat lagi.'
+        }
+      });
+
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'success',
+          message: 'Status Buka/Tutup halaman publik (Maintenance Mode) berhasil diperbarui.'
+        };
+      }
+
+      res.redirect('/admin/cms');
+    } catch (error) {
+      console.error('Error in cmsController.updateMaintenance:', error);
       res.redirect('/admin/cms');
     }
   }

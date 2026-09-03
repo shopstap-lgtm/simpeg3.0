@@ -131,6 +131,14 @@ model CmsConfig {
   selectedMonthEkinerja Int     @default(7)
   selectedYear         Int      @default(2026)
 
+  // Mode Pemeliharaan (Maintenance Mode)
+  maintenanceDashboard   Boolean  @default(false)
+  maintenanceAbsensi     Boolean  @default(false)
+  maintenanceEkinerja    Boolean  @default(false)
+  maintenanceKlarifikasi Boolean  @default(false)
+  maintenanceTitle       String   @default("Sedang Dalam Pemeliharaan")
+  maintenanceMessage     String   @default("Halaman ini sedang dalam proses pemeliharaan dan pembaruan data berkala oleh tim admin Korwil Cibitung. Mohon kembali beberapa saat lagi.")
+
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 }

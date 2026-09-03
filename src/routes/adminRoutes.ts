@@ -120,6 +120,7 @@ router.post('/pegawai/:id/delete', requireSuperAdmin, pegawaiAdminController.del
 // CMS Config
 router.get('/cms', requireSuperAdmin, cmsController.show);
 router.post('/cms', requireSuperAdmin, cmsController.update);
+router.post('/cms/maintenance', requireSuperAdmin, cmsController.updateMaintenance);
 
 // User Management
 router.get('/users', requireSuperAdmin, usersController.show);
