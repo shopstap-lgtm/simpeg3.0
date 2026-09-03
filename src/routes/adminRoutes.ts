@@ -81,6 +81,29 @@ router.post('/ekinerja-review/:id/review', ekinerjaReviewController.review);
 router.post('/ekinerja-review/:id/score', ekinerjaReviewController.review);
 router.post('/ekinerja-review/:id/delete', ekinerjaReviewController.deleteReview);
 
+// Bulk Download seluruh berkas fisik uploads dalam satu file .tar.gz
+router.get('/backup/uploads-zip', (req, res) => {
+  const uploadsDir = path.resolve(process.cwd(), 'public', 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    return res.status(404).send('Folder uploads belum ada.');
+  }
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const archiveName = `simpeg-backup-uploads-${dateStr}.tar.gz`;
+
+  res.setHeader('Content-Type', 'application/gzip');
+  res.setHeader('Content-Disposition', `attachment; filename="${archiveName}"`);
+
+  const { spawn } = require('child_process');
+  const tar = spawn('tar', ['-czf', '-', '-C', uploadsDir, '.']);
+
+  tar.stdout.pipe(res);
+  tar.stderr.on('data', (data: any) => console.error(`[Backup Tar Error]: ${data}`));
+  tar.on('close', (code: any) => {
+    if (code !== 0) console.warn(`Tar process exited with code ${code}`);
+  });
+});
+
 // Master Data Pegawai Import (Excel / CSV)
 router.get('/employees/template', employeeController.downloadTemplate);
 router.post('/employees/import', memoryUpload.single('employeeFile'), employeeController.importExcel);
