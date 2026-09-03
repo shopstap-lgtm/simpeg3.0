@@ -58,7 +58,7 @@
         <span>Manajemen Berkas Upload</span>
       </h1>
       <p class="text-xs text-slate-500 mt-1">
-        Pusat kontrol dan arsip seluruh berkas fisik hasil upload (Laporan Kinerja, Bukti Klarifikasi, dan Rekap Absensi) di server VPS.
+        <%= tabDescription %>
       </p>
     </div>
 
@@ -72,12 +72,12 @@
         <span>Upload Berkas</span>
       </button>
 
-      <!-- Download All Full Backup -->
-      <a href="/admin/files/download-all" 
+      <!-- Download All for current tab -->
+      <a href="/admin/files/download-all?tab=<%= activeTab %>" 
          class="btn-secondary py-2 px-3.5 text-xs gap-1.5 text-slate-700 hover:text-indigo-600 hover:border-indigo-200 shadow-xs"
-         title="Download seluruh berkas fisik di server dalam 1 arsip paket .tar.gz">
+         title="Download seluruh berkas pada jendela ini">
         <i data-lucide="archive" class="w-4 h-4 text-amber-500"></i>
-        <span>Download Semua (Full Backup)</span>
+        <span>Download Semua (<%= activeTab === 'all' ? 'Full Backup' : 'Jendela Ini' %>)</span>
       </a>
     </div>
   </div>
@@ -92,60 +92,92 @@
     </div>
   <% } %>
 
-  <!-- Statistics Cards -->
-  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
-    <!-- Total Files -->
+  <!-- WINDOW TABS NAVIGATION -->
+  <div class="flex items-center gap-2 overflow-x-auto pb-1 border-b border-slate-200 text-xs font-bold">
+    <!-- Tab 1: E-Kinerja -->
+    <a href="/admin/files?tab=ekinerja" 
+       class="flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all whitespace-nowrap <%= activeTab === 'ekinerja' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80' %>">
+      <i data-lucide="file-check-2" class="w-4 h-4 <%= activeTab === 'ekinerja' ? 'text-white' : 'text-emerald-500' %>"></i>
+      <span>Laporan E-Kinerja</span>
+      <span class="px-2 py-0.5 text-[10px] rounded-full <%= activeTab === 'ekinerja' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600 font-extrabold' %>">
+        <%= stats.countEkinerja %>
+      </span>
+    </a>
+
+    <!-- Tab 2: Klarifikasi -->
+    <a href="/admin/files?tab=klarifikasi" 
+       class="flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all whitespace-nowrap <%= activeTab === 'klarifikasi' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80' %>">
+      <i data-lucide="file-text" class="w-4 h-4 <%= activeTab === 'klarifikasi' ? 'text-white' : 'text-indigo-500' %>"></i>
+      <span>Bukti Klarifikasi Absen</span>
+      <span class="px-2 py-0.5 text-[10px] rounded-full <%= activeTab === 'klarifikasi' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600 font-extrabold' %>">
+        <%= stats.countKlarifikasi %>
+      </span>
+    </a>
+
+    <!-- Tab 3: Rekap Absensi Excel -->
+    <a href="/admin/files?tab=absensi" 
+       class="flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all whitespace-nowrap <%= activeTab === 'absensi' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80' %>">
+      <i data-lucide="file-spreadsheet" class="w-4 h-4 <%= activeTab === 'absensi' ? 'text-white' : 'text-teal-500' %>"></i>
+      <span>Rekap Absensi (Excel)</span>
+      <span class="px-2 py-0.5 text-[10px] rounded-full <%= activeTab === 'absensi' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600 font-extrabold' %>">
+        <%= stats.countAbsensi %>
+      </span>
+    </a>
+
+    <!-- Tab 4: Semua Berkas -->
+    <a href="/admin/files?tab=all" 
+       class="flex items-center gap-2 px-4 py-2.5 rounded-2xl transition-all whitespace-nowrap <%= activeTab === 'all' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/20' : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80' %>">
+      <i data-lucide="files" class="w-4 h-4 <%= activeTab === 'all' ? 'text-white' : 'text-slate-500' %>"></i>
+      <span>Semua Berkas</span>
+      <span class="px-2 py-0.5 text-[10px] rounded-full <%= activeTab === 'all' ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600 font-extrabold' %>">
+        <%= stats.totalFiles %>
+      </span>
+    </a>
+  </div>
+
+  <!-- Statistics Summary Banner -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+    <!-- Active Tab Files -->
     <div class="card p-4 flex items-center gap-3.5">
-      <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0 shadow-2xs">
-        <i data-lucide="files" class="w-5 h-5"></i>
+      <div class="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+        <i data-lucide="folder" class="w-5 h-5"></i>
       </div>
       <div class="min-w-0">
-        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Berkas</p>
-        <p class="text-xl font-black text-slate-900 mt-0.5"><%= stats.totalFiles %></p>
+        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Berkas di Jendela Ini</p>
+        <p class="text-xl font-black text-slate-900 mt-0.5"><%= pagination.totalRecords %></p>
       </div>
     </div>
 
     <!-- Disk Storage Size -->
     <div class="card p-4 flex items-center gap-3.5">
-      <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs">
+      <div class="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
         <i data-lucide="hard-drive" class="w-5 h-5"></i>
       </div>
       <div class="min-w-0">
-        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Ukuran Disk</p>
+        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Kapasitas Disk</p>
         <p class="text-xl font-black text-slate-900 mt-0.5"><%= stats.totalSizeFormatted %></p>
       </div>
     </div>
 
-    <!-- Ekinerja Files -->
+    <!-- Ekinerja Count -->
     <div class="card p-4 flex items-center gap-3.5">
-      <div class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
+      <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
         <i data-lucide="file-check-2" class="w-5 h-5"></i>
       </div>
       <div class="min-w-0">
-        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">E-Kinerja</p>
+        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total E-Kinerja</p>
         <p class="text-xl font-black text-slate-900 mt-0.5"><%= stats.countEkinerja %></p>
       </div>
     </div>
 
-    <!-- Klarifikasi Files -->
+    <!-- Klarifikasi Count -->
     <div class="card p-4 flex items-center gap-3.5">
-      <div class="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0 shadow-2xs">
+      <div class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
         <i data-lucide="file-text" class="w-5 h-5"></i>
       </div>
       <div class="min-w-0">
-        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Klarifikasi</p>
+        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Total Klarifikasi</p>
         <p class="text-xl font-black text-slate-900 mt-0.5"><%= stats.countKlarifikasi %></p>
-      </div>
-    </div>
-
-    <!-- Absensi Excel Files -->
-    <div class="card p-4 flex items-center gap-3.5 col-span-2 sm:col-span-1">
-      <div class="w-11 h-11 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0 shadow-2xs">
-        <i data-lucide="file-spreadsheet" class="w-5 h-5"></i>
-      </div>
-      <div class="min-w-0">
-        <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Rekap Excel</p>
-        <p class="text-xl font-black text-slate-900 mt-0.5"><%= stats.countAbsensi %></p>
       </div>
     </div>
   </div>
@@ -153,7 +185,8 @@
   <!-- Filter & Search Toolbar -->
   <div class="card p-4 sm:p-5 space-y-4">
     <form method="GET" action="/admin/files" class="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-      
+      <input type="hidden" name="tab" value="<%= activeTab %>">
+
       <!-- Search Input -->
       <div class="relative flex-1">
         <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -162,23 +195,18 @@
         <input type="text" 
                name="search" 
                value="<%= filters.search %>"
-               placeholder="Cari nama berkas, nama pegawai, unit kerja..." 
+               placeholder="Cari nama pegawai, NIP, nama berkas, atau unit kerja..." 
                class="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50/50 focus:bg-white focus:outline-none focus:border-indigo-500 transition-all">
       </div>
 
-      <!-- Filters Row -->
+      <!-- Filters Row (Bulan & Tahun Pengajuan) -->
       <div class="flex flex-wrap items-center gap-2.5">
-        <!-- Kategori Filter -->
-        <select name="kategori" 
-                class="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white text-slate-700 focus:outline-none focus:border-indigo-500 shadow-2xs">
-          <option value="all" <%= filters.kategori === 'all' ? 'selected' : '' %>>Semua Kategori</option>
-          <option value="ekinerja" <%= filters.kategori === 'ekinerja' ? 'selected' : '' %>>Laporan E-Kinerja</option>
-          <option value="klarifikasi" <%= filters.kategori === 'klarifikasi' ? 'selected' : '' %>>Bukti Klarifikasi</option>
-          <option value="absensi" <%= filters.kategori === 'absensi' ? 'selected' : '' %>>Rekap Absensi / Excel</option>
-          <option value="lainnya" <%= filters.kategori === 'lainnya' ? 'selected' : '' %>>Lainnya</option>
-        </select>
+        <span class="text-xs font-bold text-slate-500 flex items-center gap-1">
+          <i data-lucide="calendar" class="w-3.5 h-3.5 text-indigo-600"></i>
+          <span>Bulan Diajukan:</span>
+        </span>
 
-        <!-- Bulan Filter -->
+        <!-- Bulan Filter (Berdasarkan Bulan Pengajuan) -->
         <select name="bulan" 
                 class="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-200 bg-white text-slate-700 focus:outline-none focus:border-indigo-500 shadow-2xs">
           <option value="0" <%= filters.bulan === 0 ? 'selected' : '' %>>Semua Bulan</option>
@@ -203,15 +231,25 @@
           <span>Filter</span>
         </button>
 
-        <% if (filters.search || filters.kategori !== 'all' || filters.bulan > 0 || filters.tahun > 0) { %>
-          <a href="/admin/files" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors" title="Reset Filter">
+        <!-- Download Per Bulan Button (if month & year selected) -->
+        <% if (filters.bulan > 0 && filters.tahun > 0) { %>
+          <a href="/admin/files/download-month?tab=<%= activeTab %>&bulan=<%= filters.bulan %>&tahun=<%= filters.tahun %>" 
+             class="btn-secondary py-2 px-3 text-xs gap-1.5 text-indigo-700 bg-indigo-50/80 border-indigo-200 hover:bg-indigo-100 shadow-2xs font-bold"
+             title="Download seluruh berkas yang diajukan pada periode ini">
+            <i data-lucide="download" class="w-3.5 h-3.5 text-indigo-600"></i>
+            <span>Download Periode Ini (ZIP)</span>
+          </a>
+        <% } %>
+
+        <% if (filters.search || filters.bulan > 0 || filters.tahun > 0) { %>
+          <a href="/admin/files?tab=<%= activeTab %>" class="p-2 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors" title="Reset Filter">
             <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
           </a>
         <% } %>
       </div>
     </form>
 
-    <!-- Bulk Actions Floating Strip (Visible when files selected) -->
+    <!-- Bulk Actions Floating Strip -->
     <div x-show="selectedFiles.length > 0" 
          x-transition
          class="p-3 bg-indigo-50/90 border border-indigo-200 rounded-2xl flex flex-wrap items-center justify-between gap-3"
@@ -224,6 +262,7 @@
       <div class="flex items-center gap-2">
         <!-- Download Selected Form -->
         <form method="POST" action="/admin/files/download-selected" target="_blank" class="inline">
+          <input type="hidden" name="activeTab" value="<%= activeTab %>">
           <input type="hidden" name="filenames" :value="JSON.stringify(selectedFiles)">
           <button type="submit" class="btn-primary py-1.5 px-3 text-xs gap-1.5 bg-indigo-600 hover:bg-indigo-700 shadow-xs">
             <i data-lucide="download" class="w-3.5 h-3.5"></i>
@@ -254,11 +293,11 @@
                      @change="toggleSelectAll(<%= JSON.stringify(files.map(f => f.filename)) %>)"
                      class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500/20 cursor-pointer">
             </th>
-            <th class="py-3 px-4">Nama Berkas</th>
+            <th class="py-3 px-4">Nama Berkas Fisik</th>
+            <th class="py-3 px-4">Terkait Pegawai & Unit</th>
+            <th class="py-3 px-4">Bulan yang Diajukan</th>
             <th class="py-3 px-4">Kategori</th>
-            <th class="py-3 px-4">Terkait Pegawai / Unit</th>
             <th class="py-3 px-4">Ukuran</th>
-            <th class="py-3 px-4">Waktu Modifikasi</th>
             <th class="py-3 px-4 text-center">Aksi</th>
           </tr>
         </thead>
@@ -269,8 +308,8 @@
                 <div class="w-12 h-12 mx-auto mb-3 rounded-2xl bg-slate-50 flex items-center justify-center text-slate-300">
                   <i data-lucide="folder-open" class="w-6 h-6"></i>
                 </div>
-                <p class="font-semibold text-slate-600">Tidak ada berkas yang ditemukan</p>
-                <p class="text-[11px] text-slate-400 mt-1">Coba sesuaikan kata kunci pencarian atau filter kategori Anda.</p>
+                <p class="font-semibold text-slate-600">Tidak ada berkas ditemukan di jendela ini</p>
+                <p class="text-[11px] text-slate-400 mt-1">Coba sesuaikan kata kunci pencarian atau filter bulan yang diajukan.</p>
               </td>
             </tr>
           <% } else { %>
@@ -297,6 +336,30 @@
                   </div>
                 </td>
 
+                <!-- Associated Employee & Unit -->
+                <td class="py-3 px-4">
+                  <% if (file.pegawaiNama) { %>
+                    <p class="font-bold text-slate-800 truncate max-w-[180px]"><%= file.pegawaiNama %></p>
+                    <p class="text-[10px] text-slate-400 truncate max-w-[180px]"><%= file.unitNama || '-' %></p>
+                  <% } else { %>
+                    <span class="text-slate-400 text-[11px]">-</span>
+                  <% } %>
+                </td>
+
+                <!-- Bulan yang Diajukan (Submission Period) -->
+                <td class="py-3 px-4 whitespace-nowrap">
+                  <div class="flex flex-col">
+                    <span class="px-2.5 py-1 text-xs font-bold rounded-xl bg-indigo-50 text-indigo-700 border border-indigo-200 inline-block w-fit">
+                      <%= file.bulanPengajuanLabel %>
+                    </span>
+                    <% if (file.kategori === 'klarifikasi' && file.periode) { %>
+                      <span class="text-[10px] text-slate-400 mt-0.5">Tgl Absen: <%= file.periode %></span>
+                    <% } else if (file.kategori === 'ekinerja') { %>
+                      <span class="text-[10px] text-slate-400 mt-0.5"><%= file.kategoriLabel.includes('Harian') ? 'Laporan Harian' : 'Laporan Bulanan' %></span>
+                    <% } %>
+                  </div>
+                </td>
+
                 <!-- Category Badge -->
                 <td class="py-3 px-4 whitespace-nowrap">
                   <span class="px-2.5 py-1 text-[10px] font-bold rounded-lg border <%= file.badgeColor %>">
@@ -304,24 +367,9 @@
                   </span>
                 </td>
 
-                <!-- Associated Employee / Unit -->
-                <td class="py-3 px-4">
-                  <% if (file.pegawaiNama) { %>
-                    <p class="font-bold text-slate-800 truncate max-w-[180px]"><%= file.pegawaiNama %></p>
-                    <p class="text-[10px] text-slate-400 truncate max-w-[180px]"><%= file.unitNama || '-' %> <%= file.periode ? `(${file.periode})` : '' %></p>
-                  <% } else { %>
-                    <span class="text-slate-400 text-[11px]">-</span>
-                  <% } %>
-                </td>
-
                 <!-- File Size -->
                 <td class="py-3 px-4 whitespace-nowrap font-medium text-slate-700">
                   <%= file.sizeFormatted %>
-                </td>
-
-                <!-- Modification Time -->
-                <td class="py-3 px-4 whitespace-nowrap text-[11px] text-slate-500">
-                  <%= new Date(file.mtime).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' }) %>
                 </td>
 
                 <!-- Action Buttons -->
@@ -332,7 +380,7 @@
                       <button type="button" 
                               @click="openPreview('<%= file.url %>', '<%= file.originalName %>', '<%= file.filename %>')"
                               class="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors"
-                              title="Preview PDF">
+                              title="Preview PDF (Layar Besar)">
                         <i data-lucide="eye" class="w-4 h-4"></i>
                       </button>
                     <% } %>
@@ -372,10 +420,10 @@
     <!-- Pagination Footer -->
     <% if (pagination.totalPages > 1) { %>
       <div class="px-4 py-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-        <p>Menampilkan <b><%= files.length %></b> dari <b><%= pagination.totalRecords %></b> berkas</p>
+        <p>Menampilkan <b><%= files.length %></b> dari <b><%= pagination.totalRecords %></b> berkas di jendela ini</p>
         <div class="flex items-center gap-1">
           <% if (pagination.hasPrevPage) { %>
-            <a href="/admin/files?page=<%= pagination.currentPage - 1 %>&kategori=<%= filters.kategori %>&search=<%= filters.search %>&bulan=<%= filters.bulan %>&tahun=<%= filters.tahun %>"
+            <a href="/admin/files?tab=<%= activeTab %>&page=<%= pagination.currentPage - 1 %>&search=<%= filters.search %>&bulan=<%= filters.bulan %>&tahun=<%= filters.tahun %>"
                class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold">
               Sebelumnya
             </a>
@@ -384,7 +432,7 @@
             Halaman <%= pagination.currentPage %> / <%= pagination.totalPages %>
           </span>
           <% if (pagination.hasNextPage) { %>
-            <a href="/admin/files?page=<%= pagination.currentPage + 1 %>&kategori=<%= filters.kategori %>&search=<%= filters.search %>&bulan=<%= filters.bulan %>&tahun=<%= filters.tahun %>"
+            <a href="/admin/files?tab=<%= activeTab %>&page=<%= pagination.currentPage + 1 %>&search=<%= filters.search %>&bulan=<%= filters.bulan %>&tahun=<%= filters.tahun %>"
                class="px-3 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold">
               Selanjutnya
             </a>
@@ -395,7 +443,7 @@
   </div>
 
   <!-- =========================================================
-       MODAL 1: PREVIEW PDF (USING CERTIFIED h-[92vh] max-h-[92vh])
+       MODAL 1: PREVIEW PDF (EXPANDED HEIGHT h-[96vh] max-h-[96vh])
        ========================================================= -->
   <template x-teleport="body">
     <div x-show="pdfModal" 
@@ -405,20 +453,20 @@
          x-transition:leave="transition ease-in duration-150"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
-         class="fixed inset-0 !m-0 !mt-0 modal-overlay z-modal overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4"
+         class="fixed inset-0 !m-0 !mt-0 modal-overlay z-modal overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-2 sm:p-3"
          style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 999999 !important;">
       
       <div @click.away="pdfModal = false"
-           class="bg-white rounded-3xl max-w-3xl w-full p-4 sm:p-5 shadow-2xl border border-slate-100 flex flex-col h-[92vh] max-h-[92vh]">
+           class="bg-white rounded-3xl max-w-3xl w-full p-3 sm:p-4 shadow-2xl border border-slate-100 flex flex-col h-[96vh] max-h-[96vh]">
         
-        <div class="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
+        <div class="flex items-center justify-between pb-2.5 border-b border-slate-100 shrink-0">
           <div class="flex items-center gap-2.5 min-w-0 pr-4">
-            <div class="w-9 h-9 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-              <i data-lucide="file-text" class="w-5 h-5"></i>
+            <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+              <i data-lucide="file-text" class="w-4 h-4"></i>
             </div>
             <div class="min-w-0">
               <h3 class="font-bold text-sm sm:text-base text-slate-900 truncate" x-text="pdfTitle"></h3>
-              <p class="text-[11px] text-slate-400 font-mono truncate" x-text="pdfFileName"></p>
+              <p class="text-[10px] text-slate-400 font-mono truncate" x-text="pdfFileName"></p>
             </div>
           </div>
           <div class="flex items-center gap-2 shrink-0">
@@ -436,16 +484,16 @@
           </div>
         </div>
 
-        <!-- Inline PDF Viewer Container -->
-        <div class="flex-1 w-full h-full bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 flex flex-col">
+        <!-- Inline PDF Viewer Container - dynamically stretching to 100% vertical space -->
+        <div class="flex-1 w-full h-full bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 flex flex-col my-2">
           <iframe :src="pdfUrl ? (pdfUrl.includes('#') ? pdfUrl : pdfUrl + '#toolbar=1&navpanes=0&view=FitH') : ''" 
                   class="w-full h-full flex-1 rounded-2xl border-0" 
                   allowfullscreen></iframe>
         </div>
 
-        <div class="pt-2.5 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 shrink-0">
-          <span class="text-slate-400">Gunakan Tab Baru jika ingin mencetak atau melihat layar penuh.</span>
-          <button type="button" @click="pdfModal = false" class="btn-secondary py-2 px-4 text-xs font-semibold">
+        <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 shrink-0">
+          <span class="text-slate-400 text-[11px]">Gunakan tombol Tab Baru jika ingin mencetak atau melihat layar penuh.</span>
+          <button type="button" @click="pdfModal = false" class="btn-secondary py-1.5 px-4 text-xs font-semibold">
             Tutup
           </button>
         </div>
@@ -481,6 +529,8 @@
         </div>
 
         <form method="POST" action="/admin/files/upload" enctype="multipart/form-data" class="space-y-4">
+          <input type="hidden" name="activeTab" value="<%= activeTab %>">
+
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-2">
               Pilih Berkas (PDF / Excel / CSV)
@@ -535,6 +585,7 @@
         </div>
 
         <form method="POST" action="/admin/files/rename" class="space-y-4">
+          <input type="hidden" name="activeTab" value="<%= activeTab %>">
           <input type="hidden" name="oldFilename" :value="renameOldName">
 
           <div>
@@ -593,6 +644,7 @@
         </p>
 
         <form method="POST" action="/admin/files/delete" class="pt-2 flex items-center justify-end gap-2">
+          <input type="hidden" name="activeTab" value="<%= activeTab %>">
           <input type="hidden" name="filename" :value="deleteTargetName">
           <button type="button" @click="deleteModal = false" class="btn-secondary py-2 px-4 text-xs font-semibold">
             Batal
@@ -633,6 +685,7 @@
         </p>
 
         <form method="POST" action="/admin/files/bulk-delete" class="pt-2 flex items-center justify-end gap-2">
+          <input type="hidden" name="activeTab" value="<%= activeTab %>">
           <input type="hidden" name="filenames" :value="JSON.stringify(selectedFiles)">
           <button type="button" @click="bulkDeleteModal = false" class="btn-secondary py-2 px-4 text-xs font-semibold">
             Batal

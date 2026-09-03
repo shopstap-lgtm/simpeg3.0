@@ -19,6 +19,22 @@
   max-height: 92vh !important;
 }
 
+.h-\[96vh\] {
+  height: 96vh !important;
+}
+
+.max-h-\[96vh\] {
+  max-height: 96vh !important;
+}
+
+.h-\[97vh\] {
+  height: 97vh !important;
+}
+
+.max-h-\[97vh\] {
+  max-height: 97vh !important;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
