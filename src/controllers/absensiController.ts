@@ -228,6 +228,7 @@ export const absensiController = {
         holidays: Object.fromEntries(holidayService.getHolidaysForMonth(tahun, bulan)),
         isAdmin: (req as any).session?.user?.role === 'ADMIN' || (req as any).session?.user?.role === 'SUPERADMIN',
         klarifikasiConfig: {
+          month: (cms as any)?.klarifikasiMonth || cms?.selectedMonth || 7,
           nlEnabled: cms?.klarifikasiNlEnabled || false,
           nlDates: cms?.klarifikasiNlDates || 'ALL',
           pcEnabled: cms?.klarifikasiPcEnabled || false,
@@ -444,7 +445,15 @@ export const absensiController = {
         if (parts.length === 3) return parseInt(parts[2]);
         return null;
       };
+      const getMonthNum = (str: string) => {
+        const parts = str.trim().split('-');
+        if (parts.length >= 2) return parseInt(parts[1]);
+        return null;
+      };
+
       const dayNum = getDayNum(tanggalAbsen);
+      const monthNum = getMonthNum(tanggalAbsen);
+      const activeKlarifikasiMonth = (cms as any)?.klarifikasiMonth || cms?.selectedMonth || 7;
 
       const isDatePermitted = (datesSetting: string, day: number | null) => {
         if (!day) return true;
@@ -454,21 +463,23 @@ export const absensiController = {
       };
 
       if (normStatusAwal === 'HADIR' || normStatusAwal === 'NL') {
-        if (!cms?.klarifikasiNlEnabled || !isDatePermitted(cms?.klarifikasiNlDates || 'ALL', dayNum)) {
+        const isMonthMatch = !monthNum || monthNum === activeKlarifikasiMonth;
+        if (!cms?.klarifikasiNlEnabled || !isMonthMatch || !isDatePermitted(cms?.klarifikasiNlDates || 'ALL', dayNum)) {
           if ((req as any).session) {
             (req as any).session.toast = {
               type: 'warning',
-              message: 'Pengajuan klarifikasi untuk status Hadir Normal (NL) pada tanggal tersebut sedang ditutup oleh Admin.'
+              message: 'Pengajuan klarifikasi untuk status Hadir Normal (NL) pada bulan / tanggal tersebut sedang ditutup oleh Admin.'
             };
           }
           return res.redirect('/absensi');
         }
       } else if (normStatusAwal === 'PC' || normStatusAwal === 'TL') {
-        if (!cms?.klarifikasiPcEnabled || !isDatePermitted(cms?.klarifikasiPcDates || 'ALL', dayNum)) {
+        const isMonthMatch = !monthNum || monthNum === activeKlarifikasiMonth;
+        if (!cms?.klarifikasiPcEnabled || !isMonthMatch || !isDatePermitted(cms?.klarifikasiPcDates || 'ALL', dayNum)) {
           if ((req as any).session) {
             (req as any).session.toast = {
               type: 'warning',
-              message: 'Pengajuan klarifikasi untuk status Terlambat (TL) & Pulang Cepat (PC) pada tanggal tersebut sedang ditutup oleh Admin.'
+              message: 'Pengajuan klarifikasi untuk status Terlambat (TL) & Pulang Cepat (PC) pada bulan / tanggal tersebut sedang ditutup oleh Admin.'
             };
           }
           return res.redirect('/absensi');

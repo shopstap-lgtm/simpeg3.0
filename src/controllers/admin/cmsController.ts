@@ -156,6 +156,7 @@ export const cmsController = {
   updateKlarifikasiPolicy: async (req: Request, res: Response) => {
     try {
       const {
+        klarifikasiMonth,
         klarifikasiNlEnabled,
         klarifikasiNlMode,
         klarifikasiNlDates,
@@ -164,6 +165,7 @@ export const cmsController = {
         klarifikasiPcDates
       } = req.body;
 
+      const parsedMonth = parseInt(klarifikasiMonth) || 7;
       const isNlEnabled = klarifikasiNlEnabled === 'true' || klarifikasiNlEnabled === 'on' || klarifikasiNlEnabled === true;
       let finalNlDates = 'ALL';
       if (klarifikasiNlMode === 'CUSTOM') {
@@ -187,6 +189,7 @@ export const cmsController = {
       await prisma.cmsConfig.upsert({
         where: { id: 'cms-main' },
         update: {
+          klarifikasiMonth: parsedMonth,
           klarifikasiNlEnabled: isNlEnabled,
           klarifikasiNlDates: finalNlDates,
           klarifikasiPcEnabled: isPcEnabled,
@@ -194,6 +197,7 @@ export const cmsController = {
         },
         create: {
           id: 'cms-main',
+          klarifikasiMonth: parsedMonth,
           klarifikasiNlEnabled: isNlEnabled,
           klarifikasiNlDates: finalNlDates,
           klarifikasiPcEnabled: isPcEnabled,
@@ -204,7 +208,7 @@ export const cmsController = {
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'success',
-          message: 'Kebijakan buka/tutup klarifikasi absensi (NL & PC) berhasil diperbarui.'
+          message: 'Kebijakan buka/tutup klarifikasi absensi (Bulan, NL & PC) berhasil diperbarui.'
         };
       }
 

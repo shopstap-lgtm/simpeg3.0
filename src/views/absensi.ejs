@@ -12,11 +12,15 @@
       x-data="{
         isAdmin: <%= isAdmin ? 'true' : 'false' %>,
         isSuperAdminOrDinas: <%= isSuperAdminOrDinas ? 'true' : 'false' %>,
+        currentBulan: <%= bulan %>,
         isDefaultPeriod: <%= isDefaultPeriod ? 'true' : 'false' %>,
-        klarifikasiConfig: <%= JSON.stringify(typeof klarifikasiConfig !== 'undefined' ? klarifikasiConfig : { nlEnabled: false, nlDates: 'ALL', pcEnabled: false, pcDates: 'ALL' }) %>,
+        klarifikasiConfig: <%= JSON.stringify(typeof klarifikasiConfig !== 'undefined' ? klarifikasiConfig : { month: 7, nlEnabled: false, nlDates: 'ALL', pcEnabled: false, pcDates: 'ALL' }) %>,
 
         isStatusEligibleForKlarifikasi(status, dayNumber) {
           if (status === 'TK' || status === 'DL_KUNING') return true;
+
+          const activeMonth = this.klarifikasiConfig.month || <%= activeDefaultMonth %>;
+          if (this.currentBulan !== activeMonth) return false;
 
           // NL (HADIR / NL)
           if (status === 'HADIR' || status === 'NL') {

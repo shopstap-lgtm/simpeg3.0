@@ -21,6 +21,7 @@
         maintenanceMessage: '<%= ((typeof cms.maintenanceMessage !== 'undefined' && cms.maintenanceMessage) ? cms.maintenanceMessage : 'Halaman ini sedang dalam proses pemeliharaan dan pembaruan data berkala oleh tim admin Korwil Cibitung. Mohon kembali beberapa saat lagi.').replace(/'/g, "\\'") %>',
 
         // Kebijakan Buka / Tutup Klarifikasi Absensi (NL & PC)
+        selectedKlarifikasiMonth: <%= (typeof cms.klarifikasiMonth !== 'undefined' && cms.klarifikasiMonth) ? cms.klarifikasiMonth : (cms.selectedMonth || 7) %>,
         klarifikasiNlEnabled: <%= (typeof cms.klarifikasiNlEnabled !== 'undefined' && cms.klarifikasiNlEnabled) ? 'true' : 'false' %>,
         klarifikasiNlMode: '<%= (typeof cms.klarifikasiNlDates !== 'undefined' && cms.klarifikasiNlDates && cms.klarifikasiNlDates !== "ALL") ? "CUSTOM" : "ALL" %>',
         klarifikasiNlDates: <%= JSON.stringify((typeof cms.klarifikasiNlDates !== 'undefined' && cms.klarifikasiNlDates && cms.klarifikasiNlDates !== "ALL") ? cms.klarifikasiNlDates.split(',').map(d => parseInt(d.trim())).filter(Boolean) : []) %>,
@@ -28,6 +29,27 @@
         klarifikasiPcEnabled: <%= (typeof cms.klarifikasiPcEnabled !== 'undefined' && cms.klarifikasiPcEnabled) ? 'true' : 'false' %>,
         klarifikasiPcMode: '<%= (typeof cms.klarifikasiPcDates !== 'undefined' && cms.klarifikasiPcDates && cms.klarifikasiPcDates !== "ALL") ? "CUSTOM" : "ALL" %>',
         klarifikasiPcDates: <%= JSON.stringify((typeof cms.klarifikasiPcDates !== 'undefined' && cms.klarifikasiPcDates && cms.klarifikasiPcDates !== "ALL") ? cms.klarifikasiPcDates.split(',').map(d => parseInt(d.trim())).filter(Boolean) : []) %>,
+
+        getDaysInKlarifikasiMonth() {
+          const m = parseInt(this.selectedKlarifikasiMonth) || 7;
+          const y = parseInt(this.selectedYear) || 2026;
+          return new Date(y, m, 0).getDate();
+        },
+        getKlarifikasiMonthStartOffset() {
+          const m = parseInt(this.selectedKlarifikasiMonth) || 7;
+          const y = parseInt(this.selectedYear) || 2026;
+          const day = new Date(y, m - 1, 1).getDay();
+          return (day + 6) % 7; // Monday = 0, Sunday = 6
+        },
+        getKlarifikasiMonthName() {
+          const months = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+          return months[parseInt(this.selectedKlarifikasiMonth)] || 'Bulan ' + this.selectedKlarifikasiMonth;
+        },
+        onKlarifikasiMonthChange() {
+          const maxDays = this.getDaysInKlarifikasiMonth();
+          this.klarifikasiNlDates = this.klarifikasiNlDates.filter(d => d <= maxDays);
+          this.klarifikasiPcDates = this.klarifikasiPcDates.filter(d => d <= maxDays);
+        },
 
         toggleNlDate(day) {
           const idx = this.klarifikasiNlDates.indexOf(day);
@@ -39,7 +61,8 @@
           }
         },
         selectAllNlDates() {
-          this.klarifikasiNlDates = Array.from({ length: 31 }, (_, i) => i + 1);
+          const totalDays = this.getDaysInKlarifikasiMonth();
+          this.klarifikasiNlDates = Array.from({ length: totalDays }, (_, i) => i + 1);
         },
         clearAllNlDates() {
           this.klarifikasiNlDates = [];
@@ -55,7 +78,8 @@
           }
         },
         selectAllPcDates() {
-          this.klarifikasiPcDates = Array.from({ length: 31 }, (_, i) => i + 1);
+          const totalDays = this.getDaysInKlarifikasiMonth();
+          this.klarifikasiPcDates = Array.from({ length: totalDays }, (_, i) => i + 1);
         },
         clearAllPcDates() {
           this.klarifikasiPcDates = [];
@@ -693,6 +717,43 @@
 
     <form action="/admin/cms/klarifikasi-policy" method="POST" class="space-y-6">
       
+      <!-- SELEKSI BULAN KLARIFIKASI -->
+      <div class="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-teal-500/10 via-emerald-500/5 to-teal-500/10 border border-teal-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
+        <div class="space-y-1">
+          <div class="flex items-center gap-2">
+            <div class="w-7 h-7 rounded-lg bg-teal-600 text-white flex items-center justify-center shrink-0">
+              <i data-lucide="calendar" class="w-4 h-4"></i>
+            </div>
+            <span class="text-xs sm:text-sm font-extrabold text-slate-800">Pilihan Bulan Klarifikasi:</span>
+          </div>
+          <p class="text-xs text-slate-500">
+            Tentukan periode bulan yang dibuka klarifikasinya. Tampilan kalender grid 7 kolom di bawah akan otomatis menyesuaikan jumlah hari dan posisi hari kerja/akhir pekan.
+          </p>
+        </div>
+
+        <div class="flex items-center gap-2 shrink-0">
+          <label for="selectKlarifikasiMonth" class="text-xs font-bold text-slate-600 hidden sm:inline">Bulan:</label>
+          <select id="selectKlarifikasiMonth"
+                  name="klarifikasiMonth" 
+                  x-model="selectedKlarifikasiMonth"
+                  @change="onKlarifikasiMonthChange()"
+                  class="form-select text-xs font-bold text-slate-800 bg-white border-teal-300 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 rounded-xl py-2 px-3.5 shadow-2xs cursor-pointer min-w-[200px]">
+            <option value="1">1. Januari</option>
+            <option value="2">2. Februari</option>
+            <option value="3">3. Maret</option>
+            <option value="4">4. April</option>
+            <option value="5">5. Mei</option>
+            <option value="6">6. Juni</option>
+            <option value="7">7. Juli (Bulan Aktif Absensi)</option>
+            <option value="8">8. Agustus</option>
+            <option value="9">9. September</option>
+            <option value="10">10. Oktober</option>
+            <option value="11">11. November</option>
+            <option value="12">12. Desember</option>
+          </select>
+        </div>
+      </div>
+
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
         <!-- KARTU 1: STATUS HADIR NORMAL (NL) -->
@@ -735,7 +796,7 @@
                 <label class="flex-1 py-1.5 px-3 rounded-lg text-center cursor-pointer font-bold transition-all text-xs"
                        :class="klarifikasiNlMode === 'ALL' ? 'bg-white text-emerald-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'">
                   <input type="radio" name="klarifikasiNlMode" value="ALL" x-model="klarifikasiNlMode" class="sr-only">
-                  <span>Semua Tanggal (1–31)</span>
+                  <span x-text="'Semua Tanggal (1–' + getDaysInKlarifikasiMonth() + ')'"></span>
                 </label>
                 <label class="flex-1 py-1.5 px-3 rounded-lg text-center cursor-pointer font-bold transition-all text-xs"
                        :class="klarifikasiNlMode === 'CUSTOM' ? 'bg-white text-emerald-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'">
@@ -748,7 +809,7 @@
               <div x-show="klarifikasiNlMode === 'CUSTOM'" x-collapse class="p-3.5 rounded-xl bg-white border border-slate-200 space-y-2.5">
                 <div class="flex items-center justify-between text-xs pb-1.5 border-b border-slate-100">
                   <span class="text-[11px] font-semibold text-slate-500">
-                    Pilih tanggal:
+                    Pilih tanggal (<span class="font-bold text-emerald-700" x-text="getKlarifikasiMonthName()"></span>):
                   </span>
                   <div class="flex items-center gap-2">
                     <button type="button" @click="selectAllNlDates()" class="text-[11px] font-bold text-emerald-600 hover:underline">Semua</button>
@@ -757,12 +818,29 @@
                   </div>
                 </div>
 
+                <!-- 7-Column Day Header -->
+                <div class="grid grid-cols-7 gap-1 sm:gap-1.5 max-w-[280px] sm:max-w-[320px] text-center py-1 bg-slate-50/80 rounded-md border border-slate-100">
+                  <span class="text-[10px] font-bold text-slate-500 uppercase">Sen</span>
+                  <span class="text-[10px] font-bold text-slate-500 uppercase">Sel</span>
+                  <span class="text-[10px] font-bold text-slate-500 uppercase">Rab</span>
+                  <span class="text-[10px] font-bold text-slate-500 uppercase">Kam</span>
+                  <span class="text-[10px] font-bold text-slate-500 uppercase">Jum</span>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase">Sab</span>
+                  <span class="text-[10px] font-bold text-rose-500 uppercase">Min</span>
+                </div>
+
                 <!-- 7-Column Calendar Grid -->
                 <div class="grid grid-cols-7 gap-1 sm:gap-1.5 max-w-[280px] sm:max-w-[320px]">
-                  <template x-for="day in 31" :key="'nl-day-' + day">
+                  <!-- Empty offset padding -->
+                  <template x-for="offset in getKlarifikasiMonthStartOffset()" :key="'nl-offset-' + offset">
+                    <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-md bg-transparent"></div>
+                  </template>
+
+                  <!-- Dates 1..N -->
+                  <template x-for="day in getDaysInKlarifikasiMonth()" :key="'nl-day-' + day">
                     <button type="button" 
                             @click="toggleNlDate(day)"
-                            :class="klarifikasiNlDates.includes(day) ? 'bg-emerald-600 text-white font-bold border-emerald-600 shadow-2xs ring-1 ring-emerald-500' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300 font-medium'"
+                            :class="klarifikasiNlDates.includes(day) ? 'bg-emerald-600 text-white font-bold border-emerald-600 shadow-2xs ring-1 ring-emerald-500 scale-105' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300 font-medium'"
                             class="w-8 h-8 sm:w-9 sm:h-9 rounded-md border text-xs flex items-center justify-center transition-all cursor-pointer">
                       <span x-text="day"></span>
                     </button>
@@ -826,7 +904,7 @@
                 <label class="flex-1 py-1.5 px-3 rounded-lg text-center cursor-pointer font-bold transition-all text-xs"
                        :class="klarifikasiPcMode === 'ALL' ? 'bg-white text-blue-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'">
                   <input type="radio" name="klarifikasiPcMode" value="ALL" x-model="klarifikasiPcMode" class="sr-only">
-                  <span>Semua Tanggal (1–31)</span>
+                  <span x-text="'Semua Tanggal (1–' + getDaysInKlarifikasiMonth() + ')'"></span>
                 </label>
                 <label class="flex-1 py-1.5 px-3 rounded-lg text-center cursor-pointer font-bold transition-all text-xs"
                        :class="klarifikasiPcMode === 'CUSTOM' ? 'bg-white text-blue-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'">
@@ -839,7 +917,7 @@
               <div x-show="klarifikasiPcMode === 'CUSTOM'" x-collapse class="p-3.5 rounded-xl bg-white border border-slate-200 space-y-2.5">
                 <div class="flex items-center justify-between text-xs pb-1.5 border-b border-slate-100">
                   <span class="text-[11px] font-semibold text-slate-500">
-                    Pilih tanggal:
+                    Pilih tanggal (<span class="font-bold text-blue-700" x-text="getKlarifikasiMonthName()"></span>):
                   </span>
                   <div class="flex items-center gap-2">
                     <button type="button" @click="selectAllPcDates()" class="text-[11px] font-bold text-blue-600 hover:underline">Semua</button>
@@ -848,12 +926,29 @@
                   </div>
                 </div>
 
+                <!-- 7-Column Day Header -->
+                <div class="grid grid-cols-7 gap-1 sm:gap-1.5 max-w-[280px] sm:max-w-[320px] text-center py-1 bg-slate-50/80 rounded-md border border-slate-100">
+                  <span class="text-[10px] font-bold text-slate-500 uppercase">Sen</span>
+                  <span class="text-[10px] font-bold text-slate-500 uppercase">Sel</span>
+                  <span class="text-[10px] font-bold text-slate-500 uppercase">Rab</span>
+                  <span class="text-[10px] font-bold text-slate-500 uppercase">Kam</span>
+                  <span class="text-[10px] font-bold text-slate-500 uppercase">Jum</span>
+                  <span class="text-[10px] font-bold text-slate-400 uppercase">Sab</span>
+                  <span class="text-[10px] font-bold text-rose-500 uppercase">Min</span>
+                </div>
+
                 <!-- 7-Column Calendar Grid -->
                 <div class="grid grid-cols-7 gap-1 sm:gap-1.5 max-w-[280px] sm:max-w-[320px]">
-                  <template x-for="day in 31" :key="'pc-day-' + day">
+                  <!-- Empty offset padding -->
+                  <template x-for="offset in getKlarifikasiMonthStartOffset()" :key="'pc-offset-' + offset">
+                    <div class="w-8 h-8 sm:w-9 sm:h-9 rounded-md bg-transparent"></div>
+                  </template>
+
+                  <!-- Dates 1..N -->
+                  <template x-for="day in getDaysInKlarifikasiMonth()" :key="'pc-day-' + day">
                     <button type="button" 
                             @click="togglePcDate(day)"
-                            :class="klarifikasiPcDates.includes(day) ? 'bg-blue-600 text-white font-bold border-blue-600 shadow-2xs ring-1 ring-blue-500' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300 font-medium'"
+                            :class="klarifikasiPcDates.includes(day) ? 'bg-blue-600 text-white font-bold border-blue-600 shadow-2xs ring-1 ring-blue-500 scale-105' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300 font-medium'"
                             class="w-8 h-8 sm:w-9 sm:h-9 rounded-md border text-xs flex items-center justify-center transition-all cursor-pointer">
                       <span x-text="day"></span>
                     </button>

@@ -144,6 +144,7 @@ model CmsConfig {
   ekinerjaFilterKepegawaian  String   @default("PNS,PPPK,PPPK_PW")
 
   // Kebijakan Buka / Tutup Klarifikasi Absensi NL & PC
+  klarifikasiMonth          Int      @default(7)
   klarifikasiNlEnabled      Boolean  @default(false)
   klarifikasiNlDates        String   @default("ALL") // "ALL" or comma-separated days "1,2,5,15"
   klarifikasiPcEnabled      Boolean  @default(false)
