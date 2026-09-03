@@ -66,7 +66,27 @@ export async function uploadToStorage(
 ): Promise<{ url: string; path: string } | null> {
   const client = getSupabaseClient();
   if (!client) {
-    return null;
+    // Mode VPS / Self-Hosted: Simpan berkas fisik langsung ke disk lokal di public/uploads
+    try {
+      const pathModule = await import('path');
+      const fsModule = await import('fs');
+      const uploadsDir = pathModule.resolve(process.cwd(), 'public', 'uploads');
+      if (!fsModule.existsSync(uploadsDir)) {
+        fsModule.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      // Beri prefix timestamp unik agar tidak bentrok
+      const finalFilename = `${Date.now()}-${filename}`;
+      const fullPath = pathModule.join(uploadsDir, finalFilename);
+      fsModule.writeFileSync(fullPath, fileBuffer);
+
+      const publicUrl = `/uploads/${finalFilename}`;
+      console.log(`[Storage VPS] Berkas fisik berhasil disimpan ke disk: ${publicUrl}`);
+      return { url: publicUrl, path: finalFilename };
+    } catch (fsErr) {
+      console.error('[Storage VPS] Gagal menyimpan berkas ke disk lokal:', fsErr);
+      return null;
+    }
   }
 
   try {
