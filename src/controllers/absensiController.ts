@@ -463,12 +463,12 @@ export const absensiController = {
           }
           return res.redirect('/absensi');
         }
-      } else if (normStatusAwal === 'PC') {
+      } else if (normStatusAwal === 'PC' || normStatusAwal === 'TL') {
         if (!cms?.klarifikasiPcEnabled || !isDatePermitted(cms?.klarifikasiPcDates || 'ALL', dayNum)) {
           if ((req as any).session) {
             (req as any).session.toast = {
               type: 'warning',
-              message: 'Pengajuan klarifikasi untuk status Pulang Cepat (PC) pada tanggal tersebut sedang ditutup oleh Admin.'
+              message: 'Pengajuan klarifikasi untuk status Terlambat (TL) & Pulang Cepat (PC) pada tanggal tersebut sedang ditutup oleh Admin.'
             };
           }
           return res.redirect('/absensi');

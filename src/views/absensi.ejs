@@ -26,8 +26,8 @@
             return allowed.includes(dayNumber);
           }
 
-          // PC (Pulang Cepat)
-          if (status === 'PC') {
+          // TL & PC (Terlambat & Pulang Cepat)
+          if (status === 'PC' || status === 'TL') {
             if (!this.klarifikasiConfig.pcEnabled) return false;
             if (this.klarifikasiConfig.pcDates === 'ALL') return true;
             const allowed = this.klarifikasiConfig.pcDates.split(',').map(d => parseInt(d.trim())).filter(Boolean);
@@ -123,7 +123,7 @@
             } else {
               let msg = 'Hanya presensi berstatus Tanpa Keterangan (TK) dan DL Belum Sesuai (DL Kuning)';
               if (this.klarifikasiConfig.nlEnabled) msg += ', serta Hadir Normal (NL) pada tanggal yang dibuka';
-              if (this.klarifikasiConfig.pcEnabled) msg += ', serta Pulang Cepat (PC) pada tanggal yang dibuka';
+              if (this.klarifikasiConfig.pcEnabled) msg += ', serta Terlambat (TL) & Pulang Cepat (PC) pada tanggal yang dibuka';
               alert(msg + ' yang dapat diajukan klarifikasi.');
             }
           }
@@ -145,7 +145,7 @@
           this.selectedEmployee = emp;
           this.isRentang = isRange;
           
-          // Filter hari yang memenuhi syarat klarifikasi sesuai kebijakan admin (TK, DL Kuning, NL, PC)
+          // Filter hari yang memenuhi syarat klarifikasi sesuai kebijakan admin (TK, DL Kuning, NL, TL, PC)
           this.eligibleDays = daysList.filter(d => this.isStatusEligibleForKlarifikasi(d.status, d.tanggal)).map(d => {
             const padDay = String(d.tanggal).padStart(2, '0');
             const dateVal = '<%= tahun %>-<%= String(bulan).padStart(2, '0') %>-' + padDay;
@@ -154,6 +154,7 @@
             else if (d.status === 'DL_KUNING') labelStatus = 'DL Belum Sesuai (DL Kuning)';
             else if (d.status === 'HADIR' || d.status === 'NL') labelStatus = 'Hadir Normal (NL)';
             else if (d.status === 'PC') labelStatus = 'Pulang Cepat (PC)';
+            else if (d.status === 'TL') labelStatus = 'Terlambat (TL)';
 
             return {
               tanggal: d.tanggal,
@@ -166,7 +167,7 @@
           if (!this.isAdmin && this.eligibleDays.length === 0) {
             let msg = 'Pegawai ' + emp.nama + ' tidak memiliki presensi berstatus TK atau DL Kuning';
             if (this.klarifikasiConfig.nlEnabled) msg += ' / NL';
-            if (this.klarifikasiConfig.pcEnabled) msg += ' / PC';
+            if (this.klarifikasiConfig.pcEnabled) msg += ' / TL & PC';
             msg += ' pada tanggal yang dibuka untuk klarifikasi.';
             alert(msg);
             return;
