@@ -42,7 +42,7 @@
   <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-10">
     
     <!-- Filter Bar Card -->
-    <div class="custom-card p-4 sm:p-5 mb-8 bg-white/95 backdrop-blur shadow-md">
+    <div class="custom-card p-4 sm:p-5 mb-8 bg-white/95 backdrop-blur shadow-md relative" style="position: relative; z-index: 50;">
       <form action="/" method="GET" class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
         <div class="flex items-center gap-3">
           <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
@@ -55,6 +55,7 @@
         </div>
 
         <div class="sm:max-w-xs w-full relative"
+             style="position: relative; z-index: 60;"
              x-data="{
                open: false,
                search: '',
@@ -94,8 +95,8 @@
                x-transition:leave="transition ease-in duration-100"
                x-transition:leave-start="opacity-100 translate-y-0 scale-100"
                x-transition:leave-end="opacity-0 translate-y-1 scale-98"
-               class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1.5 min-w-[240px]"
-               style="display: none;"
+               class="absolute left-0 right-0 mt-1.5 bg-white rounded-2xl border border-slate-200 shadow-2xl p-2 space-y-1.5 min-w-[240px]"
+               style="display: none; position: absolute; z-index: 999; top: 100%;"
                @click.stop>
             
             <!-- Search input inside dropdown (Clean without icon, with X on far right) -->
@@ -135,7 +136,7 @@
     </div>
 
     <!-- 4 Headline Stats Cards (Mobile stacked, Desktop 4-cols) -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 relative" style="position: relative; z-index: 10;">
       
       <!-- Stat 1: Total Pegawai -->
       <div class="custom-card p-5 sm:p-6 flex flex-col justify-between relative overflow-hidden group">
