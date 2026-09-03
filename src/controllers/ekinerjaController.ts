@@ -13,16 +13,27 @@ export const ekinerjaController = {
       const tahun = parseInt(req.query.tahun as string) || activeDefaultYear;
       const selectedUnit = (req.query.unit as string) || 'unit-all';
       const search = (req.query.search as string) || '';
-      // Status filter (Belum Kirim, Approved, Pending) is restricted to Admin only
-      const selectedStatus = isAdmin ? ((req.query.status as string) || 'all').toLowerCase() : 'all';
+
+      // Global CMS Filters configured by Admin in CMS Dashboard
+      const cmsStatusFilter = (cms?.ekinerjaFilterStatus || 'ALL').toUpperCase();
+      const rawKepegawaian = cms?.ekinerjaFilterKepegawaian || 'PNS,PPPK,PPPK_PW';
+      const allowedKepegawaian = rawKepegawaian.split(',').map((s: string) => s.trim()).filter(Boolean);
+
+      // Status filter: reflects what Admin configured in CMS (admin can preview via query if needed)
+      const selectedStatus = (isAdmin && req.query.status) 
+        ? ((req.query.status as string) || 'all').toLowerCase() 
+        : cmsStatusFilter.toLowerCase();
 
       // Pagination setup (default 25 rows)
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
       const limitQuery = req.query.limit as string;
       const limit = limitQuery === 'all' ? 999999 : (parseInt(limitQuery) || 25);
 
-      // Base clauses for all employees in scope (unit & search filter)
+      // Base clauses for all employees in scope (unit, search & statusKepegawaian set by Admin)
       const baseAndClauses: any[] = [{ aktif: true }];
+      if (allowedKepegawaian.length > 0) {
+        baseAndClauses.push({ statusKepegawaian: { in: allowedKepegawaian } });
+      }
       if (selectedUnit && selectedUnit !== 'unit-all') {
         baseAndClauses.push({ unitId: selectedUnit });
       }
@@ -36,7 +47,7 @@ export const ekinerjaController = {
       }
       const baseWhereEmp: any = { AND: baseAndClauses };
 
-      // Table-specific clauses (includes status filter)
+      // Table-specific clauses (includes status filter determined by Admin)
       const tableAndClauses: any[] = [...baseAndClauses];
       if (selectedStatus === 'belum_kirim' || selectedStatus === 'belum-kirim' || selectedStatus === 'not_submitted') {
         tableAndClauses.push({
@@ -187,7 +198,9 @@ export const ekinerjaController = {
         toast,
         user: (req as any).session?.user || null,
         isAdmin,
-        isDefaultPeriod: (bulan === activeDefaultMonth && tahun === activeDefaultYear)
+        isDefaultPeriod: (bulan === activeDefaultMonth && tahun === activeDefaultYear),
+        cmsStatusFilter,
+        allowedKepegawaian
       });
     } catch (error) {
       console.error('Error in ekinerjaController.show:', error);

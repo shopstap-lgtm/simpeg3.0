@@ -139,6 +139,10 @@ model CmsConfig {
   maintenanceTitle       String   @default("Sedang Dalam Pemeliharaan")
   maintenanceMessage     String   @default("Halaman ini sedang dalam proses pemeliharaan dan pembaruan data berkala oleh tim admin Korwil Cibitung. Mohon kembali beberapa saat lagi.")
 
+  // Pengaturan Filter Tampilan E-Kinerja Publik
+  ekinerjaFilterStatus      String   @default("ALL") // ALL | BELUM_KIRIM | APPROVED | PENDING
+  ekinerjaFilterKepegawaian  String   @default("PNS,PPPK,PPPK_PW")
+
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 }

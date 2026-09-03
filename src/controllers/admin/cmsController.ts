@@ -47,18 +47,19 @@ export const cmsController = {
         selectedMonth, 
         selectedMonthEkinerja, 
         selectedYear,
-        maintenanceDashboard,
-        maintenanceAbsensi,
-        maintenanceEkinerja,
-        maintenanceKlarifikasi,
-        maintenanceTitle,
-        maintenanceMessage
+        ekinerjaFilterStatus,
+        ekinerjaFilterKepegawaian
       } = req.body;
 
-      const isDashboard = maintenanceDashboard === 'true' || maintenanceDashboard === 'on' || maintenanceDashboard === '1' || maintenanceDashboard === true;
-      const isAbsensi = maintenanceAbsensi === 'true' || maintenanceAbsensi === 'on' || maintenanceAbsensi === '1' || maintenanceAbsensi === true;
-      const isEkinerja = maintenanceEkinerja === 'true' || maintenanceEkinerja === 'on' || maintenanceEkinerja === '1' || maintenanceEkinerja === true;
-      const isKlarifikasi = maintenanceKlarifikasi === 'true' || maintenanceKlarifikasi === 'on' || maintenanceKlarifikasi === '1' || maintenanceKlarifikasi === true;
+      let kepegawaianStr = 'PNS,PPPK,PPPK_PW';
+      if (Array.isArray(ekinerjaFilterKepegawaian)) {
+        kepegawaianStr = ekinerjaFilterKepegawaian.join(',');
+      } else if (typeof ekinerjaFilterKepegawaian === 'string' && ekinerjaFilterKepegawaian.trim()) {
+        kepegawaianStr = ekinerjaFilterKepegawaian.trim();
+      }
+
+      const validStatuses = ['ALL', 'BELUM_KIRIM', 'APPROVED', 'PENDING'];
+      const statusToSave = validStatuses.includes(ekinerjaFilterStatus) ? ekinerjaFilterStatus : 'ALL';
 
       await prisma.cmsConfig.upsert({
         where: { id: 'cms-main' },
@@ -70,12 +71,8 @@ export const cmsController = {
           selectedMonth: parseInt(selectedMonth) || 7,
           selectedMonthEkinerja: parseInt(selectedMonthEkinerja) || 7,
           selectedYear: parseInt(selectedYear) || 2026,
-          maintenanceDashboard: isDashboard,
-          maintenanceAbsensi: isAbsensi,
-          maintenanceEkinerja: isEkinerja,
-          maintenanceKlarifikasi: isKlarifikasi,
-          maintenanceTitle: maintenanceTitle || 'Sedang Dalam Pemeliharaan',
-          maintenanceMessage: maintenanceMessage || undefined
+          ekinerjaFilterStatus: statusToSave,
+          ekinerjaFilterKepegawaian: kepegawaianStr
         },
         create: {
           id: 'cms-main',
@@ -86,12 +83,8 @@ export const cmsController = {
           selectedMonth: parseInt(selectedMonth) || 7,
           selectedMonthEkinerja: parseInt(selectedMonthEkinerja) || 7,
           selectedYear: parseInt(selectedYear) || 2026,
-          maintenanceDashboard: isDashboard,
-          maintenanceAbsensi: isAbsensi,
-          maintenanceEkinerja: isEkinerja,
-          maintenanceKlarifikasi: isKlarifikasi,
-          maintenanceTitle: maintenanceTitle || 'Sedang Dalam Pemeliharaan',
-          maintenanceMessage: maintenanceMessage || 'Halaman ini sedang dalam proses pemeliharaan dan pembaruan data berkala oleh tim admin Korwil Cibitung. Mohon kembali beberapa saat lagi.'
+          ekinerjaFilterStatus: statusToSave,
+          ekinerjaFilterKepegawaian: kepegawaianStr
         }
       });
 

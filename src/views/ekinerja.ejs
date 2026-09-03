@@ -58,85 +58,21 @@
       </p>
     </div>
 
-    <!-- Quick Stats Pills (Interactive filter for Admin, Clean static for Public) -->
-    <% 
-      const currentStatus = (typeof selectedStatus !== 'undefined' && selectedStatus) ? selectedStatus : 'all';
-      const makeFilterUrl = (targetStatus) => {
-        const p = new URLSearchParams();
-        if (selectedUnit && selectedUnit !== 'unit-all') p.set('unit', selectedUnit);
-        if (bulan) p.set('bulan', bulan);
-        if (tahun) p.set('tahun', tahun);
-        if (search) p.set('search', search);
-        if (targetStatus && targetStatus !== 'all') p.set('status', targetStatus);
-        return '?' + p.toString();
-      };
-    %>
-    <% if (isAdmin) { %>
-      <!-- Admin Filter Tabs -->
-      <div class="flex flex-wrap items-center gap-2 text-xs">
-        <span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1 mr-1">
-          <i data-lucide="filter" class="w-3.5 h-3.5 text-indigo-600"></i>
-          <span>Filter Status:</span>
-        </span>
-
-        <!-- Semua Pegawai -->
-        <a href="<%= makeFilterUrl('all') %>" 
-           class="px-3 py-1.5 rounded-xl border font-bold transition-all shadow-2xs flex items-center gap-1.5 <%= (currentStatus === 'all') ? 'bg-indigo-600 text-white border-indigo-600 shadow-indigo-100 ring-2 ring-indigo-600/20' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50' %>"
-           title="Tampilkan semua pegawai">
-          <span>Semua</span>
-          <span class="px-1.5 py-0.5 rounded-md text-[10px] <%= (currentStatus === 'all') ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700' %>"><%= stats ? stats.total : 0 %></span>
-        </a>
-
-        <!-- Belum Kirim (High Priority Admin Filter) -->
-        <a href="<%= makeFilterUrl(currentStatus === 'belum_kirim' ? 'all' : 'belum_kirim') %>" 
-           class="px-3 py-1.5 rounded-xl border font-bold transition-all shadow-2xs flex items-center gap-2 <%= (currentStatus === 'belum_kirim') ? 'bg-rose-600 text-white border-rose-600 shadow-rose-200 ring-2 ring-rose-600/30' : 'bg-white text-slate-700 border-rose-200 hover:bg-rose-50/60' %>"
-           title="<%= currentStatus === 'belum_kirim' ? 'Klik untuk membatalkan filter' : 'Klik untuk memfilter hanya pegawai yang belum kirim' %>">
-          <span class="w-2.5 h-2.5 rounded-full <%= (currentStatus === 'belum_kirim') ? 'bg-white animate-pulse' : 'bg-rose-500' %> shrink-0"></span>
-          <span>Belum Kirim: <b class="<%= (currentStatus === 'belum_kirim') ? 'text-white' : 'text-rose-700' %>"><%= stats ? stats.belumKirim : 0 %></b></span>
-          <% if (currentStatus === 'belum_kirim') { %>
-            <span class="text-white/80 hover:text-white font-normal ml-0.5">✕</span>
-          <% } %>
-        </a>
-
-        <!-- Disetujui -->
-        <a href="<%= makeFilterUrl(currentStatus === 'approved' ? 'all' : 'approved') %>" 
-           class="px-3 py-1.5 rounded-xl border font-bold transition-all shadow-2xs flex items-center gap-2 <%= (currentStatus === 'approved') ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-200 ring-2 ring-emerald-600/30' : 'bg-white text-slate-700 border-emerald-200 hover:bg-emerald-50/60' %>"
-           title="<%= currentStatus === 'approved' ? 'Klik untuk membatalkan filter' : 'Klik untuk memfilter hanya yang disetujui' %>">
-          <span class="w-2.5 h-2.5 rounded-full <%= (currentStatus === 'approved') ? 'bg-white' : 'bg-emerald-500' %> shrink-0"></span>
-          <span>Disetujui: <b class="<%= (currentStatus === 'approved') ? 'text-white' : 'text-emerald-700' %>"><%= stats ? stats.approved : 0 %></b></span>
-          <% if (currentStatus === 'approved') { %>
-            <span class="text-white/80 hover:text-white font-normal ml-0.5">✕</span>
-          <% } %>
-        </a>
-
-        <!-- Pending -->
-        <a href="<%= makeFilterUrl(currentStatus === 'pending' ? 'all' : 'pending') %>" 
-           class="px-3 py-1.5 rounded-xl border font-bold transition-all shadow-2xs flex items-center gap-2 <%= (currentStatus === 'pending') ? 'bg-amber-500 text-white border-amber-500 shadow-amber-200 ring-2 ring-amber-500/30' : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-50/60' %>"
-           title="<%= currentStatus === 'pending' ? 'Klik untuk membatalkan filter' : 'Klik untuk memfilter hanya yang pending review' %>">
-          <span class="w-2.5 h-2.5 rounded-full <%= (currentStatus === 'pending') ? 'bg-white' : 'bg-amber-500' %> shrink-0"></span>
-          <span>Pending: <b class="<%= (currentStatus === 'pending') ? 'text-white' : 'text-amber-700' %>"><%= stats ? stats.pending : 0 %></b></span>
-          <% if (currentStatus === 'pending') { %>
-            <span class="text-white/80 hover:text-white font-normal ml-0.5">✕</span>
-          <% } %>
-        </a>
+    <!-- Quick Stats Pills (Clean static overview) -->
+    <div class="flex flex-wrap items-center gap-2 text-xs">
+      <div class="px-3 py-1.5 rounded-xl bg-white border border-emerald-200 shadow-2xs flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
+        <span class="text-slate-600 font-medium">Disetujui: <b class="text-emerald-700 font-bold"><%= stats ? stats.approved : 0 %></b></span>
       </div>
-    <% } else { %>
-      <!-- Standard Static Pills for Public -->
-      <div class="flex flex-wrap items-center gap-2 text-xs">
-        <div class="px-3 py-1.5 rounded-xl bg-white border border-emerald-200 shadow-2xs flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
-          <span class="text-slate-600 font-medium">Disetujui: <b class="text-emerald-700 font-bold"><%= stats ? stats.approved : 0 %></b></span>
-        </div>
-        <div class="px-3 py-1.5 rounded-xl bg-white border border-amber-200 shadow-2xs flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span>
-          <span class="text-slate-600 font-medium">Pending: <b class="text-amber-700 font-bold"><%= stats ? stats.pending : 0 %></b></span>
-        </div>
-        <div class="px-3 py-1.5 rounded-xl bg-white border border-rose-200 shadow-2xs flex items-center gap-2">
-          <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
-          <span class="text-slate-600 font-medium">Belum Kirim: <b class="text-rose-700 font-bold"><%= stats ? stats.belumKirim : 0 %></b></span>
-        </div>
+      <div class="px-3 py-1.5 rounded-xl bg-white border border-amber-200 shadow-2xs flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span>
+        <span class="text-slate-600 font-medium">Pending: <b class="text-amber-700 font-bold"><%= stats ? stats.pending : 0 %></b></span>
       </div>
-    <% } %>
+      <div class="px-3 py-1.5 rounded-xl bg-white border border-rose-200 shadow-2xs flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
+        <span class="text-slate-600 font-medium">Belum Kirim: <b class="text-rose-700 font-bold"><%= stats ? stats.belumKirim : 0 %></b></span>
+      </div>
+    </div>
   </div>
 
   <!-- Non-Default Period Warning Banner for Public -->
@@ -154,12 +90,66 @@
     </div>
   <% } %>
 
+  <!-- CMS Display Policy Banner (Configured by Admin in CMS Dashboard) -->
+  <% if (typeof cmsStatusFilter !== 'undefined' && cmsStatusFilter === 'BELUM_KIRIM') { %>
+    <div class="p-3.5 mb-6 rounded-2xl bg-rose-50 border border-rose-200 text-xs flex items-center gap-3 shadow-xs text-rose-900">
+      <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 border border-rose-200">
+        <i data-lucide="filter" class="w-4 h-4"></i>
+      </div>
+      <div>
+        <span class="font-bold block">Tampilan Data Khusus (Pengaturan Admin):</span>
+        <span class="text-rose-800 text-[11px]">
+          Halaman ini dikonfigurasi untuk menampilkan pegawai yang <b>belum mengunggah laporan E-Kinerja</b> atau memerlukan revisi
+          <% if (typeof allowedKepegawaian !== 'undefined' && allowedKepegawaian && allowedKepegawaian.length < 3) { %>
+            • Kategori Kepegawaian: <b><%= allowedKepegawaian.join(', ') %></b>
+          <% } %>
+        </span>
+      </div>
+    </div>
+  <% } else if (typeof cmsStatusFilter !== 'undefined' && cmsStatusFilter === 'APPROVED') { %>
+    <div class="p-3.5 mb-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs flex items-center gap-3 shadow-xs text-emerald-900">
+      <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0 border border-emerald-200">
+        <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+      </div>
+      <div>
+        <span class="font-bold block">Tampilan Data Khusus (Pengaturan Admin):</span>
+        <span class="text-emerald-800 text-[11px]">
+          Halaman ini dikonfigurasi untuk menampilkan pegawai dengan laporan E-Kinerja yang telah <b>disetujui</b>
+          <% if (typeof allowedKepegawaian !== 'undefined' && allowedKepegawaian && allowedKepegawaian.length < 3) { %>
+            • Kategori Kepegawaian: <b><%= allowedKepegawaian.join(', ') %></b>
+          <% } %>
+        </span>
+      </div>
+    </div>
+  <% } else if (typeof cmsStatusFilter !== 'undefined' && cmsStatusFilter === 'PENDING') { %>
+    <div class="p-3.5 mb-6 rounded-2xl bg-amber-50 border border-amber-200 text-xs flex items-center gap-3 shadow-xs text-amber-900">
+      <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0 border border-amber-200">
+        <i data-lucide="clock" class="w-4 h-4"></i>
+      </div>
+      <div>
+        <span class="font-bold block">Tampilan Data Khusus (Pengaturan Admin):</span>
+        <span class="text-amber-800 text-[11px]">
+          Halaman ini dikonfigurasi untuk menampilkan pegawai dengan laporan E-Kinerja yang sedang <b>menunggu peninjauan</b>
+          <% if (typeof allowedKepegawaian !== 'undefined' && allowedKepegawaian && allowedKepegawaian.length < 3) { %>
+            • Kategori Kepegawaian: <b><%= allowedKepegawaian.join(', ') %></b>
+          <% } %>
+        </span>
+      </div>
+    </div>
+  <% } else if (typeof allowedKepegawaian !== 'undefined' && allowedKepegawaian && allowedKepegawaian.length > 0 && allowedKepegawaian.length < 3) { %>
+    <div class="p-3 mb-6 rounded-2xl bg-slate-100 border border-slate-200 text-xs flex items-center gap-3 shadow-xs text-slate-800">
+      <div class="w-7 h-7 rounded-xl bg-white text-slate-600 flex items-center justify-center shrink-0 border border-slate-200">
+        <i data-lucide="filter" class="w-4 h-4"></i>
+      </div>
+      <p class="text-slate-700">
+        <b>Pengaturan Tampilan:</b> Menampilkan pegawai dengan status kepegawaian: <b><%= allowedKepegawaian.join(', ') %></b>
+      </p>
+    </div>
+  <% } %>
+
   <!-- Filter & Search Toolbar with Modern Rounded Searchable Dropdowns -->
   <div class="custom-card p-4 sm:p-5 mb-6 bg-white shadow-xs">
     <form action="/ekinerja" method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <% if (isAdmin && currentStatus && currentStatus !== 'all') { %>
-        <input type="hidden" name="status" value="<%= currentStatus %>">
-      <% } %>
       
       <!-- 1. Unit Kerja Filter (Custom Searchable Dropdown) -->
       <div class="relative" 
@@ -444,62 +434,6 @@
 
     </form>
   </div>
-
-  <!-- Active Filter Notification Bar (Only visible to Admin when filtering) -->
-  <% if (isAdmin) { %>
-    <% if (currentStatus === 'belum_kirim') { %>
-      <div class="p-3.5 mb-6 rounded-2xl bg-rose-50 border border-rose-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-        <div class="flex items-center gap-2.5 text-rose-900">
-          <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 border border-rose-200">
-            <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600"></i>
-          </div>
-          <div>
-            <span class="font-bold block">Filter Aktif: Pegawai Belum Kirim Laporan</span>
-            <span class="text-rose-700 text-[11px]">Menampilkan <b><%= pagination.totalItems %> pegawai</b> yang belum mengunggah berkas E-Kinerja atau laporan ditolak/perlu revisi.</span>
-          </div>
-        </div>
-        <a href="<%= makeFilterUrl('all') %>" 
-           class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-rose-100 text-rose-700 font-bold border border-rose-200 text-xs transition-colors shadow-2xs self-start sm:self-auto shrink-0">
-          <i data-lucide="x" class="w-3.5 h-3.5"></i>
-          <span>Reset Filter Status</span>
-        </a>
-      </div>
-    <% } else if (currentStatus === 'approved') { %>
-      <div class="p-3.5 mb-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-        <div class="flex items-center gap-2.5 text-emerald-900">
-          <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200">
-            <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
-          </div>
-          <div>
-            <span class="font-bold block">Filter Aktif: Laporan Disetujui</span>
-            <span class="text-emerald-700 text-[11px]">Menampilkan <b><%= pagination.totalItems %> pegawai</b> dengan berkas kinerja yang telah dinilai dan disetujui.</span>
-          </div>
-        </div>
-        <a href="<%= makeFilterUrl('all') %>" 
-           class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-100 text-emerald-700 font-bold border border-emerald-200 text-xs transition-colors shadow-2xs self-start sm:self-auto shrink-0">
-          <i data-lucide="x" class="w-3.5 h-3.5"></i>
-          <span>Reset Filter Status</span>
-        </a>
-      </div>
-    <% } else if (currentStatus === 'pending') { %>
-      <div class="p-3.5 mb-6 rounded-2xl bg-amber-50 border border-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-        <div class="flex items-center gap-2.5 text-amber-900">
-          <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200">
-            <i data-lucide="clock" class="w-4 h-4 text-amber-600"></i>
-          </div>
-          <div>
-            <span class="font-bold block">Filter Aktif: Laporan Menunggu Review</span>
-            <span class="text-amber-700 text-[11px]">Menampilkan <b><%= pagination.totalItems %> pegawai</b> dengan berkas kinerja yang sedang ditinjau.</span>
-          </div>
-        </div>
-        <a href="<%= makeFilterUrl('all') %>" 
-           class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-amber-100 text-amber-700 font-bold border border-amber-200 text-xs transition-colors shadow-2xs self-start sm:self-auto shrink-0">
-          <i data-lucide="x" class="w-3.5 h-3.5"></i>
-          <span>Reset Filter Status</span>
-        </a>
-      </div>
-    <% } %>
-  <% } %>
 
   <!-- MOBILE VIEW: Employee Kinerja Cards (sm and down) (NIP & Status Kepegawaian Hidden) -->
   <div class="block lg:hidden space-y-4">
