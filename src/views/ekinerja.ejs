@@ -58,20 +58,60 @@
       </p>
     </div>
 
-    <!-- Quick Stats Pills (3 Status: Disetujui, Pending, Belum Kirim) -->
+    <!-- Quick Filter Tabs / Status Pills (3 Status: Disetujui, Pending, Belum Kirim) -->
+    <% 
+      const currentStatus = (typeof selectedStatus !== 'undefined' && selectedStatus) ? selectedStatus : 'all';
+      const makeFilterUrl = (targetStatus) => {
+        const p = new URLSearchParams();
+        if (selectedUnit && selectedUnit !== 'unit-all') p.set('unit', selectedUnit);
+        if (bulan) p.set('bulan', bulan);
+        if (tahun) p.set('tahun', tahun);
+        if (search) p.set('search', search);
+        if (targetStatus && targetStatus !== 'all') p.set('status', targetStatus);
+        return '?' + p.toString();
+      };
+    %>
     <div class="flex flex-wrap items-center gap-2 text-xs">
-      <div class="px-3 py-1.5 rounded-xl bg-white border border-emerald-200 shadow-2xs flex items-center gap-2">
-        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
-        <span class="text-slate-600 font-medium">Disetujui: <b class="text-emerald-700 font-bold"><%= stats ? stats.approved : 0 %></b></span>
-      </div>
-      <div class="px-3 py-1.5 rounded-xl bg-white border border-amber-200 shadow-2xs flex items-center gap-2">
-        <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span>
-        <span class="text-slate-600 font-medium">Pending: <b class="text-amber-700 font-bold"><%= stats ? stats.pending : 0 %></b></span>
-      </div>
-      <div class="px-3 py-1.5 rounded-xl bg-white border border-rose-200 shadow-2xs flex items-center gap-2">
-        <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
-        <span class="text-slate-600 font-medium">Belum Kirim: <b class="text-rose-700 font-bold"><%= stats ? stats.belumKirim : 0 %></b></span>
-      </div>
+      <!-- Semua Pegawai -->
+      <a href="<%= makeFilterUrl('all') %>" 
+         class="px-3 py-1.5 rounded-xl border font-bold transition-all shadow-2xs flex items-center gap-1.5 <%= (currentStatus === 'all') ? 'bg-indigo-600 text-white border-indigo-600 shadow-indigo-100 ring-2 ring-indigo-600/20' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50' %>"
+         title="Tampilkan semua pegawai">
+        <span>Semua</span>
+        <span class="px-1.5 py-0.5 rounded-md text-[10px] <%= (currentStatus === 'all') ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-700' %>"><%= stats ? stats.total : 0 %></span>
+      </a>
+
+      <!-- Belum Kirim (High Priority Quick Filter) -->
+      <a href="<%= makeFilterUrl(currentStatus === 'belum_kirim' ? 'all' : 'belum_kirim') %>" 
+         class="px-3 py-1.5 rounded-xl border font-bold transition-all shadow-2xs flex items-center gap-2 <%= (currentStatus === 'belum_kirim') ? 'bg-rose-600 text-white border-rose-600 shadow-rose-200 ring-2 ring-rose-600/30' : 'bg-white text-slate-700 border-rose-200 hover:bg-rose-50/60' %>"
+         title="<%= currentStatus === 'belum_kirim' ? 'Klik untuk membatalkan filter' : 'Klik untuk memfilter hanya pegawai yang belum kirim' %>">
+        <span class="w-2.5 h-2.5 rounded-full <%= (currentStatus === 'belum_kirim') ? 'bg-white animate-pulse' : 'bg-rose-500' %> shrink-0"></span>
+        <span>Belum Kirim: <b class="<%= (currentStatus === 'belum_kirim') ? 'text-white' : 'text-rose-700' %>"><%= stats ? stats.belumKirim : 0 %></b></span>
+        <% if (currentStatus === 'belum_kirim') { %>
+          <span class="text-white/80 hover:text-white font-normal ml-0.5">✕</span>
+        <% } %>
+      </a>
+
+      <!-- Disetujui -->
+      <a href="<%= makeFilterUrl(currentStatus === 'approved' ? 'all' : 'approved') %>" 
+         class="px-3 py-1.5 rounded-xl border font-bold transition-all shadow-2xs flex items-center gap-2 <%= (currentStatus === 'approved') ? 'bg-emerald-600 text-white border-emerald-600 shadow-emerald-200 ring-2 ring-emerald-600/30' : 'bg-white text-slate-700 border-emerald-200 hover:bg-emerald-50/60' %>"
+         title="<%= currentStatus === 'approved' ? 'Klik untuk membatalkan filter' : 'Klik untuk memfilter hanya yang disetujui' %>">
+        <span class="w-2.5 h-2.5 rounded-full <%= (currentStatus === 'approved') ? 'bg-white' : 'bg-emerald-500' %> shrink-0"></span>
+        <span>Disetujui: <b class="<%= (currentStatus === 'approved') ? 'text-white' : 'text-emerald-700' %>"><%= stats ? stats.approved : 0 %></b></span>
+        <% if (currentStatus === 'approved') { %>
+          <span class="text-white/80 hover:text-white font-normal ml-0.5">✕</span>
+        <% } %>
+      </a>
+
+      <!-- Pending -->
+      <a href="<%= makeFilterUrl(currentStatus === 'pending' ? 'all' : 'pending') %>" 
+         class="px-3 py-1.5 rounded-xl border font-bold transition-all shadow-2xs flex items-center gap-2 <%= (currentStatus === 'pending') ? 'bg-amber-500 text-white border-amber-500 shadow-amber-200 ring-2 ring-amber-500/30' : 'bg-white text-slate-700 border-amber-200 hover:bg-amber-50/60' %>"
+         title="<%= currentStatus === 'pending' ? 'Klik untuk membatalkan filter' : 'Klik untuk memfilter hanya yang pending review' %>">
+        <span class="w-2.5 h-2.5 rounded-full <%= (currentStatus === 'pending') ? 'bg-white' : 'bg-amber-500' %> shrink-0"></span>
+        <span>Pending: <b class="<%= (currentStatus === 'pending') ? 'text-white' : 'text-amber-700' %>"><%= stats ? stats.pending : 0 %></b></span>
+        <% if (currentStatus === 'pending') { %>
+          <span class="text-white/80 hover:text-white font-normal ml-0.5">✕</span>
+        <% } %>
+      </a>
     </div>
   </div>
 
@@ -92,7 +132,7 @@
 
   <!-- Filter & Search Toolbar with Modern Rounded Searchable Dropdowns -->
   <div class="custom-card p-4 sm:p-5 mb-6 bg-white shadow-xs">
-    <form action="/ekinerja" method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <form action="/ekinerja" method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       
       <!-- 1. Unit Kerja Filter (Custom Searchable Dropdown) -->
       <div class="relative" 
@@ -322,7 +362,64 @@
         </div>
       </div>
 
-      <!-- 4. Manual Search Input (Real-time auto search + Fixed Right 'X' Button) -->
+      <!-- 4. Status Laporan Filter (Custom Dropdown) -->
+      <div class="relative" 
+           x-data="{
+             open: false,
+             selectedVal: '<%= currentStatus %>',
+             options: [
+               { value: 'all', label: 'Semua Status' },
+               { value: 'belum_kirim', label: '🔴 Belum Kirim' },
+               { value: 'approved', label: '🟢 Disetujui' },
+               { value: 'pending', label: '🟡 Menunggu Review' }
+             ],
+             get selectedLabel() {
+               const found = this.options.find(o => o.value === this.selectedVal);
+               return found ? found.label : 'Semua Status';
+             },
+             selectOption(val) {
+               this.selectedVal = val;
+               this.open = false;
+               $refs.statusInput.value = val;
+               $nextTick(() => { $refs.statusInput.closest('form').submit(); });
+             }
+           }"
+           @click.away="open = false">
+        
+        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Status Pengiriman</label>
+        <input type="hidden" name="status" x-ref="statusInput" :value="selectedVal">
+        
+        <button type="button" 
+                @click="open = !open" 
+                class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left"
+                :class="selectedVal === 'belum_kirim' ? 'border-rose-300 bg-rose-50/40 text-rose-800 font-bold ring-1 ring-rose-300' : ''">
+          <span class="truncate pr-2" x-text="selectedLabel"></span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+        </button>
+
+        <!-- Dropdown Popover -->
+        <div x-show="open" 
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+             x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+             class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1 min-w-[170px]"
+             style="display: none;">
+          <template x-for="item in options" :key="item.value">
+            <button type="button" 
+                    @click="selectOption(item.value)" 
+                    class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                    :class="selectedVal === item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+              <span x-text="item.label"></span>
+              <i data-lucide="check" x-show="selectedVal === item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+            </button>
+          </template>
+        </div>
+      </div>
+
+      <!-- 5. Manual Search Input (Real-time auto search + Fixed Right 'X' Button) -->
       <div>
         <label for="search" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Cari Pegawai (Nama / NIP)</label>
         <div class="relative" 
@@ -378,13 +475,75 @@
     </form>
   </div>
 
+  <!-- Active Filter Notification Bar (When specific status filter is active) -->
+  <% if (currentStatus === 'belum_kirim') { %>
+    <div class="p-3.5 mb-6 rounded-2xl bg-rose-50 border border-rose-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+      <div class="flex items-center gap-2.5 text-rose-900">
+        <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 border border-rose-200">
+          <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600"></i>
+        </div>
+        <div>
+          <span class="font-bold block">Filter Aktif: Pegawai Belum Kirim Laporan</span>
+          <span class="text-rose-700 text-[11px]">Menampilkan <b><%= pagination.totalItems %> pegawai</b> yang belum mengunggah berkas E-Kinerja atau laporan ditolak/perlu revisi.</span>
+        </div>
+      </div>
+      <a href="<%= makeFilterUrl('all') %>" 
+         class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-rose-100 text-rose-700 font-bold border border-rose-200 text-xs transition-colors shadow-2xs self-start sm:self-auto shrink-0">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        <span>Reset Filter Status</span>
+      </a>
+    </div>
+  <% } else if (currentStatus === 'approved') { %>
+    <div class="p-3.5 mb-6 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+      <div class="flex items-center gap-2.5 text-emerald-900">
+        <div class="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200">
+          <i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-600"></i>
+        </div>
+        <div>
+          <span class="font-bold block">Filter Aktif: Laporan Disetujui</span>
+          <span class="text-emerald-700 text-[11px]">Menampilkan <b><%= pagination.totalItems %> pegawai</b> dengan berkas kinerja yang telah dinilai dan disetujui.</span>
+        </div>
+      </div>
+      <a href="<%= makeFilterUrl('all') %>" 
+         class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-emerald-100 text-emerald-700 font-bold border border-emerald-200 text-xs transition-colors shadow-2xs self-start sm:self-auto shrink-0">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        <span>Reset Filter Status</span>
+      </a>
+    </div>
+  <% } else if (currentStatus === 'pending') { %>
+    <div class="p-3.5 mb-6 rounded-2xl bg-amber-50 border border-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+      <div class="flex items-center gap-2.5 text-amber-900">
+        <div class="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200">
+          <i data-lucide="clock" class="w-4 h-4 text-amber-600"></i>
+        </div>
+        <div>
+          <span class="font-bold block">Filter Aktif: Laporan Menunggu Review</span>
+          <span class="text-amber-700 text-[11px]">Menampilkan <b><%= pagination.totalItems %> pegawai</b> dengan berkas kinerja yang sedang ditinjau.</span>
+        </div>
+      </div>
+      <a href="<%= makeFilterUrl('all') %>" 
+         class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-amber-100 text-amber-700 font-bold border border-amber-200 text-xs transition-colors shadow-2xs self-start sm:self-auto shrink-0">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        <span>Reset Filter Status</span>
+      </a>
+    </div>
+  <% } %>
+
   <!-- MOBILE VIEW: Employee Kinerja Cards (sm and down) (NIP & Status Kepegawaian Hidden) -->
   <div class="block lg:hidden space-y-4">
     <% if (list.length === 0) { %>
       <div class="custom-card p-8 text-center text-slate-500">
-        <i data-lucide="user-x" class="w-10 h-10 mx-auto text-slate-300 mb-2"></i>
-        <p class="font-bold text-slate-700">Tidak ada data pegawai</p>
-        <p class="text-xs text-slate-400 mt-1">Coba ganti filter atau kata kunci pencarian Anda.</p>
+        <% if (currentStatus === 'belum_kirim') { %>
+          <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-2.5">
+            <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+          </div>
+          <p class="font-bold text-slate-800 text-sm">Semua Pegawai Sudah Mengirimkan Laporan</p>
+          <p class="text-xs text-slate-400 mt-1">Tidak ada pegawai yang berstatus belum kirim untuk filter yang dipilih.</p>
+        <% } else { %>
+          <i data-lucide="user-x" class="w-10 h-10 mx-auto text-slate-300 mb-2"></i>
+          <p class="font-bold text-slate-700">Tidak ada data pegawai</p>
+          <p class="text-xs text-slate-400 mt-1">Coba ganti filter atau kata kunci pencarian Anda.</p>
+        <% } %>
       </div>
     <% } %>
 
@@ -545,9 +704,17 @@
         <% if (list.length === 0) { %>
           <tr>
             <td colspan="8" class="py-12 text-center text-slate-500">
-              <i data-lucide="user-x" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
-              <p class="font-bold text-sm text-slate-700">Tidak ada pegawai ditemukan</p>
-              <p class="text-xs text-slate-400 mt-1">Coba ubah kata kunci pencarian atau unit kerja.</p>
+              <% if (currentStatus === 'belum_kirim') { %>
+                <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
+                  <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                </div>
+                <p class="font-bold text-sm text-slate-800">Luar Biasa! Semua Pegawai Sudah Mengirimkan Laporan</p>
+                <p class="text-xs text-slate-400 mt-1">Tidak ada pegawai yang berstatus belum kirim untuk filter yang dipilih.</p>
+              <% } else { %>
+                <i data-lucide="user-x" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
+                <p class="font-bold text-sm text-slate-700">Tidak ada pegawai ditemukan</p>
+                <p class="text-xs text-slate-400 mt-1">Coba ubah kata kunci pencarian atau unit kerja.</p>
+              <% } %>
             </td>
           </tr>
         <% } %>

@@ -12,37 +12,63 @@ export const ekinerjaController = {
       const tahun = parseInt(req.query.tahun as string) || activeDefaultYear;
       const selectedUnit = (req.query.unit as string) || 'unit-all';
       const search = (req.query.search as string) || '';
+      const selectedStatus = ((req.query.status as string) || 'all').toLowerCase();
 
       // Pagination setup (default 25 rows)
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
       const limitQuery = req.query.limit as string;
       const limit = limitQuery === 'all' ? 999999 : (parseInt(limitQuery) || 25);
 
-      const whereEmp: any = { aktif: true };
+      // Base clauses for all employees in scope (unit & search filter)
+      const baseAndClauses: any[] = [{ aktif: true }];
       if (selectedUnit && selectedUnit !== 'unit-all') {
-        whereEmp.unitId = selectedUnit;
+        baseAndClauses.push({ unitId: selectedUnit });
       }
       if (search) {
-        whereEmp.OR = [
-          { nama: { contains: search, mode: 'insensitive' } },
-          { nip: { contains: search } }
-        ];
+        baseAndClauses.push({
+          OR: [
+            { nama: { contains: search, mode: 'insensitive' } },
+            { nip: { contains: search } }
+          ]
+        });
       }
+      const baseWhereEmp: any = { AND: baseAndClauses };
 
-      const [allUnits, totalFilteredEmployees, allActiveEmployees, filteredEmployeeIds, employees, reports] = await Promise.all([
+      // Table-specific clauses (includes status filter)
+      const tableAndClauses: any[] = [...baseAndClauses];
+      if (selectedStatus === 'belum_kirim' || selectedStatus === 'belum-kirim' || selectedStatus === 'not_submitted') {
+        tableAndClauses.push({
+          OR: [
+            { ekinerjaReports: { none: { bulan, tahun } } },
+            { ekinerjaReports: { some: { bulan, tahun, statusReview: 'REJECTED' } } }
+          ]
+        });
+      } else if (selectedStatus === 'approved') {
+        tableAndClauses.push({
+          ekinerjaReports: { some: { bulan, tahun, statusReview: 'APPROVED' } }
+        });
+      } else if (selectedStatus === 'pending') {
+        tableAndClauses.push({
+          ekinerjaReports: { some: { bulan, tahun, statusReview: 'PENDING' } }
+        });
+      }
+      const tableWhereEmp: any = { AND: tableAndClauses };
+
+      const [allUnits, totalScopeEmployees, totalFilteredEmployees, allActiveEmployees, scopedEmployeeIds, employees, reports] = await Promise.all([
         prisma.unit.findMany({ orderBy: { namaUnit: 'asc' } }),
-        prisma.employee.count({ where: whereEmp }),
+        prisma.employee.count({ where: baseWhereEmp }),
+        prisma.employee.count({ where: tableWhereEmp }),
         prisma.employee.findMany({
           where: { aktif: true },
           include: { unit: true },
           orderBy: { nama: 'asc' }
         }),
         prisma.employee.findMany({
-          where: whereEmp,
+          where: baseWhereEmp,
           select: { id: true }
         }),
         prisma.employee.findMany({
-          where: whereEmp,
+          where: tableWhereEmp,
           include: { unit: true },
           orderBy: [
             { unit: { namaUnit: 'asc' } },
@@ -56,23 +82,23 @@ export const ekinerjaController = {
         })
       ]);
 
-      const filteredIdSet = new Set(filteredEmployeeIds.map(e => e.id));
+      const scopedIdSet = new Set(scopedEmployeeIds.map(e => e.id));
 
       // Calculate global stats across ALL employees in scope (not just current page pagination):
       let countApproved = 0;
       let countPending = 0;
 
       reports.forEach(r => {
-        if (filteredIdSet.has(r.employeeId)) {
+        if (scopedIdSet.has(r.employeeId)) {
           if (r.statusReview === 'APPROVED') countApproved++;
           else if (r.statusReview === 'PENDING') countPending++;
         }
       });
 
-      const countBelumKirim = Math.max(0, totalFilteredEmployees - countApproved - countPending);
+      const countBelumKirim = Math.max(0, totalScopeEmployees - countApproved - countPending);
 
       const stats = {
-        total: totalFilteredEmployees,
+        total: totalScopeEmployees,
         approved: countApproved,
         pending: countPending,
         belumKirim: countBelumKirim
@@ -153,6 +179,7 @@ export const ekinerjaController = {
         activeDefaultMonth,
         activeDefaultYear,
         selectedUnit,
+        selectedStatus,
         search,
         pagination,
         toast,
