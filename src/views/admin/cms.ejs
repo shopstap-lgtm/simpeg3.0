@@ -18,7 +18,48 @@
         maintenanceEkinerja: <%= (typeof cms.maintenanceEkinerja !== 'undefined' && cms.maintenanceEkinerja) ? 'true' : 'false' %>,
         maintenanceKlarifikasi: <%= (typeof cms.maintenanceKlarifikasi !== 'undefined' && cms.maintenanceKlarifikasi) ? 'true' : 'false' %>,
         maintenanceTitle: '<%= ((typeof cms.maintenanceTitle !== 'undefined' && cms.maintenanceTitle) ? cms.maintenanceTitle : 'Sedang Dalam Pemeliharaan').replace(/'/g, "\\'") %>',
-        maintenanceMessage: '<%= ((typeof cms.maintenanceMessage !== 'undefined' && cms.maintenanceMessage) ? cms.maintenanceMessage : 'Halaman ini sedang dalam proses pemeliharaan dan pembaruan data berkala oleh tim admin Korwil Cibitung. Mohon kembali beberapa saat lagi.').replace(/'/g, "\\'") %>'
+        maintenanceMessage: '<%= ((typeof cms.maintenanceMessage !== 'undefined' && cms.maintenanceMessage) ? cms.maintenanceMessage : 'Halaman ini sedang dalam proses pemeliharaan dan pembaruan data berkala oleh tim admin Korwil Cibitung. Mohon kembali beberapa saat lagi.').replace(/'/g, "\\'") %>',
+
+        // Kebijakan Buka / Tutup Klarifikasi Absensi (NL & PC)
+        klarifikasiNlEnabled: <%= (typeof cms.klarifikasiNlEnabled !== 'undefined' && cms.klarifikasiNlEnabled) ? 'true' : 'false' %>,
+        klarifikasiNlMode: '<%= (typeof cms.klarifikasiNlDates !== 'undefined' && cms.klarifikasiNlDates && cms.klarifikasiNlDates !== "ALL") ? "CUSTOM" : "ALL" %>',
+        klarifikasiNlDates: <%= JSON.stringify((typeof cms.klarifikasiNlDates !== 'undefined' && cms.klarifikasiNlDates && cms.klarifikasiNlDates !== "ALL") ? cms.klarifikasiNlDates.split(',').map(d => parseInt(d.trim())).filter(Boolean) : []) %>,
+
+        klarifikasiPcEnabled: <%= (typeof cms.klarifikasiPcEnabled !== 'undefined' && cms.klarifikasiPcEnabled) ? 'true' : 'false' %>,
+        klarifikasiPcMode: '<%= (typeof cms.klarifikasiPcDates !== 'undefined' && cms.klarifikasiPcDates && cms.klarifikasiPcDates !== "ALL") ? "CUSTOM" : "ALL" %>',
+        klarifikasiPcDates: <%= JSON.stringify((typeof cms.klarifikasiPcDates !== 'undefined' && cms.klarifikasiPcDates && cms.klarifikasiPcDates !== "ALL") ? cms.klarifikasiPcDates.split(',').map(d => parseInt(d.trim())).filter(Boolean) : []) %>,
+
+        toggleNlDate(day) {
+          const idx = this.klarifikasiNlDates.indexOf(day);
+          if (idx > -1) {
+            this.klarifikasiNlDates.splice(idx, 1);
+          } else {
+            this.klarifikasiNlDates.push(day);
+            this.klarifikasiNlDates.sort((a, b) => a - b);
+          }
+        },
+        selectAllNlDates() {
+          this.klarifikasiNlDates = Array.from({ length: 31 }, (_, i) => i + 1);
+        },
+        clearAllNlDates() {
+          this.klarifikasiNlDates = [];
+        },
+
+        togglePcDate(day) {
+          const idx = this.klarifikasiPcDates.indexOf(day);
+          if (idx > -1) {
+            this.klarifikasiPcDates.splice(idx, 1);
+          } else {
+            this.klarifikasiPcDates.push(day);
+            this.klarifikasiPcDates.sort((a, b) => a - b);
+          }
+        },
+        selectAllPcDates() {
+          this.klarifikasiPcDates = Array.from({ length: 31 }, (_, i) => i + 1);
+        },
+        clearAllPcDates() {
+          this.klarifikasiPcDates = [];
+        }
       }">
 
   <!-- Page Header -->
@@ -624,6 +665,233 @@
           <span>Simpan Status Maintenance</span>
         </button>
       </div>
+    </form>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- PANEL KHUSUS: KONTROL BUKA / TUTUP KLARIFIKASI ABSEN (NL & PC) -->
+  <!-- ============================================================== -->
+  <div class="custom-card p-6 sm:p-8 bg-white border border-teal-200 shadow-xs space-y-6">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+      <div class="flex items-center gap-3.5">
+        <div class="w-11 h-11 rounded-2xl bg-teal-500/10 text-teal-600 flex items-center justify-center shrink-0 border border-teal-500/20">
+          <i data-lucide="calendar-check" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h2 class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight">Kontrol Buka / Tutup Klarifikasi Absen (NL & PC)</h2>
+            <span class="px-2.5 py-0.5 rounded-full bg-teal-100 text-teal-800 text-[10px] font-black uppercase tracking-wider border border-teal-200">
+              Super Admin Only
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 mt-0.5">
+            Atur apakah presensi berstatus <b>NL (Hadir Normal)</b> dan <b>PC (Pulang Cepat)</b> dapat diajukan klarifikasi oleh publik, lengkap dengan tanggal yang dapat dipilih satuan, beberapa, atau semua tanggal.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <form action="/admin/cms/klarifikasi-policy" method="POST" class="space-y-6">
+      
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- KARTU 1: STATUS HADIR NORMAL (NL) -->
+        <div class="p-5 rounded-2xl border transition-all flex flex-col justify-between"
+             :class="klarifikasiNlEnabled ? 'bg-emerald-50/40 border-emerald-300 ring-1 ring-emerald-300/40' : 'bg-slate-50/60 border-slate-200'">
+          <div class="space-y-4">
+            <!-- Header & Switch Toggle -->
+            <div class="flex items-start justify-between gap-4">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white font-mono font-bold text-xs">NL</span>
+                  <span class="text-sm font-bold text-slate-800">Status Hadir Normal</span>
+                </div>
+                <p class="text-xs text-slate-500">Izin pengajuan klarifikasi untuk presensi berstatus Hadir Normal (H/NL).</p>
+              </div>
+
+              <!-- Toggle Switch -->
+              <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                <input type="checkbox" name="klarifikasiNlEnabled" value="true" x-model="klarifikasiNlEnabled" class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
+              </label>
+            </div>
+
+            <!-- Status Akses Badge -->
+            <div class="flex items-center justify-between pt-2 border-t border-slate-200/70">
+              <span class="text-xs font-semibold text-slate-600">Status Izin Publik:</span>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold"
+                    :class="klarifikasiNlEnabled ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'">
+                <span class="w-2 h-2 rounded-full" :class="klarifikasiNlEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'"></span>
+                <span x-text="klarifikasiNlEnabled ? 'Dibuka (Bisa Diklarifikasi)' : 'Ditutup (Standar)'"></span>
+              </span>
+            </div>
+
+            <!-- Date Selection Options (Only shown if enabled) -->
+            <div x-show="klarifikasiNlEnabled" x-collapse class="pt-3 space-y-3 border-t border-slate-200/70">
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Pilihan Tanggal yang Dibuka:</label>
+              
+              <div class="grid grid-cols-2 gap-2">
+                <label class="p-3 rounded-xl border cursor-pointer flex items-center gap-2.5 text-xs font-bold transition-all"
+                       :class="klarifikasiNlMode === 'ALL' ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'">
+                  <input type="radio" name="klarifikasiNlMode" value="ALL" x-model="klarifikasiNlMode" class="sr-only">
+                  <i data-lucide="calendar" class="w-4 h-4"></i>
+                  <span>Semua Tanggal (1–31)</span>
+                </label>
+
+                <label class="p-3 rounded-xl border cursor-pointer flex items-center gap-2.5 text-xs font-bold transition-all"
+                       :class="klarifikasiNlMode === 'CUSTOM' ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'">
+                  <input type="radio" name="klarifikasiNlMode" value="CUSTOM" x-model="klarifikasiNlMode" class="sr-only">
+                  <i data-lucide="check-square" class="w-4 h-4"></i>
+                  <span>Pilih Tanggal Tertentu</span>
+                </label>
+              </div>
+
+              <!-- Interactive Day Pills Selector for NL -->
+              <div x-show="klarifikasiNlMode === 'CUSTOM'" x-collapse class="p-3.5 rounded-xl bg-white border border-slate-200 space-y-3">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-[11px] font-semibold text-slate-500">
+                    Klik tanggal yang ingin diizinkan:
+                  </span>
+                  <div class="flex items-center gap-2">
+                    <button type="button" @click="selectAllNlDates()" class="text-[11px] font-bold text-emerald-600 hover:underline">Pilih Semua</button>
+                    <span class="text-slate-300">•</span>
+                    <button type="button" @click="clearAllNlDates()" class="text-[11px] font-bold text-rose-600 hover:underline">Hapus Semua</button>
+                  </div>
+                </div>
+
+                <!-- 31 Day Grid -->
+                <div class="grid grid-cols-7 sm:grid-cols-10 gap-1.5">
+                  <template x-for="day in 31" :key="'nl-day-' + day">
+                    <button type="button" 
+                            @click="toggleNlDate(day)"
+                            :class="klarifikasiNlDates.includes(day) ? 'bg-emerald-600 text-white font-bold border-emerald-600 shadow-2xs scale-105' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'"
+                            class="h-8 rounded-lg border text-xs flex items-center justify-center transition-all cursor-pointer">
+                      <span x-text="day"></span>
+                    </button>
+                  </template>
+                </div>
+
+                <!-- Hidden inputs for form submit -->
+                <template x-for="day in klarifikasiNlDates" :key="'nl-hidden-' + day">
+                  <input type="hidden" name="klarifikasiNlDates" :value="day">
+                </template>
+
+                <div class="pt-2 border-t border-slate-100 text-[11px] text-slate-600">
+                  <span class="font-bold text-slate-700">Tanggal Terpilih:</span>
+                  <span x-text="klarifikasiNlDates.length === 0 ? 'Belum ada tanggal dipilih (pilih minimal 1 tanggal)' : (klarifikasiNlDates.length + ' tanggal: ' + klarifikasiNlDates.join(', '))"
+                        :class="klarifikasiNlDates.length === 0 ? 'text-amber-600 font-semibold italic' : 'text-emerald-700 font-bold'"></span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- KARTU 2: STATUS PULANG CEPAT (PC) -->
+        <div class="p-5 rounded-2xl border transition-all flex flex-col justify-between"
+             :class="klarifikasiPcEnabled ? 'bg-blue-50/40 border-blue-300 ring-1 ring-blue-300/40' : 'bg-slate-50/60 border-slate-200'">
+          <div class="space-y-4">
+            <!-- Header & Switch Toggle -->
+            <div class="flex items-start justify-between gap-4">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="px-2 py-0.5 rounded-md bg-blue-600 text-white font-mono font-bold text-xs">PC</span>
+                  <span class="text-sm font-bold text-slate-800">Status Pulang Cepat</span>
+                </div>
+                <p class="text-xs text-slate-500">Izin pengajuan klarifikasi untuk presensi berstatus Pulang Cepat (PC).</p>
+              </div>
+
+              <!-- Toggle Switch -->
+              <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                <input type="checkbox" name="klarifikasiPcEnabled" value="true" x-model="klarifikasiPcEnabled" class="sr-only peer">
+                <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
+
+            <!-- Status Akses Badge -->
+            <div class="flex items-center justify-between pt-2 border-t border-slate-200/70">
+              <span class="text-xs font-semibold text-slate-600">Status Izin Publik:</span>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold"
+                    :class="klarifikasiPcEnabled ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-slate-100 text-slate-600 border border-slate-200'">
+                <span class="w-2 h-2 rounded-full" :class="klarifikasiPcEnabled ? 'bg-blue-500 animate-pulse' : 'bg-slate-400'"></span>
+                <span x-text="klarifikasiPcEnabled ? 'Dibuka (Bisa Diklarifikasi)' : 'Ditutup (Standar)'"></span>
+              </span>
+            </div>
+
+            <!-- Date Selection Options (Only shown if enabled) -->
+            <div x-show="klarifikasiPcEnabled" x-collapse class="pt-3 space-y-3 border-t border-slate-200/70">
+              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Pilihan Tanggal yang Dibuka:</label>
+              
+              <div class="grid grid-cols-2 gap-2">
+                <label class="p-3 rounded-xl border cursor-pointer flex items-center gap-2.5 text-xs font-bold transition-all"
+                       :class="klarifikasiPcMode === 'ALL' ? 'bg-blue-600 text-white border-blue-600 shadow-2xs' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'">
+                  <input type="radio" name="klarifikasiPcMode" value="ALL" x-model="klarifikasiPcMode" class="sr-only">
+                  <i data-lucide="calendar" class="w-4 h-4"></i>
+                  <span>Semua Tanggal (1–31)</span>
+                </label>
+
+                <label class="p-3 rounded-xl border cursor-pointer flex items-center gap-2.5 text-xs font-bold transition-all"
+                       :class="klarifikasiPcMode === 'CUSTOM' ? 'bg-blue-600 text-white border-blue-600 shadow-2xs' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'">
+                  <input type="radio" name="klarifikasiPcMode" value="CUSTOM" x-model="klarifikasiPcMode" class="sr-only">
+                  <i data-lucide="check-square" class="w-4 h-4"></i>
+                  <span>Pilih Tanggal Tertentu</span>
+                </label>
+              </div>
+
+              <!-- Interactive Day Pills Selector for PC -->
+              <div x-show="klarifikasiPcMode === 'CUSTOM'" x-collapse class="p-3.5 rounded-xl bg-white border border-slate-200 space-y-3">
+                <div class="flex items-center justify-between text-xs">
+                  <span class="text-[11px] font-semibold text-slate-500">
+                    Klik tanggal yang ingin diizinkan:
+                  </span>
+                  <div class="flex items-center gap-2">
+                    <button type="button" @click="selectAllPcDates()" class="text-[11px] font-bold text-blue-600 hover:underline">Pilih Semua</button>
+                    <span class="text-slate-300">•</span>
+                    <button type="button" @click="clearAllPcDates()" class="text-[11px] font-bold text-rose-600 hover:underline">Hapus Semua</button>
+                  </div>
+                </div>
+
+                <!-- 31 Day Grid -->
+                <div class="grid grid-cols-7 sm:grid-cols-10 gap-1.5">
+                  <template x-for="day in 31" :key="'pc-day-' + day">
+                    <button type="button" 
+                            @click="togglePcDate(day)"
+                            :class="klarifikasiPcDates.includes(day) ? 'bg-blue-600 text-white font-bold border-blue-600 shadow-2xs scale-105' : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'"
+                            class="h-8 rounded-lg border text-xs flex items-center justify-center transition-all cursor-pointer">
+                      <span x-text="day"></span>
+                    </button>
+                  </template>
+                </div>
+
+                <!-- Hidden inputs for form submit -->
+                <template x-for="day in klarifikasiPcDates" :key="'pc-hidden-' + day">
+                  <input type="hidden" name="klarifikasiPcDates" :value="day">
+                </template>
+
+                <div class="pt-2 border-t border-slate-100 text-[11px] text-slate-600">
+                  <span class="font-bold text-slate-700">Tanggal Terpilih:</span>
+                  <span x-text="klarifikasiPcDates.length === 0 ? 'Belum ada tanggal dipilih (pilih minimal 1 tanggal)' : (klarifikasiPcDates.length + ' tanggal: ' + klarifikasiPcDates.join(', '))"
+                        :class="klarifikasiPcDates.length === 0 ? 'text-amber-600 font-semibold italic' : 'text-blue-700 font-bold'"></span>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Submit Button -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2 border-t border-slate-100">
+        <p class="text-xs text-slate-500 italic">
+          * Pengaturan ini akan langsung memengaruhi status mana saja yang dapat diklik dan diajukan klarifikasi oleh publik di halaman Rekap Absensi.
+        </p>
+        <button type="submit" class="btn-primary bg-teal-600 hover:bg-teal-700 text-white py-2.5 px-6 gap-2 shrink-0 shadow-sm">
+          <i data-lucide="save" class="w-4 h-4"></i>
+          <span>Simpan Kebijakan Klarifikasi</span>
+        </button>
+      </div>
+
     </form>
   </div>
 

@@ -143,6 +143,12 @@ model CmsConfig {
   ekinerjaFilterStatus      String   @default("ALL") // ALL | BELUM_KIRIM | APPROVED | PENDING
   ekinerjaFilterKepegawaian  String   @default("PNS,PPPK,PPPK_PW")
 
+  // Kebijakan Buka / Tutup Klarifikasi Absensi NL & PC
+  klarifikasiNlEnabled      Boolean  @default(false)
+  klarifikasiNlDates        String   @default("ALL") // "ALL" or comma-separated days "1,2,5,15"
+  klarifikasiPcEnabled      Boolean  @default(false)
+  klarifikasiPcDates        String   @default("ALL") // "ALL" or comma-separated days "10,11,12"
+
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 }

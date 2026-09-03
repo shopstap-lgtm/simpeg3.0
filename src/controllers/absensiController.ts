@@ -227,6 +227,12 @@ export const absensiController = {
         isDefaultPeriod,
         holidays: Object.fromEntries(holidayService.getHolidaysForMonth(tahun, bulan)),
         isAdmin: (req as any).session?.user?.role === 'ADMIN' || (req as any).session?.user?.role === 'SUPERADMIN',
+        klarifikasiConfig: {
+          nlEnabled: cms?.klarifikasiNlEnabled || false,
+          nlDates: cms?.klarifikasiNlDates || 'ALL',
+          pcEnabled: cms?.klarifikasiPcEnabled || false,
+          pcDates: cms?.klarifikasiPcDates || 'ALL'
+        },
         pagination: {
           page,
           limit: limitQuery === 'all' ? 'all' : limit,
@@ -427,6 +433,46 @@ export const absensiController = {
           };
         }
         return res.redirect('/absensi');
+      }
+
+      // Validasi izin klarifikasi untuk status NL dan PC
+      const cms = await prisma.cmsConfig.findUnique({ where: { id: 'cms-main' } });
+      const normStatusAwal = String(statusAwal || 'TK').trim().toUpperCase();
+
+      const getDayNum = (str: string) => {
+        const parts = str.trim().split('-');
+        if (parts.length === 3) return parseInt(parts[2]);
+        return null;
+      };
+      const dayNum = getDayNum(tanggalAbsen);
+
+      const isDatePermitted = (datesSetting: string, day: number | null) => {
+        if (!day) return true;
+        if (!datesSetting || datesSetting === 'ALL') return true;
+        const arr = datesSetting.split(',').map(s => parseInt(s.trim())).filter(Boolean);
+        return arr.includes(day);
+      };
+
+      if (normStatusAwal === 'HADIR' || normStatusAwal === 'NL') {
+        if (!cms?.klarifikasiNlEnabled || !isDatePermitted(cms?.klarifikasiNlDates || 'ALL', dayNum)) {
+          if ((req as any).session) {
+            (req as any).session.toast = {
+              type: 'warning',
+              message: 'Pengajuan klarifikasi untuk status Hadir Normal (NL) pada tanggal tersebut sedang ditutup oleh Admin.'
+            };
+          }
+          return res.redirect('/absensi');
+        }
+      } else if (normStatusAwal === 'PC') {
+        if (!cms?.klarifikasiPcEnabled || !isDatePermitted(cms?.klarifikasiPcDates || 'ALL', dayNum)) {
+          if ((req as any).session) {
+            (req as any).session.toast = {
+              type: 'warning',
+              message: 'Pengajuan klarifikasi untuk status Pulang Cepat (PC) pada tanggal tersebut sedang ditutup oleh Admin.'
+            };
+          }
+          return res.redirect('/absensi');
+        }
       }
 
       let fileUrl = '/uploads/clarification_demo.pdf';

@@ -13,6 +13,30 @@
         isAdmin: <%= isAdmin ? 'true' : 'false' %>,
         isSuperAdminOrDinas: <%= isSuperAdminOrDinas ? 'true' : 'false' %>,
         isDefaultPeriod: <%= isDefaultPeriod ? 'true' : 'false' %>,
+        klarifikasiConfig: <%= JSON.stringify(typeof klarifikasiConfig !== 'undefined' ? klarifikasiConfig : { nlEnabled: false, nlDates: 'ALL', pcEnabled: false, pcDates: 'ALL' }) %>,
+
+        isStatusEligibleForKlarifikasi(status, dayNumber) {
+          if (status === 'TK' || status === 'DL_KUNING') return true;
+
+          // NL (HADIR / NL)
+          if (status === 'HADIR' || status === 'NL') {
+            if (!this.klarifikasiConfig.nlEnabled) return false;
+            if (this.klarifikasiConfig.nlDates === 'ALL') return true;
+            const allowed = this.klarifikasiConfig.nlDates.split(',').map(d => parseInt(d.trim())).filter(Boolean);
+            return allowed.includes(dayNumber);
+          }
+
+          // PC (Pulang Cepat)
+          if (status === 'PC') {
+            if (!this.klarifikasiConfig.pcEnabled) return false;
+            if (this.klarifikasiConfig.pcDates === 'ALL') return true;
+            const allowed = this.klarifikasiConfig.pcDates.split(',').map(d => parseInt(d.trim())).filter(Boolean);
+            return allowed.includes(dayNumber);
+          }
+
+          return false;
+        },
+
         klarifikasiModal: false,
         adminDirectModal: false,
         bulkDateModal: false,
@@ -91,13 +115,16 @@
               return;
             }
 
-            if (dayObj.status === 'TK' || dayObj.status === 'DL_KUNING') {
+            if (this.isStatusEligibleForKlarifikasi(dayObj.status, dayObj.tanggal)) {
               const formattedDate = '<%= tahun %>-<%= String(bulan).padStart(2, '0') %>-' + String(dayObj.tanggal).padStart(2, '0');
               this.openKlarifikasiWithDays(emp, allDays, formattedDate, dayObj.status, false);
             } else if (dayObj.status === 'EMPTY') {
               alert('Belum ada data presensi untuk tanggal ' + dayObj.tanggal + '.');
             } else {
-              alert('Hanya presensi berstatus Tanpa Keterangan (TK) dan DL Belum Sesuai (DL Kuning) yang dapat diajukan klarifikasi.');
+              let msg = 'Hanya presensi berstatus Tanpa Keterangan (TK) dan DL Belum Sesuai (DL Kuning)';
+              if (this.klarifikasiConfig.nlEnabled) msg += ', serta Hadir Normal (NL) pada tanggal yang dibuka';
+              if (this.klarifikasiConfig.pcEnabled) msg += ', serta Pulang Cepat (PC) pada tanggal yang dibuka';
+              alert(msg + ' yang dapat diajukan klarifikasi.');
             }
           }
         },
@@ -118,11 +145,16 @@
           this.selectedEmployee = emp;
           this.isRentang = isRange;
           
-          // Filter KHUSUS hari dengan status TK atau DL_KUNING untuk pegawai yang dipilih
-          this.eligibleDays = daysList.filter(d => d.status === 'TK' || d.status === 'DL_KUNING').map(d => {
+          // Filter hari yang memenuhi syarat klarifikasi sesuai kebijakan admin (TK, DL Kuning, NL, PC)
+          this.eligibleDays = daysList.filter(d => this.isStatusEligibleForKlarifikasi(d.status, d.tanggal)).map(d => {
             const padDay = String(d.tanggal).padStart(2, '0');
             const dateVal = '<%= tahun %>-<%= String(bulan).padStart(2, '0') %>-' + padDay;
-            const labelStatus = d.status === 'TK' ? 'Tanpa Keterangan (TK)' : 'DL Belum Sesuai (DL Kuning)';
+            let labelStatus = d.status;
+            if (d.status === 'TK') labelStatus = 'Tanpa Keterangan (TK)';
+            else if (d.status === 'DL_KUNING') labelStatus = 'DL Belum Sesuai (DL Kuning)';
+            else if (d.status === 'HADIR' || d.status === 'NL') labelStatus = 'Hadir Normal (NL)';
+            else if (d.status === 'PC') labelStatus = 'Pulang Cepat (PC)';
+
             return {
               tanggal: d.tanggal,
               dateStr: dateVal,
@@ -132,7 +164,11 @@
           });
 
           if (!this.isAdmin && this.eligibleDays.length === 0) {
-            alert('Pegawai ' + emp.nama + ' tidak memiliki presensi berstatus TK atau DL Kuning pada bulan ini.');
+            let msg = 'Pegawai ' + emp.nama + ' tidak memiliki presensi berstatus TK atau DL Kuning';
+            if (this.klarifikasiConfig.nlEnabled) msg += ' / NL';
+            if (this.klarifikasiConfig.pcEnabled) msg += ' / PC';
+            msg += ' pada tanggal yang dibuka untuk klarifikasi.';
+            alert(msg);
             return;
           }
 
@@ -906,6 +942,7 @@
                     </label>
                     <template x-if="!isAdmin">
                       <select name="statusPengganti" id="statusPenggantiPublik" x-model="selectedStatus" class="form-select text-xs font-semibold py-2">
+                        <option value="HADIR">Hadir Normal / Penuh (H)</option>
                         <option value="DL">Dinas Luar Sesuai (DL)</option>
                         <option value="ST">Sakit (ST)</option>
                         <option value="CT">Cuti (CT)</option>
@@ -966,6 +1003,7 @@
                     </label>
                     <template x-if="!isAdmin">
                       <select name="statusPengganti" id="statusPenggantiRentang" x-model="selectedStatus" class="form-select text-xs font-semibold py-2">
+                        <option value="HADIR">Hadir Normal / Penuh (H)</option>
                         <option value="DL">Dinas Luar Sesuai (DL)</option>
                         <option value="ST">Sakit (ST)</option>
                         <option value="CT">Cuti (CT)</option>

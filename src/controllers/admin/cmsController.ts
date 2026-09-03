@@ -151,5 +151,67 @@ export const cmsController = {
       console.error('Error in cmsController.updateMaintenance:', error);
       res.redirect('/admin/cms');
     }
+  },
+
+  updateKlarifikasiPolicy: async (req: Request, res: Response) => {
+    try {
+      const {
+        klarifikasiNlEnabled,
+        klarifikasiNlMode,
+        klarifikasiNlDates,
+        klarifikasiPcEnabled,
+        klarifikasiPcMode,
+        klarifikasiPcDates
+      } = req.body;
+
+      const isNlEnabled = klarifikasiNlEnabled === 'true' || klarifikasiNlEnabled === 'on' || klarifikasiNlEnabled === true;
+      let finalNlDates = 'ALL';
+      if (klarifikasiNlMode === 'CUSTOM') {
+        if (Array.isArray(klarifikasiNlDates)) {
+          finalNlDates = klarifikasiNlDates.join(',');
+        } else if (typeof klarifikasiNlDates === 'string') {
+          finalNlDates = klarifikasiNlDates.trim() || 'ALL';
+        }
+      }
+
+      const isPcEnabled = klarifikasiPcEnabled === 'true' || klarifikasiPcEnabled === 'on' || klarifikasiPcEnabled === true;
+      let finalPcDates = 'ALL';
+      if (klarifikasiPcMode === 'CUSTOM') {
+        if (Array.isArray(klarifikasiPcDates)) {
+          finalPcDates = klarifikasiPcDates.join(',');
+        } else if (typeof klarifikasiPcDates === 'string') {
+          finalPcDates = klarifikasiPcDates.trim() || 'ALL';
+        }
+      }
+
+      await prisma.cmsConfig.upsert({
+        where: { id: 'cms-main' },
+        update: {
+          klarifikasiNlEnabled: isNlEnabled,
+          klarifikasiNlDates: finalNlDates,
+          klarifikasiPcEnabled: isPcEnabled,
+          klarifikasiPcDates: finalPcDates
+        },
+        create: {
+          id: 'cms-main',
+          klarifikasiNlEnabled: isNlEnabled,
+          klarifikasiNlDates: finalNlDates,
+          klarifikasiPcEnabled: isPcEnabled,
+          klarifikasiPcDates: finalPcDates
+        }
+      });
+
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'success',
+          message: 'Kebijakan buka/tutup klarifikasi absensi (NL & PC) berhasil diperbarui.'
+        };
+      }
+
+      res.redirect('/admin/cms');
+    } catch (error) {
+      console.error('Error in cmsController.updateKlarifikasiPolicy:', error);
+      res.redirect('/admin/cms');
+    }
   }
 };

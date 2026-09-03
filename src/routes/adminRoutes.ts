@@ -121,6 +121,7 @@ router.post('/pegawai/:id/delete', requireSuperAdmin, pegawaiAdminController.del
 router.get('/cms', requireSuperAdmin, cmsController.show);
 router.post('/cms', requireSuperAdmin, cmsController.update);
 router.post('/cms/maintenance', requireSuperAdmin, cmsController.updateMaintenance);
+router.post('/cms/klarifikasi-policy', requireSuperAdmin, cmsController.updateKlarifikasiPolicy);
 
 // User Management
 router.get('/users', requireSuperAdmin, usersController.show);
