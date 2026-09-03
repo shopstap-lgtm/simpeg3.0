@@ -74,16 +74,6 @@ export function createApp(): Express {
       }
     }
 
-    // If specific file not found (e.g. old local upload), return demo PDF fallback instead of 404
-    for (const dir of searchDirs) {
-      const demoPath = path.join(dir, 'clarification_demo.pdf');
-      if (fs.existsSync(demoPath)) {
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-        return res.sendFile(demoPath);
-      }
-    }
-
     res.status(404).send('Dokumen tidak ditemukan.');
   });
 

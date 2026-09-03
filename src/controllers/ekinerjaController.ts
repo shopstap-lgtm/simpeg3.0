@@ -326,6 +326,16 @@ export const ekinerjaController = {
         await deleteFileFromStorage(existingReport.fileBulananUrl);
       }
 
+      if (!existingReport && !fileHarian && !fileBulanan) {
+        if ((req as any).session) {
+          (req as any).session.toast = {
+            type: 'error',
+            message: 'Silakan pilih berkas PDF laporan (Harian dan/atau Bulanan) untuk diunggah.'
+          };
+        }
+        return res.redirect(`/ekinerja?bulan=${b}&tahun=${t}`);
+      }
+
       await prisma.ekinerjaReport.upsert({
         where: {
           employeeId_bulan_tahun: {
@@ -348,10 +358,10 @@ export const ekinerjaController = {
           employeeId,
           bulan: b,
           tahun: t,
-          fileHarianUrl: fileHarianUrl || '/uploads/ekinerja_harian_demo.pdf',
-          fileHarianName: fileHarianName || 'Laporan_Harian.pdf',
-          fileBulananUrl: fileBulananUrl || '/uploads/ekinerja_bulanan_demo.pdf',
-          fileBulananName: fileBulananName || 'Laporan_Bulanan.pdf',
+          fileHarianUrl: fileHarianUrl || null,
+          fileHarianName: fileHarianName || null,
+          fileBulananUrl: fileBulananUrl || null,
+          fileBulananName: fileBulananName || null,
           statusReview: 'PENDING'
         }
       });

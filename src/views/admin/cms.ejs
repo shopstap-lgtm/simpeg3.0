@@ -699,89 +699,118 @@
         <div class="p-5 rounded-2xl border transition-all flex flex-col justify-between"
              :class="klarifikasiNlEnabled ? 'bg-emerald-50/40 border-emerald-300 ring-1 ring-emerald-300/40' : 'bg-slate-50/60 border-slate-200'">
           <div class="space-y-4">
-            <!-- Header & Switch Toggle -->
-            <div class="flex items-start justify-between gap-4">
-              <div class="space-y-1">
+            <!-- Header (Baris Horizontal: Badge & Judul di Kiri, Status & Sakelar di Kanan) -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/70">
+              <div class="space-y-0.5">
                 <div class="flex items-center gap-2">
                   <span class="px-2 py-0.5 rounded-md bg-emerald-600 text-white font-mono font-bold text-xs">NL</span>
                   <span class="text-sm font-bold text-slate-800">Status Hadir Normal</span>
                 </div>
-                <p class="text-xs text-slate-500">Izin pengajuan klarifikasi untuk presensi berstatus Hadir Normal (H/NL).</p>
+                <p class="text-xs text-slate-500">Izin klarifikasi presensi berstatus Hadir Normal (H/NL).</p>
               </div>
 
-              <!-- Toggle Switch -->
-              <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                <input type="checkbox" name="klarifikasiNlEnabled" value="true" x-model="klarifikasiNlEnabled" class="sr-only peer">
-                <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-600"></div>
-              </label>
-            </div>
+              <div class="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold"
+                      :class="klarifikasiNlEnabled ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'">
+                  <span class="w-1.5 h-1.5 rounded-full" :class="klarifikasiNlEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'"></span>
+                  <span x-text="klarifikasiNlEnabled ? 'Akses Dibuka' : 'Akses Ditutup'"></span>
+                </span>
 
-            <!-- Status Akses Badge -->
-            <div class="flex items-center justify-between pt-2 border-t border-slate-200/70">
-              <span class="text-xs font-semibold text-slate-600">Status Izin Publik:</span>
-              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold"
-                    :class="klarifikasiNlEnabled ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200'">
-                <span class="w-2 h-2 rounded-full" :class="klarifikasiNlEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'"></span>
-                <span x-text="klarifikasiNlEnabled ? 'Dibuka (Bisa Diklarifikasi)' : 'Ditutup (Standar)'"></span>
-              </span>
-            </div>
-
-            <!-- Date Selection Options (Only shown if enabled) -->
-            <div x-show="klarifikasiNlEnabled" x-collapse class="pt-3 space-y-3 border-t border-slate-200/70">
-              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Pilihan Tanggal yang Dibuka:</label>
-              
-              <!-- Segmented Control Mode -->
-              <div class="inline-flex p-1 rounded-xl bg-slate-100/90 border border-slate-200 text-xs w-full">
-                <label class="flex-1 py-1.5 px-3 rounded-lg text-center cursor-pointer font-bold transition-all text-xs"
-                       :class="klarifikasiNlMode === 'ALL' ? 'bg-white text-emerald-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'">
-                  <input type="radio" name="klarifikasiNlMode" value="ALL" x-model="klarifikasiNlMode" class="sr-only">
-                  <span>Semua Tanggal (1–31)</span>
-                </label>
-                <label class="flex-1 py-1.5 px-3 rounded-lg text-center cursor-pointer font-bold transition-all text-xs"
-                       :class="klarifikasiNlMode === 'CUSTOM' ? 'bg-white text-emerald-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'">
-                  <input type="radio" name="klarifikasiNlMode" value="CUSTOM" x-model="klarifikasiNlMode" class="sr-only">
-                  <span>Pilih Tanggal Tertentu</span>
+                <!-- Toggle Switch -->
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input type="checkbox" name="klarifikasiNlEnabled" value="true" x-model="klarifikasiNlEnabled" class="sr-only peer">
+                  <div class="w-10 h-5.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-emerald-600"></div>
                 </label>
               </div>
+            </div>
 
-              <!-- Compact Calendar Squares for NL -->
-              <div x-show="klarifikasiNlMode === 'CUSTOM'" x-collapse class="p-3.5 rounded-xl bg-white border border-slate-200 space-y-2.5">
-                <div class="flex items-center justify-between text-xs pb-1.5 border-b border-slate-100">
-                  <span class="text-[11px] font-semibold text-slate-500">
-                    Pilih tanggal:
-                  </span>
-                  <div class="flex items-center gap-2">
-                    <button type="button" @click="selectAllNlDates()" class="text-[11px] font-bold text-emerald-600 hover:underline">Semua</button>
-                    <span class="text-slate-300">•</span>
-                    <button type="button" @click="clearAllNlDates()" class="text-[11px] font-bold text-rose-600 hover:underline">Reset</button>
+            <!-- Opsi Pemilihan Tanggal (Paduan Susunan Horizontal & Vertikal) -->
+            <div x-show="klarifikasiNlEnabled" x-collapse>
+              <div class="flex flex-col sm:flex-row items-stretch gap-3.5">
+                
+                <!-- Sisi Kiri: Mode Pemilihan Tanggal & Ringkasan -->
+                <div class="w-full sm:w-44 shrink-0 flex flex-col justify-between gap-2.5">
+                  <div class="space-y-1.5">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Mode Tanggal</span>
+                    <div class="flex flex-row sm:flex-col gap-1.5">
+                      <label class="flex-1 flex items-center gap-2 p-2 rounded-xl cursor-pointer text-xs transition-all border"
+                             :class="klarifikasiNlMode === 'ALL' ? 'bg-emerald-600 text-white font-bold border-emerald-600 shadow-2xs' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 font-medium'">
+                        <input type="radio" name="klarifikasiNlMode" value="ALL" x-model="klarifikasiNlMode" class="sr-only">
+                        <i data-lucide="check" class="w-3.5 h-3.5 shrink-0" :class="klarifikasiNlMode === 'ALL' ? 'text-white' : 'text-slate-400'"></i>
+                        <span class="truncate text-[11px]">Semua Tanggal</span>
+                      </label>
+                      <label class="flex-1 flex items-center gap-2 p-2 rounded-xl cursor-pointer text-xs transition-all border"
+                             :class="klarifikasiNlMode === 'CUSTOM' ? 'bg-emerald-600 text-white font-bold border-emerald-600 shadow-2xs' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 font-medium'">
+                        <input type="radio" name="klarifikasiNlMode" value="CUSTOM" x-model="klarifikasiNlMode" class="sr-only">
+                        <i data-lucide="calendar" class="w-3.5 h-3.5 shrink-0" :class="klarifikasiNlMode === 'CUSTOM' ? 'text-white' : 'text-slate-400'"></i>
+                        <span class="truncate text-[11px]">Pilih Tanggal</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- Ringkasan Terpilih -->
+                  <div class="p-2.5 rounded-xl bg-white/80 border border-slate-200 text-[11px] space-y-0.5 shadow-2xs">
+                    <span class="text-slate-500 font-semibold block text-[10px] uppercase tracking-wider">Terpilih:</span>
+                    <div x-show="klarifikasiNlMode === 'ALL'" class="font-bold text-emerald-700">
+                      31 Hari (Semua)
+                    </div>
+                    <div x-show="klarifikasiNlMode === 'CUSTOM'">
+                      <span x-text="klarifikasiNlDates.length === 0 ? 'Belum ada dipilih' : klarifikasiNlDates.length + ' tgl aktif'"
+                            :class="klarifikasiNlDates.length === 0 ? 'text-amber-600 font-semibold italic' : 'text-emerald-700 font-bold'"></span>
+                      <p x-show="klarifikasiNlDates.length > 0" 
+                         x-text="klarifikasiNlDates.join(', ')" 
+                         class="text-[10px] text-slate-500 line-clamp-2 mt-0.5 break-words"></p>
+                    </div>
                   </div>
                 </div>
 
-                <!-- 7-Column Calendar Grid -->
-                <div class="grid grid-cols-7 gap-1 sm:gap-1.5 max-w-[280px] sm:max-w-[320px]">
-                  <template x-for="day in 31" :key="'nl-day-' + day">
-                    <button type="button" 
-                            @click="toggleNlDate(day)"
-                            :class="klarifikasiNlDates.includes(day) ? 'bg-emerald-600 text-white font-bold border-emerald-600 shadow-2xs ring-1 ring-emerald-500' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300 font-medium'"
-                            class="w-8 h-8 sm:w-9 sm:h-9 rounded-md border text-xs flex items-center justify-center transition-all cursor-pointer">
-                      <span x-text="day"></span>
-                    </button>
-                  </template>
+                <!-- Sisi Kanan: Tampilan Kalender Kotak Tanggal -->
+                <div class="flex-1 min-w-0">
+                  <!-- Mode ALL Info Box -->
+                  <div x-show="klarifikasiNlMode === 'ALL'" 
+                       class="h-full min-h-[160px] p-4 rounded-xl bg-white/90 border border-slate-200 flex flex-col items-center justify-center text-center space-y-1.5">
+                    <div class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
+                      <i data-lucide="calendar-check-2" class="w-4 h-4"></i>
+                    </div>
+                    <p class="text-xs font-bold text-emerald-900">Seluruh Tanggal Dibuka</p>
+                    <p class="text-[11px] text-slate-500 max-w-[220px]">
+                      Klarifikasi dibuka untuk seluruh tanggal (1–31) bulan berjalan.
+                    </p>
+                  </div>
+
+                  <!-- Mode CUSTOM Kalender Grid 7-Kolom -->
+                  <div x-show="klarifikasiNlMode === 'CUSTOM'" 
+                       class="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200 space-y-2 shadow-2xs">
+                    <div class="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                      <span class="text-[11px] font-bold text-slate-600">Klik kotak tanggal:</span>
+                      <div class="flex items-center gap-1.5">
+                        <button type="button" @click="selectAllNlDates()" class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition-colors">Semua</button>
+                        <button type="button" @click="clearAllNlDates()" class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors">Reset</button>
+                      </div>
+                    </div>
+
+                    <!-- 7 Kolom Mini Kalender -->
+                    <div class="grid grid-cols-7 gap-1">
+                      <template x-for="day in 31" :key="'nl-day-' + day">
+                        <button type="button" 
+                                @click="toggleNlDate(day)"
+                                :class="klarifikasiNlDates.includes(day) ? 'bg-emerald-600 text-white font-bold border-emerald-600 shadow-2xs ring-1 ring-emerald-500' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300 font-medium'"
+                                class="h-7 sm:h-7.5 rounded text-[11px] flex items-center justify-center transition-all cursor-pointer">
+                          <span x-text="day"></span>
+                        </button>
+                      </template>
+                    </div>
+
+                    <!-- Hidden inputs for form submit -->
+                    <template x-for="day in klarifikasiNlDates" :key="'nl-hidden-' + day">
+                      <input type="hidden" name="klarifikasiNlDates" :value="day">
+                    </template>
+                  </div>
                 </div>
 
-                <!-- Hidden inputs for form submit -->
-                <template x-for="day in klarifikasiNlDates" :key="'nl-hidden-' + day">
-                  <input type="hidden" name="klarifikasiNlDates" :value="day">
-                </template>
-
-                <div class="pt-1.5 border-t border-slate-100 text-[11px] text-slate-600 flex items-center justify-between">
-                  <span class="font-bold text-slate-600">Terpilih:</span>
-                  <span x-text="klarifikasiNlDates.length === 0 ? 'Belum ada tanggal dipilih' : (klarifikasiNlDates.length + ' tgl: ' + klarifikasiNlDates.join(', '))"
-                        :class="klarifikasiNlDates.length === 0 ? 'text-amber-600 font-semibold italic' : 'text-emerald-700 font-bold truncate max-w-[200px] sm:max-w-[240px] text-right'"></span>
-                </div>
               </div>
-
             </div>
+
           </div>
         </div>
 
@@ -789,90 +818,119 @@
         <div class="p-5 rounded-2xl border transition-all flex flex-col justify-between"
              :class="klarifikasiPcEnabled ? 'bg-blue-50/40 border-blue-300 ring-1 ring-blue-300/40' : 'bg-slate-50/60 border-slate-200'">
           <div class="space-y-4">
-            <!-- Header & Switch Toggle -->
-            <div class="flex items-start justify-between gap-4">
-              <div class="space-y-1">
+            <!-- Header (Baris Horizontal: Badge & Judul di Kiri, Status & Sakelar di Kanan) -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200/70">
+              <div class="space-y-0.5">
                 <div class="flex items-center gap-1.5">
                   <span class="px-2 py-0.5 rounded-md bg-orange-500 text-white font-mono font-bold text-xs">TL</span>
                   <span class="px-2 py-0.5 rounded-md bg-blue-600 text-white font-mono font-bold text-xs">PC</span>
                   <span class="text-sm font-bold text-slate-800 ml-1">Terlambat & Pulang Cepat</span>
                 </div>
-                <p class="text-xs text-slate-500">Izin pengajuan klarifikasi untuk presensi berstatus Terlambat (TL) dan Pulang Cepat (PC).</p>
+                <p class="text-xs text-slate-500">Izin klarifikasi presensi berstatus Terlambat (TL) & Pulang Cepat (PC).</p>
               </div>
 
-              <!-- Toggle Switch -->
-              <label class="relative inline-flex items-center cursor-pointer shrink-0">
-                <input type="checkbox" name="klarifikasiPcEnabled" value="true" x-model="klarifikasiPcEnabled" class="sr-only peer">
-                <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
+              <div class="flex items-center gap-2.5 shrink-0 self-end sm:self-auto">
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[11px] font-bold"
+                      :class="klarifikasiPcEnabled ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-slate-100 text-slate-600 border border-slate-200'">
+                  <span class="w-1.5 h-1.5 rounded-full" :class="klarifikasiPcEnabled ? 'bg-blue-500 animate-pulse' : 'bg-slate-400'"></span>
+                  <span x-text="klarifikasiPcEnabled ? 'Akses Dibuka' : 'Akses Ditutup'"></span>
+                </span>
 
-            <!-- Status Akses Badge -->
-            <div class="flex items-center justify-between pt-2 border-t border-slate-200/70">
-              <span class="text-xs font-semibold text-slate-600">Status Izin Publik:</span>
-              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md text-[11px] font-bold"
-                    :class="klarifikasiPcEnabled ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-slate-100 text-slate-600 border border-slate-200'">
-                <span class="w-2 h-2 rounded-full" :class="klarifikasiPcEnabled ? 'bg-blue-500 animate-pulse' : 'bg-slate-400'"></span>
-                <span x-text="klarifikasiPcEnabled ? 'Dibuka (Bisa Diklarifikasi)' : 'Ditutup (Standar)'"></span>
-              </span>
-            </div>
-
-            <!-- Date Selection Options (Only shown if enabled) -->
-            <div x-show="klarifikasiPcEnabled" x-collapse class="pt-3 space-y-3 border-t border-slate-200/70">
-              <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Pilihan Tanggal yang Dibuka:</label>
-              
-              <!-- Segmented Control Mode -->
-              <div class="inline-flex p-1 rounded-xl bg-slate-100/90 border border-slate-200 text-xs w-full">
-                <label class="flex-1 py-1.5 px-3 rounded-lg text-center cursor-pointer font-bold transition-all text-xs"
-                       :class="klarifikasiPcMode === 'ALL' ? 'bg-white text-blue-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'">
-                  <input type="radio" name="klarifikasiPcMode" value="ALL" x-model="klarifikasiPcMode" class="sr-only">
-                  <span>Semua Tanggal (1–31)</span>
-                </label>
-                <label class="flex-1 py-1.5 px-3 rounded-lg text-center cursor-pointer font-bold transition-all text-xs"
-                       :class="klarifikasiPcMode === 'CUSTOM' ? 'bg-white text-blue-800 shadow-2xs' : 'text-slate-600 hover:text-slate-900'">
-                  <input type="radio" name="klarifikasiPcMode" value="CUSTOM" x-model="klarifikasiPcMode" class="sr-only">
-                  <span>Pilih Tanggal Tertentu</span>
+                <!-- Toggle Switch -->
+                <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input type="checkbox" name="klarifikasiPcEnabled" value="true" x-model="klarifikasiPcEnabled" class="sr-only peer">
+                  <div class="w-10 h-5.5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-blue-600"></div>
                 </label>
               </div>
+            </div>
 
-              <!-- Compact Calendar Squares for TL & PC -->
-              <div x-show="klarifikasiPcMode === 'CUSTOM'" x-collapse class="p-3.5 rounded-xl bg-white border border-slate-200 space-y-2.5">
-                <div class="flex items-center justify-between text-xs pb-1.5 border-b border-slate-100">
-                  <span class="text-[11px] font-semibold text-slate-500">
-                    Pilih tanggal:
-                  </span>
-                  <div class="flex items-center gap-2">
-                    <button type="button" @click="selectAllPcDates()" class="text-[11px] font-bold text-blue-600 hover:underline">Semua</button>
-                    <span class="text-slate-300">•</span>
-                    <button type="button" @click="clearAllPcDates()" class="text-[11px] font-bold text-rose-600 hover:underline">Reset</button>
+            <!-- Opsi Pemilihan Tanggal (Paduan Susunan Horizontal & Vertikal) -->
+            <div x-show="klarifikasiPcEnabled" x-collapse>
+              <div class="flex flex-col sm:flex-row items-stretch gap-3.5">
+                
+                <!-- Sisi Kiri: Mode Pemilihan Tanggal & Ringkasan -->
+                <div class="w-full sm:w-44 shrink-0 flex flex-col justify-between gap-2.5">
+                  <div class="space-y-1.5">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Mode Tanggal</span>
+                    <div class="flex flex-row sm:flex-col gap-1.5">
+                      <label class="flex-1 flex items-center gap-2 p-2 rounded-xl cursor-pointer text-xs transition-all border"
+                             :class="klarifikasiPcMode === 'ALL' ? 'bg-blue-600 text-white font-bold border-blue-600 shadow-2xs' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 font-medium'">
+                        <input type="radio" name="klarifikasiPcMode" value="ALL" x-model="klarifikasiPcMode" class="sr-only">
+                        <i data-lucide="check" class="w-3.5 h-3.5 shrink-0" :class="klarifikasiPcMode === 'ALL' ? 'text-white' : 'text-slate-400'"></i>
+                        <span class="truncate text-[11px]">Semua Tanggal</span>
+                      </label>
+                      <label class="flex-1 flex items-center gap-2 p-2 rounded-xl cursor-pointer text-xs transition-all border"
+                             :class="klarifikasiPcMode === 'CUSTOM' ? 'bg-blue-600 text-white font-bold border-blue-600 shadow-2xs' : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 font-medium'">
+                        <input type="radio" name="klarifikasiPcMode" value="CUSTOM" x-model="klarifikasiPcMode" class="sr-only">
+                        <i data-lucide="calendar" class="w-3.5 h-3.5 shrink-0" :class="klarifikasiPcMode === 'CUSTOM' ? 'text-white' : 'text-slate-400'"></i>
+                        <span class="truncate text-[11px]">Pilih Tanggal</span>
+                      </label>
+                    </div>
+                  </div>
+
+                  <!-- Ringkasan Terpilih -->
+                  <div class="p-2.5 rounded-xl bg-white/80 border border-slate-200 text-[11px] space-y-0.5 shadow-2xs">
+                    <span class="text-slate-500 font-semibold block text-[10px] uppercase tracking-wider">Terpilih:</span>
+                    <div x-show="klarifikasiPcMode === 'ALL'" class="font-bold text-blue-700">
+                      31 Hari (Semua)
+                    </div>
+                    <div x-show="klarifikasiPcMode === 'CUSTOM'">
+                      <span x-text="klarifikasiPcDates.length === 0 ? 'Belum ada dipilih' : klarifikasiPcDates.length + ' tgl aktif'"
+                            :class="klarifikasiPcDates.length === 0 ? 'text-amber-600 font-semibold italic' : 'text-blue-700 font-bold'"></span>
+                      <p x-show="klarifikasiPcDates.length > 0" 
+                         x-text="klarifikasiPcDates.join(', ')" 
+                         class="text-[10px] text-slate-500 line-clamp-2 mt-0.5 break-words"></p>
+                    </div>
                   </div>
                 </div>
 
-                <!-- 7-Column Calendar Grid -->
-                <div class="grid grid-cols-7 gap-1 sm:gap-1.5 max-w-[280px] sm:max-w-[320px]">
-                  <template x-for="day in 31" :key="'pc-day-' + day">
-                    <button type="button" 
-                            @click="togglePcDate(day)"
-                            :class="klarifikasiPcDates.includes(day) ? 'bg-blue-600 text-white font-bold border-blue-600 shadow-2xs ring-1 ring-blue-500' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300 font-medium'"
-                            class="w-8 h-8 sm:w-9 sm:h-9 rounded-md border text-xs flex items-center justify-center transition-all cursor-pointer">
-                      <span x-text="day"></span>
-                    </button>
-                  </template>
+                <!-- Sisi Kanan: Tampilan Kalender Kotak Tanggal -->
+                <div class="flex-1 min-w-0">
+                  <!-- Mode ALL Info Box -->
+                  <div x-show="klarifikasiPcMode === 'ALL'" 
+                       class="h-full min-h-[160px] p-4 rounded-xl bg-white/90 border border-slate-200 flex flex-col items-center justify-center text-center space-y-1.5">
+                    <div class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
+                      <i data-lucide="calendar-check-2" class="w-4 h-4"></i>
+                    </div>
+                    <p class="text-xs font-bold text-blue-900">Seluruh Tanggal Dibuka</p>
+                    <p class="text-[11px] text-slate-500 max-w-[220px]">
+                      Klarifikasi dibuka untuk seluruh tanggal (1–31) bulan berjalan.
+                    </p>
+                  </div>
+
+                  <!-- Mode CUSTOM Kalender Grid 7-Kolom -->
+                  <div x-show="klarifikasiPcMode === 'CUSTOM'" 
+                       class="p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200 space-y-2 shadow-2xs">
+                    <div class="flex items-center justify-between pb-1.5 border-b border-slate-100">
+                      <span class="text-[11px] font-bold text-slate-600">Klik kotak tanggal:</span>
+                      <div class="flex items-center gap-1.5">
+                        <button type="button" @click="selectAllPcDates()" class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 transition-colors">Semua</button>
+                        <button type="button" @click="clearAllPcDates()" class="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition-colors">Reset</button>
+                      </div>
+                    </div>
+
+                    <!-- 7 Kolom Mini Kalender -->
+                    <div class="grid grid-cols-7 gap-1">
+                      <template x-for="day in 31" :key="'pc-day-' + day">
+                        <button type="button" 
+                                @click="togglePcDate(day)"
+                                :class="klarifikasiPcDates.includes(day) ? 'bg-blue-600 text-white font-bold border-blue-600 shadow-2xs ring-1 ring-blue-500' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100 hover:border-slate-300 font-medium'"
+                                class="h-7 sm:h-7.5 rounded text-[11px] flex items-center justify-center transition-all cursor-pointer">
+                          <span x-text="day"></span>
+                        </button>
+                      </template>
+                    </div>
+
+                    <!-- Hidden inputs for form submit -->
+                    <template x-for="day in klarifikasiPcDates" :key="'pc-hidden-' + day">
+                      <input type="hidden" name="klarifikasiPcDates" :value="day">
+                    </template>
+                  </div>
                 </div>
 
-                <!-- Hidden inputs for form submit -->
-                <template x-for="day in klarifikasiPcDates" :key="'pc-hidden-' + day">
-                  <input type="hidden" name="klarifikasiPcDates" :value="day">
-                </template>
-
-                <div class="pt-1.5 border-t border-slate-100 text-[11px] text-slate-600 flex items-center justify-between">
-                  <span class="font-bold text-slate-600">Terpilih:</span>
-                  <span x-text="klarifikasiPcDates.length === 0 ? 'Belum ada tanggal dipilih' : (klarifikasiPcDates.length + ' tgl: ' + klarifikasiPcDates.join(', '))"
-                        :class="klarifikasiPcDates.length === 0 ? 'text-amber-600 font-semibold italic' : 'text-blue-700 font-bold truncate max-w-[200px] sm:max-w-[240px] text-right'"></span>
-                </div>
               </div>
-
             </div>
+
           </div>
         </div>
 
