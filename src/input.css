@@ -11,6 +11,14 @@
   z-index: 999999 !important;
 }
 
+.h-\[92vh\] {
+  height: 92vh !important;
+}
+
+.max-h-\[92vh\] {
+  max-height: 92vh !important;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
