@@ -193,6 +193,7 @@ export const ekinerjaController = {
         activeDefaultYear,
         selectedUnit,
         selectedStatus,
+        currentStatus: selectedStatus,
         search,
         pagination,
         toast,

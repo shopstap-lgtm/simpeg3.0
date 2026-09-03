@@ -382,7 +382,7 @@
   <div class="block lg:hidden space-y-4">
     <% if (list.length === 0) { %>
       <div class="custom-card p-8 text-center text-slate-500">
-        <% if (currentStatus === 'belum_kirim') { %>
+        <% if ((typeof selectedStatus !== 'undefined' && selectedStatus === 'belum_kirim') || (typeof currentStatus !== 'undefined' && currentStatus === 'belum_kirim')) { %>
           <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-2.5">
             <i data-lucide="check-circle-2" class="w-6 h-6"></i>
           </div>
@@ -553,7 +553,7 @@
         <% if (list.length === 0) { %>
           <tr>
             <td colspan="8" class="py-12 text-center text-slate-500">
-              <% if (currentStatus === 'belum_kirim') { %>
+              <% if ((typeof selectedStatus !== 'undefined' && selectedStatus === 'belum_kirim') || (typeof currentStatus !== 'undefined' && currentStatus === 'belum_kirim')) { %>
                 <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-3">
                   <i data-lucide="check-circle-2" class="w-6 h-6"></i>
                 </div>
