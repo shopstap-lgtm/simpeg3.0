@@ -178,3 +178,60 @@ export function generateKlarifikasiFilename(
   const cleanTgl = tanggalAbsen.trim().replace(/[\\/:*?"<>|]/g, '-').replace(/\s+/g, ' ');
   return `KLAR ${bName} ${cleanNama} ${cleanStatus} ${cleanTgl}${originalExt}`;
 }
+
+/**
+ * Hapus berkas fisik dari penyimpanan server (Disk VPS public/uploads atau Supabase Bucket).
+ * Memastikan tidak ada file sampah (orphan files) saat data riwayat/arsip dihapus.
+ */
+export async function deleteFileFromStorage(fileUrlOrPath: string | null | undefined): Promise<boolean> {
+  if (!fileUrlOrPath || typeof fileUrlOrPath !== 'string' || fileUrlOrPath.startsWith('data:') || fileUrlOrPath === '-') {
+    return false;
+  }
+
+  let deleted = false;
+
+  // 1. Periksa dan hapus dari Disk Lokal VPS (public/uploads)
+  try {
+    const pathModule = await import('path');
+    const fsModule = await import('fs');
+    const uploadsDir = pathModule.resolve(process.cwd(), 'public', 'uploads');
+
+    let filename = fileUrlOrPath;
+    if (filename.includes('/uploads/')) {
+      filename = filename.split('/uploads/').pop() || '';
+    }
+    filename = pathModule.basename(filename);
+
+    if (filename) {
+      const fullPath = pathModule.join(uploadsDir, filename);
+      if (fsModule.existsSync(fullPath)) {
+        fsModule.unlinkSync(fullPath);
+        console.log(`[FileCleanup] Berkas fisik berhasil dihapus dari disk lokal: ${filename}`);
+        deleted = true;
+      }
+    }
+  } catch (fsErr) {
+    console.error('[FileCleanup] Gagal menghapus file dari disk lokal:', fsErr);
+  }
+
+  // 2. Jika berkas berada di Supabase Storage
+  const client = getSupabaseClient();
+  if (client && fileUrlOrPath.startsWith('http')) {
+    try {
+      const match = fileUrlOrPath.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+      if (match) {
+        const bucket = match[1];
+        const filePath = match[2];
+        const { error } = await client.storage.from(bucket).remove([filePath]);
+        if (!error) {
+          console.log(`[FileCleanup] Berkas berhasil dihapus dari Supabase Storage: ${bucket}/${filePath}`);
+          deleted = true;
+        }
+      }
+    } catch (sbErr) {
+      console.error('[FileCleanup] Gagal menghapus berkas dari Supabase:', sbErr);
+    }
+  }
+
+  return deleted;
+}

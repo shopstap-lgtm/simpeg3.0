@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../../lib/prisma';
+import { deleteFileFromStorage } from '../../lib/supabase';
 
 export const klarifikasiController = {
   show: async (req: Request, res: Response) => {
@@ -261,6 +262,11 @@ export const klarifikasiController = {
               await revertDay(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]));
             }
           }
+        }
+
+        // Hapus berkas fisik hasil upload dari disk/storage agar tidak menjadi file sampah
+        if (item.fileUrl) {
+          await deleteFileFromStorage(item.fileUrl);
         }
 
         await prisma.clarification.delete({ where: { id } });

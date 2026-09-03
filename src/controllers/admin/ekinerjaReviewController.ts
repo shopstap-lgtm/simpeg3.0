@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../../lib/prisma';
 import * as XLSX from 'xlsx';
+import { deleteFileFromStorage } from '../../lib/supabase';
 
 const BULAN_NAMES = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -154,6 +155,14 @@ export const ekinerjaReviewController = {
         where: { id },
         include: { employee: true }
       });
+
+      // Hapus berkas fisik harian & bulanan dari storage disk/cloud agar tidak menjadi file sampah
+      if (deleted.fileHarianUrl) {
+        await deleteFileFromStorage(deleted.fileHarianUrl);
+      }
+      if (deleted.fileBulananUrl) {
+        await deleteFileFromStorage(deleted.fileBulananUrl);
+      }
 
       if ((req as any).session) {
         (req as any).session.toast = {

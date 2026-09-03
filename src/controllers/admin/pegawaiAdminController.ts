@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../../lib/prisma';
+import { deleteFileFromStorage } from '../../lib/supabase';
 
 export const pegawaiAdminController = {
   show: async (req: Request, res: Response) => {
@@ -278,6 +279,25 @@ export const pegawaiAdminController = {
   delete: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+
+      // Cari dan hapus semua file fisik yang pernah diunggah oleh pegawai ini (ekinerja & klarifikasi)
+      try {
+        const [empReports, empClarifications] = await Promise.all([
+          prisma.ekinerjaReport.findMany({ where: { employeeId: id } }),
+          prisma.clarification.findMany({ where: { employeeId: id } })
+        ]);
+
+        for (const rep of empReports) {
+          if (rep.fileHarianUrl) await deleteFileFromStorage(rep.fileHarianUrl);
+          if (rep.fileBulananUrl) await deleteFileFromStorage(rep.fileBulananUrl);
+        }
+
+        for (const cl of empClarifications) {
+          if (cl.fileUrl) await deleteFileFromStorage(cl.fileUrl);
+        }
+      } catch (fileErr) {
+        console.warn('Gagal membersihkan file fisik saat pegawai dihapus:', fileErr);
+      }
 
       const deleted = await prisma.employee.delete({
         where: { id }

@@ -220,8 +220,19 @@ export const ekinerjaController = {
       }
 
       // Import storage helpers
-      const { uploadToStorage, generateEkinerjaFilename } = await import('../lib/supabase');
+      const { uploadToStorage, generateEkinerjaFilename, deleteFileFromStorage } = await import('../lib/supabase');
       const folder = `${t}/${b < 10 ? '0' + b : b}`; // e.g. "2026/07"
+
+      // Cek apakah sudah ada laporan sebelumnya untuk membersihkan file lama saat revisi
+      const existingReport = await prisma.ekinerjaReport.findUnique({
+        where: {
+          employeeId_bulan_tahun: {
+            employeeId,
+            bulan: b,
+            tahun: t
+          }
+        }
+      });
 
       let fileHarianUrl: string | undefined;
       let fileHarianName: string | undefined;
@@ -261,6 +272,14 @@ export const ekinerjaController = {
           fileBulananUrl = `data:${fileBulanan.mimetype};base64,${fileBulanan.buffer.toString('base64')}`;
           fileBulananName = fileBulanan.originalname;
         }
+      }
+
+      // Bersihkan berkas fisik lama yang digantikan agar tidak menjadi sampah
+      if (fileHarianUrl && existingReport?.fileHarianUrl && existingReport.fileHarianUrl !== fileHarianUrl) {
+        await deleteFileFromStorage(existingReport.fileHarianUrl);
+      }
+      if (fileBulananUrl && existingReport?.fileBulananUrl && existingReport.fileBulananUrl !== fileBulananUrl) {
+        await deleteFileFromStorage(existingReport.fileBulananUrl);
       }
 
       await prisma.ekinerjaReport.upsert({
