@@ -58,23 +58,19 @@
       </p>
     </div>
 
-    <!-- Quick Stats Pills (4 Status: Disetujui, Pending, Ditolak/Revisi, Belum Kirim) -->
+    <!-- Quick Stats Pills (3 Status: Disetujui, Pending, Belum Kirim) -->
     <div class="flex flex-wrap items-center gap-2 text-xs">
       <div class="px-3 py-1.5 rounded-xl bg-white border border-emerald-200 shadow-2xs flex items-center gap-2">
         <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0"></span>
-        <span class="text-slate-600 font-medium">Disetujui: <b class="text-emerald-700 font-bold"><%= list.filter(i => i.report?.statusReview === 'APPROVED').length %></b></span>
+        <span class="text-slate-600 font-medium">Disetujui: <b class="text-emerald-700 font-bold"><%= stats ? stats.approved : 0 %></b></span>
       </div>
       <div class="px-3 py-1.5 rounded-xl bg-white border border-amber-200 shadow-2xs flex items-center gap-2">
         <span class="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0"></span>
-        <span class="text-slate-600 font-medium">Pending: <b class="text-amber-700 font-bold"><%= list.filter(i => i.report?.statusReview === 'PENDING').length %></b></span>
+        <span class="text-slate-600 font-medium">Pending: <b class="text-amber-700 font-bold"><%= stats ? stats.pending : 0 %></b></span>
       </div>
       <div class="px-3 py-1.5 rounded-xl bg-white border border-rose-200 shadow-2xs flex items-center gap-2">
         <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
-        <span class="text-slate-600 font-medium">Ditolak / Revisi: <b class="text-rose-700 font-bold"><%= list.filter(i => i.report?.statusReview === 'REJECTED').length %></b></span>
-      </div>
-      <div class="px-3 py-1.5 rounded-xl bg-white border border-slate-200 shadow-2xs flex items-center gap-2">
-        <span class="w-2.5 h-2.5 rounded-full bg-slate-400 shrink-0"></span>
-        <span class="text-slate-600 font-medium">Belum Kirim: <b class="text-slate-700 font-bold"><%= list.filter(i => !i.report || !i.report.statusReview).length %></b></span>
+        <span class="text-slate-600 font-medium">Belum Kirim: <b class="text-rose-700 font-bold"><%= stats ? stats.belumKirim : 0 %></b></span>
       </div>
     </div>
   </div>
@@ -413,14 +409,9 @@
                 <i data-lucide="clock" class="w-3.5 h-3.5"></i>
                 <span>Menunggu Review</span>
               </span>
-            <% } else if (status === 'REJECTED') { %>
-              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1">
-                <i data-lucide="alert-circle" class="w-3.5 h-3.5"></i>
-                <span>Ditolak / Revisi</span>
-              </span>
             <% } else { %>
-              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center gap-1">
-                <i data-lucide="circle-dashed" class="w-3.5 h-3.5 text-slate-400"></i>
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1">
+                <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-rose-600"></i>
                 <span>Belum Kirim</span>
               </span>
             <% } %>
@@ -578,7 +569,7 @@
               <%= item.employee.unitNama %>
             </td>
 
-            <!-- Status Review -->
+            <!-- Status Review (3 Status: Disetujui, Menunggu Review, Belum Kirim) -->
             <td class="px-4 py-3.5 text-center whitespace-nowrap">
               <% if (status === 'APPROVED') { %>
                 <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
@@ -590,14 +581,9 @@
                   <i data-lucide="clock" class="w-3 h-3 text-amber-600"></i>
                   <span>Menunggu Review</span>
                 </span>
-              <% } else if (status === 'REJECTED') { %>
+              <% } else { %>
                 <span class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200 inline-flex items-center gap-1">
                   <i data-lucide="alert-circle" class="w-3 h-3 text-rose-600"></i>
-                  <span>Ditolak / Revisi</span>
-                </span>
-              <% } else { %>
-                <span class="px-2.5 py-1 rounded-full text-[11px] font-medium bg-slate-100 text-slate-500 border border-slate-200 inline-flex items-center gap-1">
-                  <i data-lucide="circle-dashed" class="w-3 h-3 text-slate-400"></i>
                   <span>Belum Kirim</span>
                 </span>
               <% } %>

@@ -29,13 +29,17 @@ export const ekinerjaController = {
         ];
       }
 
-      const [allUnits, totalFilteredEmployees, allActiveEmployees, employees, reports] = await Promise.all([
+      const [allUnits, totalFilteredEmployees, allActiveEmployees, filteredEmployeeIds, employees, reports] = await Promise.all([
         prisma.unit.findMany({ orderBy: { namaUnit: 'asc' } }),
         prisma.employee.count({ where: whereEmp }),
         prisma.employee.findMany({
           where: { aktif: true },
           include: { unit: true },
           orderBy: { nama: 'asc' }
+        }),
+        prisma.employee.findMany({
+          where: whereEmp,
+          select: { id: true }
         }),
         prisma.employee.findMany({
           where: whereEmp,
@@ -51,6 +55,28 @@ export const ekinerjaController = {
           where: { bulan, tahun }
         })
       ]);
+
+      const filteredIdSet = new Set(filteredEmployeeIds.map(e => e.id));
+
+      // Calculate global stats across ALL employees in scope (not just current page pagination):
+      let countApproved = 0;
+      let countPending = 0;
+
+      reports.forEach(r => {
+        if (filteredIdSet.has(r.employeeId)) {
+          if (r.statusReview === 'APPROVED') countApproved++;
+          else if (r.statusReview === 'PENDING') countPending++;
+        }
+      });
+
+      const countBelumKirim = Math.max(0, totalFilteredEmployees - countApproved - countPending);
+
+      const stats = {
+        total: totalFilteredEmployees,
+        approved: countApproved,
+        pending: countPending,
+        belumKirim: countBelumKirim
+      };
 
       const reportsMap = new Map<string, any>();
       reports.forEach(r => reportsMap.set(r.employeeId, r));
@@ -112,6 +138,7 @@ export const ekinerjaController = {
         title: 'Laporan E-Kinerja Pegawai - Korwil Cibitung',
         page: 'ekinerja',
         list,
+        stats,
         units,
         employees: allActiveEmployees.map(e => ({
           id: e.id,
