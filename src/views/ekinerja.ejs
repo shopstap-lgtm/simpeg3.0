@@ -431,11 +431,11 @@
           <div class="grid grid-cols-2 gap-3 bg-emerald-50/60 p-3 rounded-2xl border border-emerald-100 text-center">
             <div class="p-2 rounded-xl bg-white border border-emerald-100 shadow-2xs">
               <span class="text-[10px] uppercase font-bold text-slate-500">Nilai Harian</span>
-              <p class="text-base font-extrabold text-emerald-700 mt-0.5"><%= item.report.nilaiHarian !== undefined ? item.report.nilaiHarian : '-' %></p>
+              <p class="text-base font-extrabold text-emerald-700 mt-0.5"><%= (item.report.nilaiHarian !== undefined && item.report.nilaiHarian !== null) ? item.report.nilaiHarian : '-' %></p>
             </div>
             <div class="p-2 rounded-xl bg-white border border-emerald-100 shadow-2xs">
               <span class="text-[10px] uppercase font-bold text-slate-500">Nilai Bulanan</span>
-              <p class="text-base font-extrabold text-emerald-700 mt-0.5"><%= item.report.nilaiBulanan !== undefined ? item.report.nilaiBulanan : '-' %></p>
+              <p class="text-base font-extrabold text-emerald-700 mt-0.5"><%= (item.report.nilaiBulanan !== undefined && item.report.nilaiBulanan !== null) ? item.report.nilaiBulanan : '-' %></p>
             </div>
           </div>
         <% } %>
@@ -652,7 +652,7 @@
             <% } else { %>
               <!-- Nilai Harian -->
               <td class="px-4 py-3.5 text-center font-bold bg-emerald-50/20">
-                <% if (item.report && item.report.statusReview === 'APPROVED' && item.report.nilaiHarian !== undefined) { %>
+                <% if (item.report && item.report.statusReview === 'APPROVED' && item.report.nilaiHarian !== null && item.report.nilaiHarian !== undefined) { %>
                   <span class="text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
                     <%= item.report.nilaiHarian %>
                   </span>
@@ -668,7 +668,7 @@
 
               <!-- Nilai Bulanan -->
               <td class="px-4 py-3.5 text-center font-bold bg-emerald-50/20">
-                <% if (item.report && item.report.statusReview === 'APPROVED' && item.report.nilaiBulanan !== undefined) { %>
+                <% if (item.report && item.report.statusReview === 'APPROVED' && item.report.nilaiBulanan !== null && item.report.nilaiBulanan !== undefined) { %>
                   <span class="text-emerald-700 font-extrabold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100">
                     <%= item.report.nilaiBulanan %>
                   </span>

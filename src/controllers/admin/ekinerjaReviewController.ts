@@ -100,8 +100,15 @@ export const ekinerjaReviewController = {
       console.log('[EkinerjaReview] Received review submission:', { id, tab, statusReview, nilaiHarian, nilaiBulanan, catatanAdmin });
 
       const isApproved = statusReview === 'APPROVED';
-      const nHarian = isApproved && nilaiHarian !== undefined && nilaiHarian !== '' ? parseFloat(nilaiHarian) : null;
-      const nBulanan = isApproved && nilaiBulanan !== undefined && nilaiBulanan !== '' ? parseFloat(nilaiBulanan) : null;
+      const parseScore = (val: any) => {
+        if (val === undefined || val === null || val === '' || val === '-') return null;
+        const sanitized = String(val).replace(',', '.').trim();
+        const num = parseFloat(sanitized);
+        return isNaN(num) ? null : num;
+      };
+
+      const nHarian = isApproved ? parseScore(nilaiHarian) : null;
+      const nBulanan = isApproved ? parseScore(nilaiBulanan) : null;
 
       const reviewer = (req as any).session?.user?.namaLengkap || 'Admin Korwil';
       const reviewTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);

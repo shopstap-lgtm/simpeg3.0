@@ -10,8 +10,8 @@
         selectedReport: null,
         activeDocType: 'harian',
         reviewAction: 'approve',
-        nilaiHarian: 85,
-        nilaiBulanan: 90,
+        nilaiHarian: '',
+        nilaiBulanan: '',
         catatanAdmin: '',
 
         get currentPdfUrl() {
@@ -40,8 +40,8 @@
             this.activeDocType = defaultDoc;
           }
           this.reviewAction = (item.statusReview === 'REJECTED') ? 'reject' : 'approve';
-          this.nilaiHarian = (item.nilaiHarian !== undefined && item.nilaiHarian !== null) ? item.nilaiHarian : 85;
-          this.nilaiBulanan = (item.nilaiBulanan !== undefined && item.nilaiBulanan !== null) ? item.nilaiBulanan : 90;
+          this.nilaiHarian = (item.nilaiHarian !== undefined && item.nilaiHarian !== null && item.nilaiHarian !== '') ? item.nilaiHarian : '';
+          this.nilaiBulanan = (item.nilaiBulanan !== undefined && item.nilaiBulanan !== null && item.nilaiBulanan !== '') ? item.nilaiBulanan : '';
           this.catatanAdmin = item.catatanAdmin || '';
           this.reviewModal = true;
         },
@@ -467,7 +467,7 @@
                 <td class="px-2.5 py-3 text-center align-middle whitespace-nowrap">
                   <% if (item.statusReview === 'APPROVED') { %>
                     <span class="text-[11px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
-                      H: <%= item.nilaiHarian !== undefined ? item.nilaiHarian : '-' %> | B: <%= item.nilaiBulanan !== undefined ? item.nilaiBulanan : '-' %>
+                      H: <%= item.nilaiHarian !== undefined && item.nilaiHarian !== null ? item.nilaiHarian : '-' %> | B: <%= item.nilaiBulanan !== undefined && item.nilaiBulanan !== null ? item.nilaiBulanan : '-' %>
                     </span>
                   <% } else { %>
                     <span class="text-rose-600 font-bold text-[10px] bg-rose-50 px-1.5 py-0.5 rounded border border-rose-200" title="<%= item.catatanAdmin || 'Ditolak' %>">
@@ -640,13 +640,13 @@
                   <div class="grid grid-cols-2 gap-3">
                     <div>
                       <label class="block text-[11px] font-bold uppercase text-emerald-900 mb-1">Nilai Harian (0–100)</label>
-                      <input type="number" step="0.1" min="0" max="100" 
+                      <input type="number" step="0.01" min="0" max="100" placeholder="-"
                              name="nilaiHarian" x-model="nilaiHarian"
                              class="form-input text-sm font-extrabold text-center text-emerald-800 bg-white">
                     </div>
                     <div>
                       <label class="block text-[11px] font-bold uppercase text-emerald-900 mb-1">Nilai Bulanan (0–100)</label>
-                      <input type="number" step="0.1" min="0" max="100" 
+                      <input type="number" step="0.01" min="0" max="100" placeholder="-"
                              name="nilaiBulanan" x-model="nilaiBulanan"
                              class="form-input text-sm font-extrabold text-center text-emerald-800 bg-white">
                     </div>
