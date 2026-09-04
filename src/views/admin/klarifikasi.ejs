@@ -5,6 +5,9 @@
 <main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-8"
       x-data="{
         activeTab: '<%= activeTab || 'pending' %>',
+        filterUnit: '<%= filterUnit %>',
+        filterStatus: '<%= filterStatus %>',
+        search: '<%= search ? search.replace(/'/g, "\\'") : '' %>',
         actionModal: false,
         deleteModal: false,
         pdfModal: false,
@@ -15,6 +18,24 @@
         selectedItem: null,
         catatanAdmin: '',
         excelFileList: [],
+        get actionUrl() {
+          if (!this.selectedItem) return '#';
+          const params = new URLSearchParams();
+          params.set('tab', this.activeTab || 'pending');
+          if (this.filterUnit && this.filterUnit !== 'unit-all') params.set('unit', this.filterUnit);
+          if (this.filterStatus && this.filterStatus !== 'ALL') params.set('status', this.filterStatus);
+          if (this.search) params.set('search', this.search);
+          return '/admin/klarifikasi/' + this.selectedItem.id + '/' + this.actionType + '?' + params.toString();
+        },
+        get deleteActionUrl() {
+          if (!this.selectedItem) return '#';
+          const params = new URLSearchParams();
+          params.set('tab', this.activeTab);
+          if (this.filterUnit && this.filterUnit !== 'unit-all') params.set('unit', this.filterUnit);
+          if (this.filterStatus && this.filterStatus !== 'ALL') params.set('status', this.filterStatus);
+          if (this.search) params.set('search', this.search);
+          return '/admin/klarifikasi/' + this.selectedItem.id + '/delete?' + params.toString();
+        },
         viewPdf(title, url, fileName) {
           this.pdfTitle = title;
           this.pdfUrl = url;
@@ -273,6 +294,10 @@
                 <span class="font-bold text-slate-800"><%= item.tanggalAbsen %></span>
               </div>
               <div class="flex items-center justify-between text-slate-600">
+                <span class="font-semibold">Waktu Kirim:</span>
+                <span class="text-[11px] font-medium text-slate-700"><%= item.createdAt %></span>
+              </div>
+              <div class="flex items-center justify-between text-slate-600">
                 <span class="font-semibold">Perubahan Status:</span>
                 <span class="text-[11px]"><b class="text-rose-600"><%= item.statusAwal %></b> &rarr; <b class="text-emerald-600"><%= item.statusPengganti %></b></span>
               </div>
@@ -317,19 +342,20 @@
         <table class="w-full text-left text-xs border-collapse table-auto">
           <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
             <tr>
-              <th class="px-3.5 py-3 w-[20%]">Pegawai & NIP</th>
-              <th class="px-3 py-3 w-[15%]">Unit Kerja</th>
+              <th class="px-3.5 py-3 w-[18%]">Pegawai & NIP</th>
+              <th class="px-3 py-3 w-[14%]">Unit Kerja</th>
               <th class="px-2.5 py-3 text-center w-[9%]">Tgl Absen</th>
-              <th class="px-2.5 py-3 text-center w-[13%]">Perubahan Status</th>
-              <th class="px-3 py-3 w-[21%]">Alasan Pegawai</th>
-              <th class="px-2.5 py-3 text-center w-[9%]">Bukti</th>
-              <th class="px-3 py-3 text-right w-[13%]">Aksi</th>
+              <th class="px-2.5 py-3 text-center w-[11%]">Waktu Kirim</th>
+              <th class="px-2.5 py-3 text-center w-[12%]">Perubahan Status</th>
+              <th class="px-3 py-3 w-[17%]">Alasan Pegawai</th>
+              <th class="px-2.5 py-3 text-center w-[8%]">Bukti</th>
+              <th class="px-3 py-3 text-right w-[11%]">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             <% if (pendingList.length === 0) { %>
               <tr>
-                <td colspan="7" class="py-12 text-center text-slate-500">
+                <td colspan="8" class="py-12 text-center text-slate-500">
                   <i data-lucide="check-check" class="w-8 h-8 mx-auto text-emerald-500 mb-2"></i>
                   <p class="font-bold text-sm text-slate-700">Semua antrean klarifikasi telah diproses!</p>
                 </td>
@@ -349,6 +375,10 @@
 
                 <td class="px-2.5 py-3 text-center font-bold text-slate-800 align-middle whitespace-nowrap">
                   <%= item.tanggalAbsen %>
+                </td>
+
+                <td class="px-2.5 py-3 text-center text-slate-500 font-medium text-[11px] align-middle whitespace-nowrap">
+                  <%= item.createdAt || '-' %>
                 </td>
 
                 <td class="px-2.5 py-3 text-center align-middle whitespace-nowrap">
@@ -507,7 +537,7 @@
         </div>
 
         <template x-if="selectedItem">
-          <form :action="'/admin/klarifikasi/' + selectedItem.id + '/' + actionType" method="POST" class="space-y-3">
+          <form :action="actionUrl" method="POST" class="space-y-3">
             <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs space-y-1">
               <p class="font-bold text-slate-800" x-text="selectedItem.employeeName"></p>
               <p class="text-slate-500" x-text="'Tanggal: ' + selectedItem.tanggalAbsen + ' (' + selectedItem.statusAwal + ' → ' + selectedItem.statusPengganti + ')'"></p>
@@ -558,7 +588,7 @@
         </div>
 
         <template x-if="selectedItem">
-          <form :action="'/admin/klarifikasi/' + selectedItem.id + '/delete?tab=' + activeTab" method="POST" class="space-y-3">
+          <form :action="deleteActionUrl" method="POST" class="space-y-3">
             <div class="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs space-y-1">
               <p class="font-bold text-slate-900" x-text="selectedItem.employeeName"></p>
               <p class="text-slate-600" x-text="'Tanggal: ' + selectedItem.tanggalAbsen"></p>

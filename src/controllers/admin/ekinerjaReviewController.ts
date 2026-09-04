@@ -6,6 +6,36 @@ import { deleteFileFromStorage } from '../../lib/supabase';
 const BULAN_NAMES = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
+const formatWIB = (date: Date | string | null | undefined): string => {
+  if (!date) return '-';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '-';
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(d);
+};
+
+const buildRedirectUrl = (req: Request, defaultTab = 'pending') => {
+  const tab = (req.query.tab as string) || defaultTab;
+  const unit = (req.query.unit as string) || '';
+  const status = (req.query.status as string) || '';
+  const search = (req.query.search as string) || '';
+
+  const params = new URLSearchParams();
+  params.set('tab', tab);
+  if (unit && unit !== 'unit-all') params.set('unit', unit);
+  if (status && status !== 'ALL') params.set('status', status);
+  if (search) params.set('search', search);
+
+  return `/admin/ekinerja-review?${params.toString()}`;
+};
+
 export const ekinerjaReviewController = {
   show: async (req: Request, res: Response) => {
     try {
@@ -42,7 +72,7 @@ export const ekinerjaReviewController = {
           include: {
             employee: { include: { unit: true } }
           },
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: 'asc' }
         })
       ]);
 
@@ -68,8 +98,8 @@ export const ekinerjaReviewController = {
         statusReview: item.statusReview,
         catatanAdmin: item.catatanAdmin,
         reviewedBy: item.reviewedBy,
-        reviewedAt: item.reviewedAt,
-        submittedAt: item.createdAt.toISOString().replace('T', ' ').substring(0, 16)
+        reviewedAt: formatWIB(item.reviewedAt),
+        submittedAt: formatWIB(item.createdAt)
       }));
 
       // Total counters matching unit & search
@@ -143,7 +173,7 @@ export const ekinerjaReviewController = {
       const nBulanan = isApproved ? parseScore(nilaiBulanan) : null;
 
       const reviewer = (req as any).session?.user?.namaLengkap || 'Admin Korwil';
-      const reviewTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+      const reviewTimestamp = formatWIB(new Date());
 
       const updated = await prisma.ekinerjaReport.update({
         where: { id },
@@ -160,6 +190,8 @@ export const ekinerjaReviewController = {
 
       console.log('[EkinerjaReview] Update success for:', updated.employee.nama, 'Status:', updated.statusReview);
 
+      const redirectUrl = buildRedirectUrl(req, tab);
+
       if ((req as any).session) {
         (req as any).session.toast = {
           type: isApproved ? 'success' : 'warning',
@@ -167,11 +199,11 @@ export const ekinerjaReviewController = {
         };
         return (req as any).session.save((saveErr: any) => {
           if (saveErr) console.error('[EkinerjaReview] Session save error:', saveErr);
-          return res.redirect(`/admin/ekinerja-review?tab=${tab}`);
+          return res.redirect(redirectUrl);
         });
       }
 
-      res.redirect(`/admin/ekinerja-review?tab=${tab}`);
+      res.redirect(redirectUrl);
     } catch (error) {
       console.error('Error in ekinerjaReviewController.review:', error);
       if ((req as any).session) {
@@ -179,9 +211,9 @@ export const ekinerjaReviewController = {
           type: 'danger',
           message: 'Terjadi kesalahan saat memproses review laporan.'
         };
-        return (req as any).session.save(() => res.redirect('/admin/ekinerja-review?tab=pending'));
+        return (req as any).session.save(() => res.redirect(buildRedirectUrl(req, 'pending')));
       }
-      res.redirect('/admin/ekinerja-review?tab=pending');
+      res.redirect(buildRedirectUrl(req, 'pending'));
     }
   },
 
@@ -203,18 +235,20 @@ export const ekinerjaReviewController = {
         await deleteFileFromStorage(deleted.fileBulananUrl);
       }
 
+      const redirectUrl = buildRedirectUrl(req, tab);
+
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'warning',
           message: `Laporan E-Kinerja pegawai ${deleted.employee.nama} telah dihapus.`
         };
-        return (req as any).session.save(() => res.redirect(`/admin/ekinerja-review?tab=${tab}`));
+        return (req as any).session.save(() => res.redirect(redirectUrl));
       }
 
-      res.redirect(`/admin/ekinerja-review?tab=${tab}`);
+      res.redirect(redirectUrl);
     } catch (error) {
       console.error('Error in ekinerjaReviewController.deleteReview:', error);
-      res.redirect('/admin/ekinerja-review');
+      res.redirect(buildRedirectUrl(req, 'pending'));
     }
   },
 

@@ -2,6 +2,36 @@ import { Request, Response } from 'express';
 import prisma from '../../lib/prisma';
 import { deleteFileFromStorage } from '../../lib/supabase';
 
+const formatWIB = (date: Date | string | null | undefined): string => {
+  if (!date) return '-';
+  const d = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(d.getTime())) return '-';
+  return new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(d);
+};
+
+const buildRedirectUrl = (req: Request, defaultTab = 'pending') => {
+  const tab = (req.query.tab as string) || defaultTab;
+  const unit = (req.query.unit as string) || '';
+  const status = (req.query.status as string) || '';
+  const search = (req.query.search as string) || '';
+
+  const params = new URLSearchParams();
+  params.set('tab', tab);
+  if (unit && unit !== 'unit-all') params.set('unit', unit);
+  if (status && status !== 'ALL') params.set('status', status);
+  if (search) params.set('search', search);
+
+  return `/admin/klarifikasi?${params.toString()}`;
+};
+
 export const klarifikasiController = {
   show: async (req: Request, res: Response) => {
     try {
@@ -38,7 +68,7 @@ export const klarifikasiController = {
           include: {
             employee: { include: { unit: true } }
           },
-          orderBy: { createdAt: 'desc' }
+          orderBy: { createdAt: 'asc' }
         })
       ]);
 
@@ -57,8 +87,8 @@ export const klarifikasiController = {
         statusVerifikasi: c.statusVerifikasi,
         catatanAdmin: c.catatanAdmin,
         reviewedBy: c.reviewedBy,
-        reviewedAt: c.reviewedAt,
-        createdAt: c.createdAt.toISOString().replace('T', ' ').substring(0, 16)
+        reviewedAt: formatWIB(c.reviewedAt),
+        createdAt: formatWIB(c.createdAt)
       }));
 
       // Total counters matching unit & search
@@ -125,7 +155,7 @@ export const klarifikasiController = {
 
       if (item) {
         const reviewer = (req as any).session?.user?.namaLengkap || 'Admin Korwil';
-        const reviewTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+        const reviewTimestamp = formatWIB(new Date());
 
         await prisma.clarification.update({
           where: { id },
@@ -192,10 +222,10 @@ export const klarifikasiController = {
         }
       }
 
-      res.redirect('/admin/klarifikasi?tab=pending');
+      res.redirect(buildRedirectUrl(req, 'pending'));
     } catch (error) {
       console.error('Error in klarifikasiController.approve:', error);
-      res.redirect('/admin/klarifikasi?tab=pending');
+      res.redirect(buildRedirectUrl(req, 'pending'));
     }
   },
 
@@ -211,7 +241,7 @@ export const klarifikasiController = {
 
       if (item) {
         const reviewer = (req as any).session?.user?.namaLengkap || 'Admin Korwil';
-        const reviewTimestamp = new Date().toISOString().replace('T', ' ').substring(0, 16);
+        const reviewTimestamp = formatWIB(new Date());
 
         await prisma.clarification.update({
           where: { id },
@@ -231,10 +261,10 @@ export const klarifikasiController = {
         }
       }
 
-      res.redirect('/admin/klarifikasi?tab=pending');
+      res.redirect(buildRedirectUrl(req, 'pending'));
     } catch (error) {
       console.error('Error in klarifikasiController.reject:', error);
-      res.redirect('/admin/klarifikasi?tab=pending');
+      res.redirect(buildRedirectUrl(req, 'pending'));
     }
   },
 
@@ -304,10 +334,10 @@ export const klarifikasiController = {
         }
       }
 
-      res.redirect(`/admin/klarifikasi?tab=${redirectTab}`);
+      res.redirect(buildRedirectUrl(req, redirectTab));
     } catch (error) {
       console.error('Error in klarifikasiController.delete:', error);
-      res.redirect('/admin/klarifikasi');
+      res.redirect(buildRedirectUrl(req, 'pending'));
     }
   },
 

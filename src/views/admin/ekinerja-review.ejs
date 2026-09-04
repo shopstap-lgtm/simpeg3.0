@@ -5,6 +5,9 @@
 <main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-6"
       x-data="{
         activeTab: '<%= activeTab || 'pending' %>',
+        filterUnit: '<%= filterUnit %>',
+        filterStatus: '<%= filterStatus %>',
+        search: '<%= search ? search.replace(/'/g, "\\'") : '' %>',
         reviewModal: false,
         deleteModal: false,
         selectedReport: null,
@@ -13,6 +16,16 @@
         nilaiHarian: '',
         nilaiBulanan: '',
         catatanAdmin: '',
+
+        get deleteActionUrl() {
+          if (!this.selectedReport) return '#';
+          const params = new URLSearchParams();
+          params.set('tab', this.activeTab);
+          if (this.filterUnit && this.filterUnit !== 'unit-all') params.set('unit', this.filterUnit);
+          if (this.filterStatus && this.filterStatus !== 'ALL') params.set('status', this.filterStatus);
+          if (this.search) params.set('search', this.search);
+          return '/admin/ekinerja-review/' + this.selectedReport.id + '/delete?' + params.toString();
+        },
 
         get currentPdfUrl() {
           if (!this.selectedReport) return '';
@@ -54,7 +67,13 @@
         submitReview() {
           if (!this.selectedReport) return;
           const form = this.$refs.reviewForm;
-          form.action = '/admin/ekinerja-review/' + this.selectedReport.id + '/review?tab=pending';
+          const params = new URLSearchParams();
+          params.set('tab', this.activeTab || 'pending');
+          if (this.filterUnit && this.filterUnit !== 'unit-all') params.set('unit', this.filterUnit);
+          if (this.filterStatus && this.filterStatus !== 'ALL') params.set('status', this.filterStatus);
+          if (this.search) params.set('search', this.search);
+
+          form.action = '/admin/ekinerja-review/' + this.selectedReport.id + '/review?' + params.toString();
           const statusEl = form.querySelector('input[name=statusReview]');
           if (statusEl) statusEl.value = this.reviewAction === 'approve' ? 'APPROVED' : 'REJECTED';
           const approveNote = document.getElementById('approveNoteInput');
@@ -795,7 +814,7 @@
         </div>
 
         <template x-if="selectedReport">
-          <form :action="'/admin/ekinerja-review/' + selectedReport.id + '/delete?tab=' + activeTab" method="POST" class="space-y-3">
+          <form :action="deleteActionUrl" method="POST" class="space-y-3">
             <div class="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-xs space-y-1">
               <p class="font-bold text-slate-900" x-text="selectedReport.employee.nama"></p>
               <p class="text-slate-600" x-text="'Periode: ' + selectedReport.bulan + '/' + selectedReport.tahun"></p>
