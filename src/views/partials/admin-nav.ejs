@@ -57,12 +57,22 @@
            class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-klarifikasi') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
           <i data-lucide="check-square" class="w-4 h-4 text-indigo-400"></i>
           <span>Klarifikasi Absensi</span>
+          <% if (typeof pendingClarificationsCount !== 'undefined' && pendingClarificationsCount > 0) { %>
+            <span class="ml-auto px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-amber-500 text-slate-900 shadow-xs">
+              <%= pendingClarificationsCount %>
+            </span>
+          <% } %>
         </a>
 
         <a href="/admin/ekinerja-review" 
            class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-ekinerja') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
           <i data-lucide="file-check-2" class="w-4 h-4 text-emerald-400"></i>
           <span>Review E-Kinerja</span>
+          <% if (typeof pendingEkinerjaCount !== 'undefined' && pendingEkinerjaCount > 0) { %>
+            <span class="ml-auto px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-emerald-500 text-slate-900 shadow-xs">
+              <%= pendingEkinerjaCount %>
+            </span>
+          <% } %>
         </a>
 
         <% if (typeof user === 'undefined' || user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN_DINAS') { %>
@@ -185,8 +195,11 @@
              class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-klarifikasi') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
              :class="sidebarCollapsed ? 'justify-center px-0' : ''">
             
-            <div class="w-5 h-5 flex items-center justify-center shrink-0">
+            <div class="relative w-5 h-5 flex items-center justify-center shrink-0">
               <i data-lucide="check-square" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-klarifikasi') ? 'text-white' : 'text-indigo-400 group-hover:text-indigo-300' %>"></i>
+              <% if (typeof pendingClarificationsCount !== 'undefined' && pendingClarificationsCount > 0) { %>
+                <span x-show="sidebarCollapsed" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full ring-2 ring-slate-900 animate-pulse"></span>
+              <% } %>
             </div>
             
             <span x-show="!sidebarCollapsed" 
@@ -200,11 +213,18 @@
               Klarifikasi Absensi
             </span>
 
+            <% if (typeof pendingClarificationsCount !== 'undefined' && pendingClarificationsCount > 0) { %>
+              <span x-show="!sidebarCollapsed"
+                    class="ml-auto px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-amber-500 text-slate-900 shadow-xs shrink-0">
+                <%= pendingClarificationsCount %>
+              </span>
+            <% } %>
+
             <!-- Tooltip on Collapsed Hover -->
             <div x-show="sidebarCollapsed" 
                  class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
                  style="display: none;">
-              Klarifikasi Absensi
+              Klarifikasi Absensi <% if (typeof pendingClarificationsCount !== 'undefined' && pendingClarificationsCount > 0) { %>(<%= pendingClarificationsCount %> antrean)<% } %>
             </div>
           </a>
 
@@ -213,8 +233,11 @@
              class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-ekinerja') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
              :class="sidebarCollapsed ? 'justify-center px-0' : ''">
             
-            <div class="w-5 h-5 flex items-center justify-center shrink-0">
+            <div class="relative w-5 h-5 flex items-center justify-center shrink-0">
               <i data-lucide="file-check-2" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-ekinerja') ? 'text-white' : 'text-emerald-400 group-hover:text-emerald-300' %>"></i>
+              <% if (typeof pendingEkinerjaCount !== 'undefined' && pendingEkinerjaCount > 0) { %>
+                <span x-show="sidebarCollapsed" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-slate-900 animate-pulse"></span>
+              <% } %>
             </div>
             
             <span x-show="!sidebarCollapsed" 
@@ -228,11 +251,18 @@
               Review E-Kinerja
             </span>
 
+            <% if (typeof pendingEkinerjaCount !== 'undefined' && pendingEkinerjaCount > 0) { %>
+              <span x-show="!sidebarCollapsed"
+                    class="ml-auto px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-emerald-500 text-slate-900 shadow-xs shrink-0">
+                <%= pendingEkinerjaCount %>
+              </span>
+            <% } %>
+
             <!-- Tooltip on Collapsed Hover -->
             <div x-show="sidebarCollapsed" 
                  class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
                  style="display: none;">
-              Review E-Kinerja
+              Review E-Kinerja <% if (typeof pendingEkinerjaCount !== 'undefined' && pendingEkinerjaCount > 0) { %>(<%= pendingEkinerjaCount %> antrean)<% } %>
             </div>
           </a>
 

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
+import prisma from '../lib/prisma';
 
-export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const user = (req as any).session?.user;
   if (!user) {
     if ((req as any).session) {
@@ -8,6 +9,20 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
     }
     return res.redirect('/admin/login');
   }
+
+  // Populate badge notification counters for admin sidebar
+  try {
+    const [pendingClarificationsCount, pendingEkinerjaCount] = await Promise.all([
+      prisma.clarification.count({ where: { statusVerifikasi: 'PENDING' } }),
+      prisma.ekinerjaReport.count({ where: { statusReview: 'PENDING' } })
+    ]);
+    res.locals.pendingClarificationsCount = pendingClarificationsCount;
+    res.locals.pendingEkinerjaCount = pendingEkinerjaCount;
+  } catch (err) {
+    res.locals.pendingClarificationsCount = 0;
+    res.locals.pendingEkinerjaCount = 0;
+  }
+
   next();
 }
 
