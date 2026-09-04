@@ -85,6 +85,55 @@
             });
           }
         },
+        mobileArchivePage: 1,
+        mobileArchivePerPage: 10,
+        get totalArchiveCount() {
+          return this.allArchiveItems.length;
+        },
+        get mobileTotalArchivePages() {
+          if (this.mobileArchivePerPage === 'all') return 1;
+          const perPage = parseInt(this.mobileArchivePerPage, 10) || 10;
+          return Math.max(1, Math.ceil(this.totalArchiveCount / perPage));
+        },
+        get visibleArchivePageNumbers() {
+          const total = this.mobileTotalArchivePages;
+          const cur = this.mobileArchivePage;
+          if (total <= 5) {
+            return Array.from({ length: total }, (_, i) => i + 1);
+          }
+          if (cur <= 3) {
+            return [1, 2, 3, 4, '...', total];
+          }
+          if (cur >= total - 2) {
+            return [1, '...', total - 3, total - 2, total - 1, total];
+          }
+          return [1, '...', cur - 1, cur, cur + 1, '...', total];
+        },
+        isArchiveVisible(idx) {
+          if (this.mobileArchivePerPage === 'all') return true;
+          const perPage = parseInt(this.mobileArchivePerPage, 10) || 10;
+          const start = (this.mobileArchivePage - 1) * perPage;
+          const end = start + perPage;
+          return idx >= start && idx < end;
+        },
+        nextArchivePage() {
+          if (this.mobileArchivePage < this.mobileTotalArchivePages) {
+            this.mobileArchivePage++;
+            this.scrollMobileToTop('mobile-archive-list');
+          }
+        },
+        prevArchivePage() {
+          if (this.mobileArchivePage > 1) {
+            this.mobileArchivePage--;
+            this.scrollMobileToTop('mobile-archive-list');
+          }
+        },
+        setArchivePage(p) {
+          if (p >= 1 && p <= this.mobileTotalArchivePages) {
+            this.mobileArchivePage = p;
+            this.scrollMobileToTop('mobile-archive-list');
+          }
+        },
         get actionUrl() {
           if (!this.selectedItem) return '#';
           const params = new URLSearchParams();
@@ -569,6 +618,146 @@
     <!-- TAB 2: RIWAYAT & ARSIP SELESAI (APPROVED & REJECTED) -->
     <div x-show="activeTab === 'history'" class="space-y-4" style="display: none;">
       
+      <!-- Mobile Archive Cards with Pagination -->
+      <div class="block lg:hidden space-y-4" id="mobile-archive-list">
+        <% if (archiveList.length === 0) { %>
+          <div class="p-8 text-center text-slate-400 bg-white rounded-2xl border border-slate-200">
+            <i data-lucide="archive" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
+            <p class="font-bold text-slate-700 text-sm">Belum ada riwayat verifikasi klarifikasi</p>
+            <% if (filterStatus === 'PENDING') { %>
+              <p class="text-xs text-amber-600 mt-1 font-medium">Status Review saat ini terfilter "Menunggu". <a href="/admin/klarifikasi?tab=history" class="underline font-bold text-indigo-600">Klik di sini</a> untuk menampilkan semua arsip.</p>
+            <% } %>
+          </div>
+        <% } %>
+
+        <% archiveList.forEach(function(item, aIdx) { %>
+          <div x-show="isArchiveVisible(<%= aIdx %>)" class="p-4 rounded-2xl border border-slate-200 bg-white shadow-2xs space-y-3">
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <h3 class="font-bold text-sm text-slate-900"><%= item.employeeName %></h3>
+                <p class="text-xs text-slate-500">NIP: <%= item.employeeNip %></p>
+                <p class="text-[11px] text-indigo-600 font-medium"><%= item.unitNama %></p>
+              </div>
+              <div class="shrink-0">
+                <% if (item.statusVerifikasi === 'APPROVED') { %>
+                  <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Disetujui
+                  </span>
+                <% } else { %>
+                  <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                    Ditolak
+                  </span>
+                <% } %>
+              </div>
+            </div>
+
+            <!-- Details: Tanggal, Perubahan Status, Catatan Admin -->
+            <div class="p-3 rounded-xl bg-slate-50 border border-slate-200/80 space-y-2 text-xs">
+              <div class="flex items-center justify-between text-slate-600">
+                <span class="font-medium">Tanggal Absen:</span>
+                <span class="font-bold text-slate-800"><%= item.tanggalAbsen %></span>
+              </div>
+
+              <div class="flex items-center justify-between text-slate-600">
+                <span class="font-medium">Perubahan Status:</span>
+                <span class="text-[11px]"><b class="text-rose-600"><%= item.statusAwal %></b> &rarr; <b class="text-emerald-600"><%= item.statusPengganti %></b></span>
+              </div>
+
+              <div class="pt-1 border-t border-slate-200/60">
+                <span class="font-semibold text-slate-700 block text-[11px]">Catatan Admin:</span>
+                <p class="text-slate-600 mt-0.5 text-[11px]"><%= item.catatanAdmin || '-' %></p>
+              </div>
+
+              <div class="flex items-center justify-between text-slate-500 text-[10px] pt-1 border-t border-slate-200/60">
+                <span>Reviewer: <b><%= item.reviewedBy || 'Admin' %></b></span>
+                <span><%= item.reviewedAt || '-' %></span>
+              </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="pt-2 border-t border-slate-100 flex items-center justify-end gap-2">
+              <button @click="openDelete(allArchiveItems[<%= aIdx %>])" class="p-2 rounded-xl text-rose-600 hover:bg-rose-50 border border-rose-200 text-xs font-semibold flex items-center gap-1.5" title="Hapus dari Riwayat (Status dipulihkan)">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                <span class="text-xs">Hapus dari Riwayat</span>
+              </button>
+            </div>
+          </div>
+        <% }); %>
+
+        <!-- Mobile Pagination Controls for Riwayat Klarifikasi -->
+        <% if (archiveList.length > 0) { %>
+          <div class="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-3 mt-4">
+            <!-- Counter & Page size selector -->
+            <div class="flex items-center justify-between text-xs text-slate-600 gap-2">
+              <div class="flex items-center gap-1 font-medium truncate">
+                <span>Menampilkan</span>
+                <span class="font-bold text-slate-900" x-text="Math.min((mobileArchivePage - 1) * mobileArchivePerPage + 1, totalArchiveCount)"></span>
+                <span>–</span>
+                <span class="font-bold text-slate-900" x-text="Math.min(mobileArchivePage * mobileArchivePerPage, totalArchiveCount)"></span>
+                <span>dari</span>
+                <span class="font-bold text-indigo-600"><%= archiveList.length %></span>
+              </div>
+
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span class="text-[10px] text-slate-400 font-bold uppercase">Per hal:</span>
+                <select x-model.number="mobileArchivePerPage" 
+                        @change="mobileArchivePage = 1" 
+                        class="form-select py-1 px-2 text-xs font-bold rounded-xl bg-slate-50 border-slate-200 text-slate-800 focus:outline-none">
+                  <option :value="5">5</option>
+                  <option :value="10">10</option>
+                  <option :value="25">25</option>
+                  <option :value="totalArchiveCount">Semua</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Page Navigation Buttons (Only shown if more than 1 page) -->
+            <div x-show="mobileTotalArchivePages > 1" class="flex items-center justify-between gap-1 pt-2 border-t border-slate-100">
+              <!-- Prev Button -->
+              <button type="button" 
+                      @click="prevArchivePage()" 
+                      :disabled="mobileArchivePage <= 1"
+                      :class="mobileArchivePage <= 1 ? 'opacity-30 cursor-not-allowed text-slate-400 bg-slate-50' : 'bg-white hover:bg-slate-50 text-slate-700 shadow-2xs active:scale-95'"
+                      class="inline-flex items-center justify-center px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold transition-all gap-1">
+                <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+                <span class="hidden sm:inline">Prev</span>
+              </button>
+
+              <!-- Page Number Pills -->
+              <div class="flex items-center gap-1 overflow-x-auto custom-scrollbar px-1 py-0.5 max-w-[210px] sm:max-w-none">
+                <template x-for="(p, pIdx) in visibleArchivePageNumbers" :key="pIdx">
+                  <div class="inline-flex">
+                    <template x-if="p === '...'">
+                      <span class="px-1 text-slate-400 font-bold text-xs">...</span>
+                    </template>
+                    <template x-if="p !== '...'">
+                      <button type="button" 
+                              @click="setArchivePage(p)"
+                              :class="p === mobileArchivePage 
+                                ? 'bg-indigo-600 text-white font-extrabold shadow-sm shadow-indigo-200' 
+                                : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold'"
+                              class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl text-xs flex items-center justify-center transition-all"
+                              x-text="p">
+                      </button>
+                    </template>
+                  </div>
+                </template>
+              </div>
+
+              <!-- Next Button -->
+              <button type="button" 
+                      @click="nextArchivePage()" 
+                      :disabled="mobileArchivePage >= mobileTotalArchivePages"
+                      :class="mobileArchivePage >= mobileTotalArchivePages ? 'opacity-30 cursor-not-allowed text-slate-400 bg-slate-50' : 'bg-white hover:bg-slate-50 text-slate-700 shadow-2xs active:scale-95'"
+                      class="inline-flex items-center justify-center px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold transition-all gap-1">
+                <span class="hidden sm:inline">Next</span>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        <% } %>
+      </div>
+
       <!-- Desktop Archive Table -->
       <div class="hidden lg:block w-full overflow-hidden">
         <table class="w-full text-left text-xs border-collapse table-auto">
