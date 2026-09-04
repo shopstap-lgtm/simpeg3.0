@@ -7,8 +7,10 @@ const buildAbsensiRedirectUrl = (req: Request, fallbackBulan?: number, fallbackT
   const tahun = req.body?.filterTahun || req.body?.tahun || req.query?.tahun || fallbackTahun || '';
   const search = (req.body?.filterSearch || req.query?.search || '') as string;
   const page = (req.body?.filterPage || req.query?.page || '') as string;
+  const nip = (req.body?.filterNip || req.body?.nip || req.query?.nip || '') as string;
 
   const params = new URLSearchParams();
+  if (nip && nip.trim()) params.set('nip', nip.trim());
   if (unit && unit !== 'unit-all') params.set('unit', unit);
   if (bulan) params.set('bulan', String(bulan));
   if (tahun) params.set('tahun', String(tahun));
@@ -26,10 +28,20 @@ export const absensiController = {
       const activeDefaultMonth = cms?.selectedMonth || 7;
       const activeDefaultYear = cms?.selectedYear || 2026;
 
+      const sessionUser = (req as any).session?.user || null;
+      const isAdmin = !!sessionUser && (
+        sessionUser.role === 'ADMIN' || 
+        sessionUser.role === 'SUPERADMIN' || 
+        sessionUser.role === 'SUPER_ADMIN' || 
+        sessionUser.role === 'ADMIN_DINAS' ||
+        sessionUser.role === 'ADMIN_SEKOLAH'
+      );
+
       const bulan = parseInt(req.query.bulan as string) || activeDefaultMonth;
       const tahun = parseInt(req.query.tahun as string) || activeDefaultYear;
       const selectedUnit = (req.query.unit as string) || 'unit-all';
       const search = (req.query.search as string) || '';
+      const nipQuery = ((req.query.nip as string) || '').trim();
 
       // Pagination setup (default 25 rows)
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -47,47 +59,115 @@ export const absensiController = {
         ];
       }
 
-      const [allUnits, totalFilteredEmployees, allActiveEmployees, employees, period, clarifications] = await Promise.all([
+      let employees: any[] = [];
+      let totalFilteredEmployees = 0;
+      let checkedEmployee: any = null;
+      let nipNotFound = false;
+
+      const [allUnits, allActiveEmployees, period] = await Promise.all([
         prisma.unit.findMany({ orderBy: { namaUnit: 'asc' } }),
-        prisma.employee.count({ where: whereEmp }),
         prisma.employee.findMany({
           where: { aktif: true },
           include: { unit: true },
           orderBy: { nama: 'asc' }
         }),
-        prisma.employee.findMany({
-          where: whereEmp,
-          include: { unit: true },
-          orderBy: [
-            { unit: { namaUnit: 'asc' } },
-            { nama: 'asc' }
-          ],
-          skip: limit === 999999 ? 0 : (page - 1) * limit,
-          take: limit
-        }),
         prisma.attendancePeriod.findUnique({
           where: { bulan_tahun: { bulan, tahun } },
           include: { attendanceDays: true }
-        }),
-        prisma.clarification.findMany({
-          include: { employee: { include: { unit: true } } },
-          orderBy: { createdAt: 'desc' }
         })
       ]);
 
+      if (!isAdmin) {
+        // PUBLIK: Trial Opsi 1 (Cek Presensi Mandiri via NIP)
+        if (nipQuery) {
+          const foundEmp = await prisma.employee.findFirst({
+            where: { nip: nipQuery, aktif: true },
+            include: { unit: true }
+          });
+
+          if (foundEmp) {
+            checkedEmployee = foundEmp;
+            employees = [foundEmp];
+            totalFilteredEmployees = 1;
+          } else {
+            nipNotFound = true;
+            employees = [];
+            totalFilteredEmployees = 0;
+          }
+        } else {
+          // Belum masukkan NIP: tidak memuat pegawai
+          employees = [];
+          totalFilteredEmployees = 0;
+        }
+      } else {
+        // ADMIN / SUPER ADMIN: Tampilkan seluruh pegawai dengan paginasi
+        const [empCount, empList] = await Promise.all([
+          prisma.employee.count({ where: whereEmp }),
+          prisma.employee.findMany({
+            where: whereEmp,
+            include: { unit: true },
+            orderBy: [
+              { unit: { namaUnit: 'asc' } },
+              { nama: 'asc' }
+            ],
+            skip: limit === 999999 ? 0 : (page - 1) * limit,
+            take: limit
+          })
+        ]);
+        totalFilteredEmployees = empCount;
+        employees = empList;
+      }
+
+      // Ambil klarifikasi (hanya untuk pegawai bersangkutan jika publik)
+      const clarifications = await prisma.clarification.findMany({
+        where: (!isAdmin && checkedEmployee) ? { employeeId: checkedEmployee.id } : undefined,
+        include: { employee: { include: { unit: true } } },
+        orderBy: { createdAt: 'desc' }
+      });
+
       const daysInMonth = new Date(tahun, bulan, 0).getDate();
 
-      // Build recap per employee
-      const recap = employees.map(emp => {
-        const empDaysMap = new Map<number, any>();
-        if (period) {
-          period.attendanceDays
-            .filter(d => d.employeeId === emp.id)
-            .forEach(d => empDaysMap.set(d.tanggal, d));
+      // OPTIMASI: Pre-group attendance days ke Map<employeeId, Map<tanggal, day>>
+      const attendanceByEmp = new Map<string, Map<number, any>>();
+      if (period) {
+        for (const d of period.attendanceDays) {
+          let m = attendanceByEmp.get(d.employeeId);
+          if (!m) {
+            m = new Map();
+            attendanceByEmp.set(d.employeeId, m);
+          }
+          m.set(d.tanggal, d);
         }
+      }
 
-        // Active clarifications for this employee
-        const empClarifications = clarifications.filter(c => c.employeeId === emp.id);
+      // OPTIMASI: Pre-group klarifikasi ke Map<employeeId, Clarification[]>
+      const clarificationsByEmp = new Map<string, any[]>();
+      for (const c of clarifications) {
+        let arr = clarificationsByEmp.get(c.employeeId);
+        if (!arr) {
+          arr = [];
+          clarificationsByEmp.set(c.employeeId, arr);
+        }
+        arr.push(c);
+      }
+
+      // OPTIMASI: Precalculate metadata hari libur bulan ini 1 kali
+      const holidaysMap = holidayService.getHolidaysForMonth(tahun, bulan);
+      const daysMeta: { day: number; isWeekend: boolean; nationalHoliday: any }[] = [];
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(tahun, bulan - 1, day);
+        const dayOfWeek = date.getDay();
+        daysMeta.push({
+          day,
+          isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+          nationalHoliday: holidaysMap.get(day) || null
+        });
+      }
+
+      // Build recap per employee (O(1) Map lookups per day)
+      const recap = employees.map(emp => {
+        const empDaysMap = attendanceByEmp.get(emp.id);
+        const empClarifications = clarificationsByEmp.get(emp.id) || [];
 
         const days: any[] = [];
         let hadirCount = 0;
@@ -100,25 +180,19 @@ export const absensiController = {
         let ctCount = 0;
         let totalEfektif = 0;
 
-        const holidaysMap = holidayService.getHolidaysForMonth(tahun, bulan);
-
-        for (let day = 1; day <= daysInMonth; day++) {
-          const date = new Date(tahun, bulan - 1, day);
-          const dayOfWeek = date.getDay();
-          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-          const nationalHoliday = holidayService.getHoliday(tahun, bulan, day);
-
+        for (const meta of daysMeta) {
+          const day = meta.day;
           let status = 'EMPTY';
           let keterangan: string | null = null;
 
-          if (empDaysMap.has(day)) {
+          if (empDaysMap && empDaysMap.has(day)) {
             const existing = empDaysMap.get(day);
             status = existing.status;
             keterangan = existing.keterangan;
-          } else if (nationalHoliday) {
+          } else if (meta.nationalHoliday) {
             status = 'LIBUR';
-            keterangan = `Libur Nasional: ${nationalHoliday.name}`;
-          } else if (isWeekend) {
+            keterangan = `Libur Nasional: ${meta.nationalHoliday.name}`;
+          } else if (meta.isWeekend) {
             status = 'LIBUR';
             keterangan = 'Akhir Pekan';
           } else {
@@ -134,7 +208,7 @@ export const absensiController = {
           for (const c of empClarifications) {
             if (c.statusVerifikasi === 'PENDING' || c.statusVerifikasi === 'REJECTED') {
               if (c.tanggalAbsen.includes(' s/d ')) {
-                const [startStr, endStr] = c.tanggalAbsen.split(' s/d ').map(s => s.trim());
+                const [startStr, endStr] = c.tanggalAbsen.split(' s/d ').map((s: string) => s.trim());
                 if (dateStr >= startStr && dateStr <= endStr) {
                   clarificationStatus = c.statusVerifikasi;
                   clarificationNote = c.catatanAdmin || (c.statusVerifikasi === 'PENDING' ? 'Sedang dalam review verifikasi' : 'Ditolak');
@@ -148,7 +222,7 @@ export const absensiController = {
             }
           }
 
-          const isHolidayOrWeekend = isWeekend || nationalHoliday !== null;
+          const isHolidayOrWeekend = meta.isWeekend || meta.nationalHoliday !== null;
           if (!isHolidayOrWeekend && status !== 'EMPTY') {
             totalEfektif++;
             if (status === 'HADIR') hadirCount++;
@@ -171,7 +245,6 @@ export const absensiController = {
         }
 
         // Perhitungan persentase kehadiran:
-        // Status yang dihitung hadir: HADIR, CT, DL, DL_KUNING, TL, PC, ST
         const totalPresent = hadirCount + dlCount + dlKuningCount + tlCount + pcCount + stCount + ctCount;
         const persentase = totalEfektif > 0 ? Math.round((totalPresent / totalEfektif) * 100) : 0;
 
@@ -229,7 +302,7 @@ export const absensiController = {
       res.render('absensi', {
         title: 'Rekap Absensi Pegawai - SIMPEG Korwil Cibitung',
         page: 'absensi',
-        user: (req as any).session?.user || null,
+        user: sessionUser,
         recap,
         clarifications: formattedClarifications,
         units,
@@ -241,9 +314,13 @@ export const absensiController = {
         activeDefaultYear,
         daysInMonth,
         search,
+        nipQuery,
+        nipNotFound,
+        checkedEmployee,
         isDefaultPeriod,
         holidays: Object.fromEntries(holidayService.getHolidaysForMonth(tahun, bulan)),
-        isAdmin: (req as any).session?.user?.role === 'ADMIN' || (req as any).session?.user?.role === 'SUPERADMIN',
+        isAdmin,
+        isSuperAdminOrDinas: isAdmin && (sessionUser?.role === 'SUPER_ADMIN' || sessionUser?.role === 'ADMIN_DINAS'),
         klarifikasiConfig: {
           month: (cms as any)?.klarifikasiMonth || cms?.selectedMonth || 7,
           nlEnabled: cms?.klarifikasiNlEnabled || false,
@@ -255,7 +332,7 @@ export const absensiController = {
           page,
           limit: limitQuery === 'all' ? 'all' : limit,
           totalItems: totalFilteredEmployees,
-          totalPages: limit === 999999 ? 1 : Math.ceil(totalFilteredEmployees / limit),
+          totalPages: limit === 999999 ? 1 : Math.max(1, Math.ceil(totalFilteredEmployees / limit)),
           from: totalFilteredEmployees === 0 ? 0 : (page - 1) * limit + 1,
           to: limit === 999999 ? totalFilteredEmployees : Math.min(page * limit, totalFilteredEmployees)
         }

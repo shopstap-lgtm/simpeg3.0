@@ -242,325 +242,408 @@
     </div>
   <% } %>
 
+  <% if (!isAdmin) { %>
+    <!-- TAMPILAN PUBLIK: Pengecekan Presensi Mandiri via NIP (Opsi 1) -->
+    <div class="custom-card p-6 sm:p-8 bg-white shadow-xs border border-slate-200/80 rounded-2xl mb-6">
+      <div class="max-w-2xl mx-auto text-center mb-6">
+        <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3 shadow-2xs">
+          <i data-lucide="shield-check" class="w-6 h-6"></i>
+        </div>
+        <h2 class="text-xl sm:text-2xl font-black text-slate-900">Pengecekan Presensi Mandiri Pegawai</h2>
+        <p class="text-xs sm:text-sm text-slate-500 mt-1.5 leading-relaxed">
+          Untuk menjaga privasi data, silakan masukkan <b>NIP Anda</b> untuk melihat rekapitulasi kehadiran dan status presensi harian secara pribadi.
+        </p>
+      </div>
 
-
-  <!-- Filter & Search Toolbar with Modern Rounded Searchable Dropdowns -->
-  <div class="custom-card p-4 sm:p-5 bg-white shadow-xs">
-    <form action="/absensi" method="GET" id="absensiFilterForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      
-      <!-- 1. Unit Kerja Filter (Custom Searchable Dropdown) -->
-      <div class="relative" 
-           x-data="{
-             open: false,
-             search: '',
-             selectedVal: '<%= selectedUnit %>',
-             options: <%= JSON.stringify(units.map(u => ({ value: u.id, label: u.namaUnit }))) %>,
-             get filteredOptions() {
-               if (!this.search || !this.search.trim()) return this.options;
-               const term = this.search.trim().toLowerCase();
-               return this.options.filter(o => o.label.toLowerCase().includes(term));
-             },
-             get selectedLabel() {
-               if (!this.selectedVal || this.selectedVal === 'unit-all') return 'Semua Unit Kerja';
-               const found = this.options.find(o => o.value === this.selectedVal);
-               return found ? found.label : 'Semua Unit Kerja';
-             },
-             selectOption(val) {
-               this.selectedVal = val;
-               this.open = false;
-               $refs.unitInput.value = val;
-               $nextTick(() => { $refs.unitInput.closest('form').submit(); });
-             }
-           }"
-           @click.away="open = false">
-        
-        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Unit Kerja</label>
-        <input type="hidden" name="unit" x-ref="unitInput" :value="selectedVal">
-        
-        <button type="button" 
-                @click="open = !open" 
-                class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
-          <span class="truncate pr-2" x-text="selectedLabel"><%= units.find(u => u.id === selectedUnit)?.namaUnit || 'Semua Unit Kerja' %></span>
-          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
-        </button>
-
-        <!-- Searchable Dropdown Menu (Max 7 Rows with scroll) -->
-        <div x-show="open" 
-             x-transition:enter="transition ease-out duration-150"
-             x-transition:enter-start="opacity-0 translate-y-1 scale-98"
-             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-             x-transition:leave="transition ease-in duration-100"
-             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-             x-transition:leave-end="opacity-0 translate-y-1 scale-98"
-             class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1.5 min-w-[240px]"
-             style="display: none;"
-             @click.stop>
-          
-          <!-- Search input inside dropdown (Clean without icon, with X on far right) -->
-          <div class="relative" style="position: relative;">
+      <!-- Form Input NIP, Bulan, Tahun -->
+      <form action="/absensi" method="GET" class="max-w-xl mx-auto space-y-4">
+        <div>
+          <label for="nipInput" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 text-left">
+            Nomor Induk Pegawai (NIP) <span class="text-rose-500">*</span>
+          </label>
+          <div class="relative">
             <input type="text" 
-                   x-model="search" 
-                   placeholder="Ketik nama unit / sekolah..." 
-                   class="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 text-slate-800 placeholder:text-slate-400"
-                   @click.stop
-                   @keydown.stop>
-            <button type="button" 
-                    x-show="search && search.length > 0" 
-                    @click="search = ''" 
-                    style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);"
-                    class="text-slate-400 hover:text-slate-600 p-1 flex items-center justify-center z-20">
-              <i data-lucide="x" class="w-3.5 h-3.5"></i>
-            </button>
-          </div>
-
-          <!-- Options List (Max 7 items with scrollbar) -->
-          <div class="max-h-[230px] overflow-y-auto custom-scrollbar space-y-0.5 pt-1">
-            <template x-for="item in filteredOptions" :key="item.value">
-              <button type="button" 
-                      @click="selectOption(item.value)" 
-                      class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
-                      :class="selectedVal === item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
-                <span class="truncate" x-text="item.label"></span>
-                <i data-lucide="check" x-show="selectedVal === item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
-              </button>
-            </template>
-            <div x-show="filteredOptions.length === 0" class="py-3 text-center text-xs text-slate-400">
-              Tidak ada unit yang cocok
+                   name="nip" 
+                   id="nipInput"
+                   value="<%= typeof nipQuery !== 'undefined' ? nipQuery : '' %>" 
+                   placeholder="Ketik 18 digit NIP Anda..." 
+                   required
+                   autocomplete="off"
+                   class="w-full pl-4 pr-11 py-3 text-sm font-semibold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-slate-400 shadow-2xs">
+            <div class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+              <i data-lucide="user-check" class="w-5 h-5 text-indigo-500"></i>
             </div>
           </div>
         </div>
-      </div>
 
-      <!-- 2. Bulan Filter (Custom Searchable Dropdown) -->
-      <div class="relative" 
-           x-data="{
-             open: false,
-             search: '',
-             selectedVal: <%= bulan %>,
-             options: [
-               { value: 1, label: 'Januari' },
-               { value: 2, label: 'Februari' },
-               { value: 3, label: 'Maret' },
-               { value: 4, label: 'April' },
-               { value: 5, label: 'Mei' },
-               { value: 6, label: 'Juni' },
-               { value: 7, label: 'Juli' },
-               { value: 8, label: 'Agustus' },
-               { value: 9, label: 'September' },
-               { value: 10, label: 'Oktober' },
-               { value: 11, label: 'November' },
-               { value: 12, label: 'Desember' }
-             ],
-             get filteredOptions() {
-               if (!this.search || !this.search.trim()) return this.options;
-               const term = this.search.trim().toLowerCase();
-               return this.options.filter(o => o.label.toLowerCase().includes(term));
-             },
-             get selectedLabel() {
-               const found = this.options.find(o => o.value == this.selectedVal);
-               return found ? found.label : 'Pilih Bulan...';
-             },
-             selectOption(val) {
-               this.selectedVal = val;
-               this.open = false;
-               $refs.bulanInput.value = val;
-               $nextTick(() => { $refs.bulanInput.closest('form').submit(); });
-             }
-           }"
-           @click.away="open = false">
-        
-        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Bulan</label>
-        <input type="hidden" name="bulan" x-ref="bulanInput" :value="selectedVal">
-        
-        <button type="button" 
-                @click="open = !open" 
-                class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
-          <span class="truncate pr-2" x-text="selectedLabel"></span>
-          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
-        </button>
-
-        <!-- Dropdown Popover (Max 7 items with scroll) -->
-        <div x-show="open" 
-             x-transition:enter="transition ease-out duration-150"
-             x-transition:enter-start="opacity-0 translate-y-1 scale-98"
-             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-             x-transition:leave="transition ease-in duration-100"
-             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-             x-transition:leave-end="opacity-0 translate-y-1 scale-98"
-             class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1.5 min-w-[200px]"
-             style="display: none;"
-             @click.stop>
-          
-          <!-- Search input inside month dropdown (Clean without icon, with X on far right) -->
-          <div class="relative" style="position: relative;">
-            <input type="text" 
-                   x-model="search" 
-                   placeholder="Ketik nama bulan..." 
-                   class="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 text-slate-800 placeholder:text-slate-400"
-                   @click.stop
-                   @keydown.stop>
-            <button type="button" 
-                    x-show="search && search.length > 0" 
-                    @click="search = ''" 
-                    style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);"
-                    class="text-slate-400 hover:text-slate-600 p-1 flex items-center justify-center z-20">
-              <i data-lucide="x" class="w-3.5 h-3.5"></i>
-            </button>
+        <div class="grid grid-cols-2 gap-3">
+          <!-- Pilihan Bulan -->
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1 text-left">Bulan</label>
+            <select name="bulan" class="w-full px-3 py-2.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500">
+              <% [
+                { val: 1, label: 'Januari' }, { val: 2, label: 'Februari' }, { val: 3, label: 'Maret' },
+                { val: 4, label: 'April' }, { val: 5, label: 'Mei' }, { val: 6, label: 'Juni' },
+                { val: 7, label: 'Juli' }, { val: 8, label: 'Agustus' }, { val: 9, label: 'September' },
+                { val: 10, label: 'Oktober' }, { val: 11, label: 'November' }, { val: 12, label: 'Desember' }
+              ].forEach(m => { %>
+                <option value="<%= m.val %>" <%= bulan === m.val ? 'selected' : '' %>><%= m.label %></option>
+              <% }); %>
+            </select>
           </div>
 
-          <div class="max-h-[230px] overflow-y-auto custom-scrollbar space-y-0.5 pt-1">
-            <template x-for="item in filteredOptions" :key="item.value">
+          <!-- Pilihan Tahun -->
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1 text-left">Tahun</label>
+            <select name="tahun" class="w-full px-3 py-2.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500">
+              <option value="2026" <%= tahun === 2026 ? 'selected' : '' %>>2026</option>
+              <option value="2025" <%= tahun === 2025 ? 'selected' : '' %>>2025</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="submit" class="w-full btn-primary py-3 px-4 text-xs sm:text-sm font-bold justify-center gap-2 shadow-indigo-200">
+          <i data-lucide="search" class="w-4 h-4"></i>
+          <span>Cek Data Presensi Saya</span>
+        </button>
+      </form>
+
+      <!-- Alert Jika NIP Tidak Ditemukan -->
+      <% if (typeof nipNotFound !== 'undefined' && nipNotFound) { %>
+        <div class="max-w-xl mx-auto mt-5 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-start gap-3">
+          <i data-lucide="alert-circle" class="w-5 h-5 text-rose-600 shrink-0 mt-0.5"></i>
+          <div class="text-xs text-left">
+            <span class="font-bold block text-rose-900">Pegawai Tidak Ditemukan</span>
+            Pegawai dengan NIP "<b><%= nipQuery %></b>" tidak terdaftar atau status kepegawaiannya tidak aktif. Silakan periksa kembali angka NIP yang Anda masukkan.
+          </div>
+        </div>
+      <% } %>
+
+      <!-- Informasi Hasil Pengecekan Jika NIP Ditemukan -->
+      <% if (typeof checkedEmployee !== 'undefined' && checkedEmployee) { %>
+        <div class="max-w-xl mx-auto mt-5 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-center gap-2.5 text-left">
+            <div class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+              <i data-lucide="check" class="w-4 h-4"></i>
+            </div>
+            <div class="text-xs">
+              <span class="font-bold text-emerald-900 text-sm block"><%= checkedEmployee.nama %></span>
+              <span class="text-emerald-700 block"><%= checkedEmployee.unit?.namaUnit || '-' %> • NIP: <%= checkedEmployee.nip %></span>
+            </div>
+          </div>
+          <a href="/absensi?bulan=<%= bulan %>&tahun=<%= tahun %>" class="btn-secondary py-1.5 px-3 text-xs gap-1 bg-white hover:bg-emerald-100 text-emerald-700 border-emerald-300 shrink-0 self-end sm:self-auto">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>Cek NIP Lain</span>
+          </a>
+        </div>
+      <% } %>
+    </div>
+  <% } else { %>
+    <!-- TAMPILAN ADMIN: Filter & Search Toolbar with Modern Rounded Searchable Dropdowns -->
+    <div class="custom-card p-4 sm:p-5 bg-white shadow-xs">
+      <form action="/absensi" method="GET" id="absensiFilterForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- 1. Unit Kerja Filter (Custom Searchable Dropdown) -->
+        <div class="relative" 
+             x-data="{
+               open: false,
+               search: '',
+               selectedVal: '<%= selectedUnit %>',
+               options: <%= JSON.stringify(units.map(u => ({ value: u.id, label: u.namaUnit }))) %>,
+               get filteredOptions() {
+                 if (!this.search || !this.search.trim()) return this.options;
+                 const term = this.search.trim().toLowerCase();
+                 return this.options.filter(o => o.label.toLowerCase().includes(term));
+               },
+               get selectedLabel() {
+                 if (!this.selectedVal || this.selectedVal === 'unit-all') return 'Semua Unit Kerja';
+                 const found = this.options.find(o => o.value === this.selectedVal);
+                 return found ? found.label : 'Semua Unit Kerja';
+               },
+               selectOption(val) {
+                 this.selectedVal = val;
+                 this.open = false;
+                 $refs.unitInput.value = val;
+                 $nextTick(() => { $refs.unitInput.closest('form').submit(); });
+               }
+             }"
+             @click.away="open = false">
+          
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Unit Kerja</label>
+          <input type="hidden" name="unit" x-ref="unitInput" :value="selectedVal">
+          
+          <button type="button" 
+                  @click="open = !open" 
+                  class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+            <span class="truncate pr-2" x-text="selectedLabel"><%= units.find(u => u.id === selectedUnit)?.namaUnit || 'Semua Unit Kerja' %></span>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+          </button>
+
+          <!-- Searchable Dropdown Menu (Max 7 Rows with scroll) -->
+          <div x-show="open" 
+               x-transition:enter="transition ease-out duration-150"
+               x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+               x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+               x-transition:leave="transition ease-in duration-100"
+               x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+               x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+               class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1.5 min-w-[240px]"
+               style="display: none;"
+               @click.stop>
+            
+            <!-- Search input inside dropdown (Clean without icon, with X on far right) -->
+            <div class="relative" style="position: relative;">
+              <input type="text" 
+                     x-model="search" 
+                     placeholder="Ketik nama unit / sekolah..." 
+                     class="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 text-slate-800 placeholder:text-slate-400"
+                     @click.stop
+                     @keydown.stop>
+              <button type="button" 
+                      x-show="search && search.length > 0" 
+                      @click="search = ''" 
+                      style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);"
+                      class="text-slate-400 hover:text-slate-600 p-1 flex items-center justify-center z-20">
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+
+            <!-- Options List (Max 7 items with scrollbar) -->
+            <div class="max-h-[230px] overflow-y-auto custom-scrollbar space-y-0.5 pt-1">
+              <template x-for="item in filteredOptions" :key="item.value">
+                <button type="button" 
+                        @click="selectOption(item.value)" 
+                        class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                        :class="selectedVal === item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                  <span class="truncate" x-text="item.label"></span>
+                  <i data-lucide="check" x-show="selectedVal === item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+                </button>
+              </template>
+              <div x-show="filteredOptions.length === 0" class="py-3 text-center text-xs text-slate-400">
+                Tidak ada unit yang cocok
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Bulan Filter (Custom Searchable Dropdown) -->
+        <div class="relative" 
+             x-data="{
+               open: false,
+               search: '',
+               selectedVal: <%= bulan %>,
+               options: [
+                 { value: 1, label: 'Januari' },
+                 { value: 2, label: 'Februari' },
+                 { value: 3, label: 'Maret' },
+                 { value: 4, label: 'April' },
+                 { value: 5, label: 'Mei' },
+                 { value: 6, label: 'Juni' },
+                 { value: 7, label: 'Juli' },
+                 { value: 8, label: 'Agustus' },
+                 { value: 9, label: 'September' },
+                 { value: 10, label: 'Oktober' },
+                 { value: 11, label: 'November' },
+                 { value: 12, label: 'Desember' }
+               ],
+               get filteredOptions() {
+                 if (!this.search || !this.search.trim()) return this.options;
+                 const term = this.search.trim().toLowerCase();
+                 return this.options.filter(o => o.label.toLowerCase().includes(term));
+               },
+               get selectedLabel() {
+                 const found = this.options.find(o => o.value == this.selectedVal);
+                 return found ? found.label : 'Pilih Bulan...';
+               },
+               selectOption(val) {
+                 this.selectedVal = val;
+                 this.open = false;
+                 $refs.bulanInput.value = val;
+                 $nextTick(() => { $refs.bulanInput.closest('form').submit(); });
+               }
+             }"
+             @click.away="open = false">
+          
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Bulan</label>
+          <input type="hidden" name="bulan" x-ref="bulanInput" :value="selectedVal">
+          
+          <button type="button" 
+                  @click="open = !open" 
+                  class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+            <span class="truncate pr-2" x-text="selectedLabel"></span>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+          </button>
+
+          <!-- Dropdown Popover (Max 7 items with scroll) -->
+          <div x-show="open" 
+               x-transition:enter="transition ease-out duration-150"
+               x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+               x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+               x-transition:leave="transition ease-in duration-100"
+               x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+               x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+               class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1.5 min-w-[200px]"
+               style="display: none;"
+               @click.stop>
+            
+            <!-- Search input inside month dropdown (Clean without icon, with X on far right) -->
+            <div class="relative" style="position: relative;">
+              <input type="text" 
+                     x-model="search" 
+                     placeholder="Ketik nama bulan..." 
+                     class="w-full pl-3 pr-8 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-slate-50 text-slate-800 placeholder:text-slate-400"
+                     @click.stop
+                     @keydown.stop>
+              <button type="button" 
+                      x-show="search && search.length > 0" 
+                      @click="search = ''" 
+                      style="position: absolute; right: 8px; top: 50%; transform: translateY(-50%);"
+                      class="text-slate-400 hover:text-slate-600 p-1 flex items-center justify-center z-20">
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+
+            <div class="max-h-[230px] overflow-y-auto custom-scrollbar space-y-0.5 pt-1">
+              <template x-for="item in filteredOptions" :key="item.value">
+                <button type="button" 
+                        @click="selectOption(item.value)" 
+                        class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                        :class="selectedVal == item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                  <span class="truncate" x-text="item.label"></span>
+                  <i data-lucide="check" x-show="selectedVal == item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+                </button>
+              </template>
+              <div x-show="filteredOptions.length === 0" class="py-3 text-center text-xs text-slate-400">
+                Tidak ada bulan yang cocok
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Tahun Filter (Custom Dropdown) -->
+        <div class="relative" 
+             x-data="{
+               open: false,
+               selectedVal: <%= tahun %>,
+               options: [
+                 { value: 2026, label: '2026' },
+                 { value: 2025, label: '2025' }
+               ],
+               get selectedLabel() {
+                 const found = this.options.find(o => o.value == this.selectedVal);
+                 return found ? found.label : '2026';
+               },
+               selectOption(val) {
+                 this.selectedVal = val;
+                 this.open = false;
+                 $refs.tahunInput.value = val;
+                 $nextTick(() => { $refs.tahunInput.closest('form').submit(); });
+               }
+             }"
+             @click.away="open = false">
+          
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Tahun</label>
+          <input type="hidden" name="tahun" x-ref="tahunInput" :value="selectedVal">
+          
+          <button type="button" 
+                  @click="open = !open" 
+                  class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+            <span class="truncate pr-2" x-text="selectedLabel"></span>
+            <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+          </button>
+
+          <!-- Dropdown Popover (Max 7 items with scroll) -->
+          <div x-show="open" 
+               x-transition:enter="transition ease-out duration-150"
+               x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+               x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+               x-transition:leave="transition ease-in duration-100"
+               x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+               x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+               class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1 min-w-[140px]"
+               style="display: none;"
+               @click.stop>
+            <template x-for="item in options" :key="item.value">
               <button type="button" 
                       @click="selectOption(item.value)" 
                       class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
                       :class="selectedVal == item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
-                <span class="truncate" x-text="item.label"></span>
+                <span x-text="item.label"></span>
                 <i data-lucide="check" x-show="selectedVal == item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
               </button>
             </template>
-            <div x-show="filteredOptions.length === 0" class="py-3 text-center text-xs text-slate-400">
-              Tidak ada bulan yang cocok
-            </div>
           </div>
         </div>
-      </div>
 
-      <!-- 3. Tahun Filter (Custom Dropdown) -->
-      <div class="relative" 
-           x-data="{
-             open: false,
-             selectedVal: <%= tahun %>,
-             options: [
-               { value: 2026, label: '2026' },
-               { value: 2025, label: '2025' }
-             ],
-             get selectedLabel() {
-               const found = this.options.find(o => o.value == this.selectedVal);
-               return found ? found.label : '2026';
-             },
-             selectOption(val) {
-               this.selectedVal = val;
-               this.open = false;
-               $refs.tahunInput.value = val;
-               $nextTick(() => { $refs.tahunInput.closest('form').submit(); });
-             }
-           }"
-           @click.away="open = false">
-        
-        <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Tahun</label>
-        <input type="hidden" name="tahun" x-ref="tahunInput" :value="selectedVal">
-        
-        <button type="button" 
-                @click="open = !open" 
-                class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
-          <span class="truncate pr-2" x-text="selectedLabel"></span>
-          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
-        </button>
-
-        <div x-show="open" 
-             x-transition:enter="transition ease-out duration-150"
-             x-transition:enter-start="opacity-0 translate-y-1 scale-98"
-             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
-             x-transition:leave="transition ease-in duration-100"
-             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
-             x-transition:leave-end="opacity-0 translate-y-1 scale-98"
-             class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1 min-w-[150px]"
-             style="display: none;">
-          <template x-for="item in options" :key="item.value">
-            <button type="button" 
-                    @click="selectOption(item.value)" 
-                    class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
-                    :class="selectedVal == item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
-              <span x-text="item.label"></span>
-              <i data-lucide="check" x-show="selectedVal == item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
-            </button>
-          </template>
-        </div>
-      </div>
-
-      <!-- 4. Manual Search Input (Real-time auto search + Fixed Right 'X' Button) -->
-      <div>
-        <label for="search" class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Cari Pegawai</label>
+        <!-- 4. Search Input (Real-time auto search + Fixed Right 'X' Button) -->
         <div class="relative" 
              style="position: relative;"
              x-data="{ 
                q: '<%= search ? search.replace(/'/g, "\\'") : '' %>',
                timer: null,
                searchRealtime() {
-                 sessionStorage.setItem('search_input_active_absensi', '1');
                  clearTimeout(this.timer);
                  this.timer = setTimeout(() => {
+                   sessionStorage.setItem('search_input_active_absensi', 'true');
                    this.$el.closest('form').submit();
-                 }, 700);
+                 }, 400);
                }
-             }"
-             x-init="
-               if (sessionStorage.getItem('search_input_active_absensi') === '1' || (q && q.length > 0)) {
-                 sessionStorage.removeItem('search_input_active_absensi');
-                 $nextTick(() => {
-                   const input = $refs.searchInput;
-                   if (input) {
-                     input.focus();
-                     const len = input.value.length;
-                     input.setSelectionRange(len, len);
-                   }
-                 });
-               }
-             ">
-          <input type="text" 
-                 name="search" 
-                 id="search" 
-                 x-ref="searchInput"
-                 x-model="q"
-                 @input="searchRealtime()"
-                 @keydown.enter.prevent="sessionStorage.setItem('search_input_active_absensi', '1'); $el.closest('form').submit()"
-                 autocomplete="off"
-                 placeholder="Ketik Nama Pegawai..." 
-                 style="padding-left: 18px;"
-                 class="w-full pl-5 pr-10 py-2.5 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 shadow-2xs transition-all">
-          
-          <!-- Clear Button 'X' (Pinned to far right with inline style) -->
-          <button type="button" 
-                  x-show="q && q.length > 0" 
-                  @click="q = ''; sessionStorage.removeItem('search_input_active_absensi'); $nextTick(() => { $el.closest('form').submit(); })" 
-                  style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"
-                  class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors z-20 flex items-center justify-center"
-                  title="Hapus pencarian">
-            <i data-lucide="x" class="w-3.5 h-3.5"></i>
-          </button>
+             }">
+          <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">Cari Pegawai / NIP</label>
+          <div class="relative" style="position: relative;">
+            <input type="text" 
+                   name="search" 
+                   x-model="q"
+                   @input="searchRealtime()"
+                   @keydown.enter.prevent="$el.closest('form').submit()"
+                   autocomplete="off"
+                   placeholder="Ketik Nama atau NIP..." 
+                   style="padding-left: 18px;"
+                   class="w-full pl-5 pr-10 py-2.5 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 placeholder:text-slate-400 shadow-2xs transition-all">
+            
+            <!-- Clear Button 'X' (Pinned to far right with inline style) -->
+            <button type="button" 
+                    x-show="q && q.length > 0" 
+                    @click="q = ''; sessionStorage.removeItem('search_input_active_absensi'); $nextTick(() => { $el.closest('form').submit(); })" 
+                    style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%);"
+                    class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors z-20 flex items-center justify-center"
+                    title="Hapus pencarian">
+              <i data-lucide="x" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
         </div>
-      </div>
 
-    </form>
+      </form>
 
-    <% if ((selectedUnit && selectedUnit !== 'unit-all') || search || !isDefaultPeriod) { %>
-      <div class="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
-        <div class="flex flex-wrap items-center gap-2 text-slate-500">
-          <i data-lucide="filter" class="w-3.5 h-3.5 text-indigo-500 shrink-0"></i>
-          <span class="font-medium">Filter aktif:</span>
-          <% if (selectedUnit && selectedUnit !== 'unit-all') { 
-              const uObj = units.find(u => u.id === selectedUnit);
-          %>
-            <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-semibold border border-indigo-100"><%= uObj ? uObj.namaUnit : selectedUnit %></span>
-          <% } %>
-          <% if (!isDefaultPeriod) { %>
-            <span class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-semibold border border-amber-100">Bulan <%= bulan %>/<%= tahun %></span>
-          <% } %>
-          <% if (search) { %>
-            <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-semibold border border-slate-200">"<%= search %>"</span>
-          <% } %>
+      <% if ((selectedUnit && selectedUnit !== 'unit-all') || search || !isDefaultPeriod) { %>
+        <div class="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div class="flex flex-wrap items-center gap-2 text-slate-500">
+            <i data-lucide="filter" class="w-3.5 h-3.5 text-indigo-500 shrink-0"></i>
+            <span class="font-medium">Filter aktif:</span>
+            <% if (selectedUnit && selectedUnit !== 'unit-all') { 
+                const uObj = units.find(u => u.id === selectedUnit);
+            %>
+              <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-semibold border border-indigo-100"><%= uObj ? uObj.namaUnit : selectedUnit %></span>
+            <% } %>
+            <% if (!isDefaultPeriod) { %>
+              <span class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-semibold border border-amber-100">Bulan <%= bulan %>/<%= tahun %></span>
+            <% } %>
+            <% if (search) { %>
+              <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-semibold border border-slate-200">"<%= search %>"</span>
+            <% } %>
+          </div>
+          <a href="/absensi" class="inline-flex items-center gap-1.5 text-slate-500 hover:text-rose-600 font-bold transition-colors">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>Reset Filter</span>
+          </a>
         </div>
-        <a href="/absensi" class="inline-flex items-center gap-1.5 text-slate-500 hover:text-rose-600 font-bold transition-colors">
-          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-          <span>Reset Filter</span>
-        </a>
-      </div>
-    <% } %>
-  </div>
+      <% } %>
+    </div>
+  <% } %>
 
   <!-- MOBILE VIEW: Card list layout (sm and down) -->
   <div class="block lg:hidden space-y-4">
-    <% if (recap.length === 0) { %>
+    <% if (recap.length === 0 && (isAdmin || nipQuery)) { %>
       <div class="custom-card p-8 text-center text-slate-500">
         <i data-lucide="user-x" class="w-10 h-10 mx-auto text-slate-300 mb-2"></i>
         <p class="font-bold text-slate-700">Tidak ada pegawai ditemukan</p>
@@ -568,7 +651,11 @@
     <% } %>
 
     <% recap.forEach(function(item) { %>
-      <div class="custom-card p-4 space-y-3 bg-white">
+      <div class="custom-card p-4 space-y-3 bg-white"
+           x-data="{
+             empInfo: <%= JSON.stringify(item.employee) %>,
+             empDays: <%= JSON.stringify(item.days) %>
+           }">
         
         <!-- Header Info (Full Uncut Name) -->
         <div class="flex items-start justify-between gap-3">
@@ -639,7 +726,7 @@
                     <button type="button" 
                             class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] bg-transparent text-transparent border-0 hover:bg-slate-100 cursor-pointer transition-all"
                             title="Tgl <%= d.tanggal %>: Belum Ada Data (Klik untuk ubah)"
-                            @click="handleCellClick(<%= JSON.stringify(item.employee) %>, <%= JSON.stringify(d) %>, <%= JSON.stringify(item.days) %>)">
+                            @click="handleCellClick(empInfo, empDays[<%= d.tanggal - 1 %>], empDays)">
                     </button>
                   <% } else { %>
                     <div class="w-7 h-7"></div>
@@ -648,7 +735,7 @@
                   <button type="button" 
                           class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] <%= badgeClass %> shadow-xs cursor-pointer hover:scale-110 active:scale-95 transition-all"
                           title="Tgl <%= d.tanggal %>: <%= d.keterangan || d.status %><%= d.clarificationStatus === 'PENDING' ? ' (Sedang Dalam Review)' : d.clarificationStatus === 'REJECTED' ? ' (Ditolak: ' + d.clarificationNote + ')' : '' %>"
-                          @click="handleCellClick(<%= JSON.stringify(item.employee) %>, <%= JSON.stringify(d) %>, <%= JSON.stringify(item.days) %>)">
+                          @click="handleCellClick(empInfo, empDays[<%= d.tanggal - 1 %>], empDays)">
                     <%= shortCode %>
                   </button>
                 <% } %>
@@ -661,7 +748,7 @@
         <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
           <span class="text-[11px] text-slate-500">Ajukan tanggal berturut-turut:</span>
           <% if (isAdmin || isDefaultPeriod) { %>
-            <button @click="openKlarifikasiWithDays(<%= JSON.stringify(item.employee) %>, <%= JSON.stringify(item.days) %>, '', 'TK', true)" 
+            <button @click="openKlarifikasiWithDays(empInfo, empDays, '', 'TK', true)" 
                     class="btn-secondary py-1.5 px-3 text-xs gap-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border-indigo-200">
               <i data-lucide="calendar-range" class="w-3.5 h-3.5"></i>
               <span>Rentang Tanggal</span>
@@ -675,9 +762,11 @@
     <% }); %>
 
     <!-- Mobile Pagination -->
-    <div class="custom-card overflow-hidden">
-      <%- include('partials/pagination') %>
-    </div>
+    <% if (isAdmin) { %>
+      <div class="custom-card overflow-hidden">
+        <%- include('partials/pagination') %>
+      </div>
+    <% } %>
   </div>
 
   <!-- DESKTOP VIEW: ULTRA-COMPACT 31-DAY GRID (FREEZE HEADER + HORIZONTAL ALIGNMENT) -->
@@ -722,17 +811,28 @@
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100">
-          <% if (recap.length === 0) { %>
+          <% if (recap.length === 0 && (isAdmin || nipQuery)) { %>
             <tr>
               <td colspan="<%= daysInMonth + 6 %>" class="py-12 text-center text-slate-500">
                 <i data-lucide="user-x" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
                 <p class="font-bold text-sm text-slate-700">Tidak ada pegawai ditemukan</p>
               </td>
             </tr>
+          <% } else if (recap.length === 0 && !isAdmin && !nipQuery) { %>
+            <tr>
+              <td colspan="<%= daysInMonth + 6 %>" class="py-12 text-center text-slate-400">
+                <i data-lucide="search" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
+                <p class="font-medium text-xs text-slate-500">Silakan masukkan NIP pada form di atas untuk menampilkan data presensi Anda</p>
+              </td>
+            </tr>
           <% } %>
 
           <% recap.forEach(function(item) { %>
-            <tr class="hover:bg-indigo-50/30 transition-colors h-[38px]">
+            <tr class="hover:bg-indigo-50/30 transition-colors h-[38px]"
+                x-data="{
+                  empInfo: <%= JSON.stringify(item.employee) %>,
+                  empDays: <%= JSON.stringify(item.days) %>
+                }">
               
               <!-- Sticky Left: Nama Pegawai (Full Uncut Name) -->
               <td class="sticky left-0 z-20 bg-white hover:bg-indigo-50/30 px-3 py-1.5 sticky-shadow border-r border-slate-100 min-w-[155px] max-w-[185px] align-middle">
@@ -775,7 +875,7 @@
                       <button type="button" 
                               class="inline-flex items-center justify-center w-5 h-5 rounded text-[8px] bg-transparent text-transparent hover:bg-slate-100/80 cursor-pointer transition-all"
                               title="Tgl <%= d.tanggal %>: Belum Ada Data (Klik untuk ubah)"
-                              @click="handleCellClick(<%= JSON.stringify(item.employee) %>, <%= JSON.stringify(d) %>, <%= JSON.stringify(item.days) %>)">
+                              @click="handleCellClick(empInfo, empDays[<%= d.tanggal - 1 %>], empDays)">
                       </button>
                     <% } else { %>
                       <span class="inline-block w-5 h-5"></span>
@@ -784,7 +884,7 @@
                     <button type="button" 
                             class="inline-flex items-center justify-center w-5 h-5 rounded text-[8px] <%= bgCol %> cursor-pointer hover:scale-120 active:scale-95 transition-all shadow-2xs font-bold leading-none"
                             title="Tgl <%= d.tanggal %>: <%= d.keterangan || d.status %><%= d.clarificationStatus === 'PENDING' ? ' (Sedang Dalam Review)' : d.clarificationStatus === 'REJECTED' ? ' (Ditolak: ' + d.clarificationNote + ')' : '' %>"
-                            @click="handleCellClick(<%= JSON.stringify(item.employee) %>, <%= JSON.stringify(d) %>, <%= JSON.stringify(item.days) %>)">
+                            @click="handleCellClick(empInfo, empDays[<%= d.tanggal - 1 %>], empDays)">
                       <%= char %>
                     </button>
                   <% } %>
@@ -805,7 +905,7 @@
               <!-- STICKY RIGHT: Ramping Icon-Only Button for Rentang Tanggal -->
               <td class="sticky right-0 z-20 bg-white hover:bg-indigo-50/30 px-1 py-1 text-center whitespace-nowrap sticky-right-shadow w-8 min-w-[32px] align-middle">
                 <% if (isAdmin || isDefaultPeriod) { %>
-                  <button @click="openKlarifikasiWithDays(<%= JSON.stringify(item.employee) %>, <%= JSON.stringify(item.days) %>, '', 'TK', true)" 
+                  <button @click="openKlarifikasiWithDays(empInfo, empDays, '', 'TK', true)" 
                           class="p-1 rounded-md text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 border border-indigo-200 transition-all inline-flex items-center justify-center shadow-2xs"
                           title="Ajukan Rentang Tanggal untuk <%= item.employee.nama %>">
                     <i data-lucide="calendar-range" class="w-3 h-3"></i>
@@ -822,7 +922,9 @@
     </div>
 
     <!-- Desktop Pagination -->
-    <%- include('partials/pagination') %>
+    <% if (isAdmin) { %>
+      <%- include('partials/pagination') %>
+    <% } %>
   </div>
 
   <!-- ALPINE.JS MODAL 1: KLARIFIKASI ABSENSI (KOMPAK, RAPI, PAS VH) -->
@@ -867,6 +969,7 @@
             <input type="hidden" name="filterTahun" value="<%= tahun %>">
             <input type="hidden" name="filterSearch" value="<%= search %>">
             <input type="hidden" name="filterPage" value="<%= pagination.page %>">
+            <input type="hidden" name="nip" :value="selectedEmployee ? (selectedEmployee.nip || '') : ''">
 
             <div class="flex-1 overflow-y-auto custom-scrollbar p-5 space-y-3.5">
               
@@ -1125,6 +1228,7 @@
             <input type="hidden" name="filterUnit" value="<%= selectedUnit %>">
             <input type="hidden" name="filterSearch" value="<%= search %>">
             <input type="hidden" name="filterPage" value="<%= pagination.page %>">
+            <input type="hidden" name="nip" :value="selectedEmployee ? (selectedEmployee.nip || '') : ''">
 
             <div class="p-3 rounded-2xl bg-indigo-50/80 border border-indigo-100 text-xs">
               <p class="font-bold text-slate-900" x-text="selectedEmployee.nama"></p>
