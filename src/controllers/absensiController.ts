@@ -34,14 +34,17 @@ export const absensiController = {
         sessionUser.role === 'SUPERADMIN' || 
         sessionUser.role === 'SUPER_ADMIN' || 
         sessionUser.role === 'ADMIN_DINAS' ||
-        sessionUser.role === 'ADMIN_SEKOLAH'
+        sessionUser.role === 'ADMIN_SEKOLAH' ||
+        sessionUser.role === 'ADMIN_KORWIL'
       );
 
       const bulan = parseInt(req.query.bulan as string) || activeDefaultMonth;
       const tahun = parseInt(req.query.tahun as string) || activeDefaultYear;
       const selectedUnit = (req.query.unit as string) || 'unit-all';
-      const search = (req.query.search as string) || '';
-      const nipQuery = ((req.query.nip as string) || '').trim();
+      const search = ((req.query.search as string) || '').trim();
+      const rawNip = (req.query.nip as string) || '';
+      const nipQuery = rawNip.replace(/\s+/g, '').trim();
+      const isCekMandiri = req.query.cekMandiri === '1';
 
       // Pagination setup (default 25 rows)
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -52,7 +55,9 @@ export const absensiController = {
       if (selectedUnit && selectedUnit !== 'unit-all') {
         whereEmp.unitId = selectedUnit;
       }
-      if (search) {
+      if (nipQuery) {
+        whereEmp.nip = nipQuery;
+      } else if (search) {
         whereEmp.OR = [
           { nama: { contains: search, mode: 'insensitive' } },
           { nip: { contains: search } }
@@ -77,30 +82,28 @@ export const absensiController = {
         })
       ]);
 
-      if (!isAdmin) {
-        // PUBLIK: Trial Opsi 1 (Cek Presensi Mandiri via NIP)
-        if (nipQuery) {
-          const foundEmp = await prisma.employee.findFirst({
-            where: { nip: nipQuery, aktif: true },
-            include: { unit: true }
-          });
+      // JIKA NIP DIISI (Opsi 1: Cek Mandiri Pegawai - berlaku baik untuk publik maupun admin yang sedang mencoba)
+      if (nipQuery) {
+        const foundEmp = await prisma.employee.findFirst({
+          where: { nip: nipQuery, aktif: true },
+          include: { unit: true }
+        });
 
-          if (foundEmp) {
-            checkedEmployee = foundEmp;
-            employees = [foundEmp];
-            totalFilteredEmployees = 1;
-          } else {
-            nipNotFound = true;
-            employees = [];
-            totalFilteredEmployees = 0;
-          }
+        if (foundEmp) {
+          checkedEmployee = foundEmp;
+          employees = [foundEmp];
+          totalFilteredEmployees = 1;
         } else {
-          // Belum masukkan NIP: tidak memuat pegawai
+          nipNotFound = true;
           employees = [];
           totalFilteredEmployees = 0;
         }
+      } else if (!isAdmin || isCekMandiri) {
+        // PUBLIK atau ADMIN MODE TRIAL: Belum memasukkan NIP -> tabel kosong demi privasi pegawai lain
+        employees = [];
+        totalFilteredEmployees = 0;
       } else {
-        // ADMIN / SUPER ADMIN: Tampilkan seluruh pegawai dengan paginasi
+        // ADMIN / SUPER ADMIN tanpa filter NIP khusus: Tampilkan seluruh pegawai dengan paginasi
         const [empCount, empList] = await Promise.all([
           prisma.employee.count({ where: whereEmp }),
           prisma.employee.findMany({
@@ -118,9 +121,9 @@ export const absensiController = {
         employees = empList;
       }
 
-      // Ambil klarifikasi (hanya untuk pegawai bersangkutan jika publik)
+      // Ambil klarifikasi (hanya untuk pegawai bersangkutan jika ada pengecekan NIP)
       const clarifications = await prisma.clarification.findMany({
-        where: (!isAdmin && checkedEmployee) ? { employeeId: checkedEmployee.id } : undefined,
+        where: checkedEmployee ? { employeeId: checkedEmployee.id } : (isAdmin ? undefined : { id: 'no-match' }),
         include: { employee: { include: { unit: true } } },
         orderBy: { createdAt: 'desc' }
       });
@@ -317,6 +320,7 @@ export const absensiController = {
         nipQuery,
         nipNotFound,
         checkedEmployee,
+        isCekMandiri,
         isDefaultPeriod,
         holidays: Object.fromEntries(holidayService.getHolidaysForMonth(tahun, bulan)),
         isAdmin,

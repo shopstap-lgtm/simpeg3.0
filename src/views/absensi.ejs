@@ -240,10 +240,10 @@
         </p>
       </div>
     </div>
-  <% } %>
+  <% } %>  <% const showSelfCheck = !isAdmin || !!nipQuery || (typeof isCekMandiri !== 'undefined' && isCekMandiri); %>
 
-  <% if (!isAdmin) { %>
-    <!-- TAMPILAN PUBLIK: Pengecekan Presensi Mandiri via NIP (Opsi 1) -->
+  <% if (showSelfCheck) { %>
+    <!-- TAMPILAN PUBLIK / TRIAL OPSI 1: Pengecekan Presensi Mandiri via NIP -->
     <div class="custom-card p-6 sm:p-8 bg-white shadow-xs border border-slate-200/80 rounded-2xl mb-6">
       <div class="max-w-2xl mx-auto text-center mb-6">
         <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3 shadow-2xs">
@@ -253,10 +253,19 @@
         <p class="text-xs sm:text-sm text-slate-500 mt-1.5 leading-relaxed">
           Untuk menjaga privasi data, silakan masukkan <b>NIP Anda</b> untuk melihat rekapitulasi kehadiran dan status presensi harian secara pribadi.
         </p>
+        <% if (isAdmin) { %>
+          <div class="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-violet-50 border border-violet-200 text-violet-700 text-xs font-semibold">
+            <i data-lucide="shield" class="w-3.5 h-3.5"></i>
+            <span>Mode Uji Coba / Trial Admin (Pengecekan NIP Mandiri)</span>
+          </div>
+        <% } %>
       </div>
 
       <!-- Form Input NIP, Bulan, Tahun -->
       <form action="/absensi" method="GET" class="max-w-xl mx-auto space-y-4">
+        <% if (typeof isCekMandiri !== 'undefined' && isCekMandiri) { %>
+          <input type="hidden" name="cekMandiri" value="1">
+        <% } %>
         <div>
           <label for="nipInput" class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 text-left">
             Nomor Induk Pegawai (NIP) <span class="text-rose-500">*</span>
@@ -264,7 +273,7 @@
           <div class="relative">
             <input type="text" 
                    name="nip" 
-                   id="nipInput"
+                   id="nipInput" 
                    value="<%= typeof nipQuery !== 'undefined' ? nipQuery : '' %>" 
                    placeholder="Ketik 18 digit NIP Anda..." 
                    required
@@ -302,10 +311,18 @@
           </div>
         </div>
 
-        <button type="submit" class="w-full btn-primary py-3 px-4 text-xs sm:text-sm font-bold justify-center gap-2 shadow-indigo-200">
-          <i data-lucide="search" class="w-4 h-4"></i>
-          <span>Cek Data Presensi Saya</span>
-        </button>
+        <div class="flex items-center gap-3">
+          <button type="submit" class="flex-1 btn-primary py-3 px-4 text-xs sm:text-sm font-bold justify-center gap-2 shadow-indigo-200">
+            <i data-lucide="search" class="w-4 h-4"></i>
+            <span>Cek Data Presensi Saya</span>
+          </button>
+          <% if (isAdmin) { %>
+            <a href="/absensi?bulan=<%= bulan %>&tahun=<%= tahun %>" class="btn-secondary py-3 px-4 text-xs font-bold text-slate-600 hover:text-indigo-600 shrink-0 gap-1.5" title="Kembali ke Mode Manajemen Admin">
+              <i data-lucide="layout-grid" class="w-4 h-4"></i>
+              <span class="hidden sm:inline">Mode Admin</span>
+            </a>
+          <% } %>
+        </div>
       </form>
 
       <!-- Alert Jika NIP Tidak Ditemukan -->
@@ -331,7 +348,7 @@
               <span class="text-emerald-700 block"><%= checkedEmployee.unit?.namaUnit || '-' %> • NIP: <%= checkedEmployee.nip %></span>
             </div>
           </div>
-          <a href="/absensi?bulan=<%= bulan %>&tahun=<%= tahun %>" class="btn-secondary py-1.5 px-3 text-xs gap-1 bg-white hover:bg-emerald-100 text-emerald-700 border-emerald-300 shrink-0 self-end sm:self-auto">
+          <a href="/absensi?bulan=<%= bulan %>&tahun=<%= tahun %><%= isAdmin && typeof isCekMandiri !== 'undefined' && isCekMandiri ? '&cekMandiri=1' : '' %>" class="btn-secondary py-1.5 px-3 text-xs gap-1 bg-white hover:bg-emerald-100 text-emerald-700 border-emerald-300 shrink-0 self-end sm:self-auto">
             <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
             <span>Cek NIP Lain</span>
           </a>
@@ -341,7 +358,17 @@
   <% } else { %>
     <!-- TAMPILAN ADMIN: Filter & Search Toolbar with Modern Rounded Searchable Dropdowns -->
     <div class="custom-card p-4 sm:p-5 bg-white shadow-xs">
-      <form action="/absensi" method="GET" id="absensiFilterForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="mb-3.5 pb-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2 text-xs font-bold text-slate-700">
+          <i data-lucide="sliders" class="w-4 h-4 text-indigo-600"></i>
+          <span>Panel Manajemen Absensi Admin</span>
+        </div>
+        <a href="/absensi?cekMandiri=1" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-2xs transition-colors">
+          <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+          <span>Uji Coba Form Cek Mandiri NIP (Trial Publik)</span>
+        </a>
+      </div>
+      <form action="/absensi" method="GET" id="absensiFilterForm" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">-4">
         
         <!-- 1. Unit Kerja Filter (Custom Searchable Dropdown) -->
         <div class="relative" 
