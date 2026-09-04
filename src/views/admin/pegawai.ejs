@@ -132,7 +132,7 @@
     <form method="GET" action="/admin/pegawai" class="grid grid-cols-1 sm:grid-cols-12 gap-3 pb-4 border-b border-slate-100">
       
       <!-- Search Input (Real-time auto search + Fixed Right 'X' Button) -->
-      <div class="sm:col-span-5 relative" 
+      <div class="sm:col-span-4 relative" 
            style="position: relative;"
            x-data="{ 
              q: '<%= search ? search.replace(/'/g, "\\'") : '' %>',
@@ -169,7 +169,7 @@
       </div>
 
       <!-- Filter Unit Kerja (Searchable Dropdown) -->
-      <div class="sm:col-span-4 relative"
+      <div class="sm:col-span-3 relative"
            x-data="{
              open: false,
              search: '',
@@ -199,7 +199,7 @@
         <button type="button" 
                 @click="open = !open" 
                 class="w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
-          <span class="truncate pr-2" x-text="selectedLabel"></span>
+          <span class="truncate pr-2" x-text="selectedLabel"><%= units.find(u => u.id === selectedUnit)?.namaUnit || 'Semua Unit Kerja' %></span>
           <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
         </button>
 
@@ -279,7 +279,7 @@
         <button type="button" 
                 @click="open = !open" 
                 class="w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
-          <span class="truncate pr-2" x-text="selectedLabel"></span>
+          <span class="truncate pr-2" x-text="selectedLabel"><%= selectedStatus !== 'ALL' ? (selectedStatus === 'PPPK_PW' ? 'PPPK Paruh Waktu' : selectedStatus) : 'Semua Status' %></span>
           <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
         </button>
 
@@ -304,6 +304,60 @@
         </div>
       </div>
 
+      <!-- Filter Keaktifan (Custom Dropdown) -->
+      <div class="sm:col-span-2 relative"
+           x-data="{
+             open: false,
+             selectedVal: '<%= selectedAktif %>',
+             options: [
+               { value: 'ALL', label: 'Semua' },
+               { value: 'AKTIF', label: 'Aktif' },
+               { value: 'NONAKTIF', label: 'Non-Aktif' }
+             ],
+             get selectedLabel() {
+               const found = this.options.find(o => o.value === this.selectedVal);
+               return found ? found.label : 'Semua';
+             },
+             selectOption(val) {
+               this.selectedVal = val;
+               this.open = false;
+               $refs.keaktifanInput.value = val;
+               $nextTick(() => { $refs.keaktifanInput.closest('form').submit(); });
+             }
+           }"
+           @click.away="open = false">
+        
+        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Keaktifan</label>
+        <input type="hidden" name="keaktifan" x-ref="keaktifanInput" :value="selectedVal">
+        
+        <button type="button" 
+                @click="open = !open" 
+                class="w-full flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
+          <span class="truncate pr-2" x-text="selectedLabel"><%= selectedAktif === 'AKTIF' ? 'Aktif' : (selectedAktif === 'NONAKTIF' ? 'Non-Aktif' : 'Semua') %></span>
+          <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+        </button>
+
+        <div x-show="open" 
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+             x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+             class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1 min-w-[140px]"
+             style="display: none;">
+          <template x-for="item in options" :key="item.value">
+            <button type="button" 
+                    @click="selectOption(item.value)" 
+                    class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
+                    :class="selectedVal === item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+              <span x-text="item.label"></span>
+              <i data-lucide="check" x-show="selectedVal === item.value" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+            </button>
+          </template>
+        </div>
+      </div>
+
     </form>
 
     <!-- Table Header Info -->
@@ -315,7 +369,7 @@
         <span class="text-xs font-bold text-slate-700">Ditemukan <b><%= employees.length %></b> data pegawai</span>
       </div>
 
-      <% if (search || selectedUnit !== 'unit-all' || selectedStatus !== 'ALL') { %>
+      <% if (search || selectedUnit !== 'unit-all' || selectedStatus !== 'ALL' || (typeof selectedAktif !== 'undefined' && selectedAktif !== 'ALL')) { %>
         <a href="/admin/pegawai" class="text-xs text-indigo-600 font-bold hover:underline inline-flex items-center gap-1">
           <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
           <span>Reset Filter</span>

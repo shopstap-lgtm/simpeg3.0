@@ -221,13 +221,18 @@ export const absensiController = {
 
       const isDefaultPeriod = (bulan === activeDefaultMonth && tahun === activeDefaultYear);
 
+      const units = [
+        { id: 'unit-all', namaUnit: 'Semua Unit Kerja' },
+        ...allUnits
+      ];
+
       res.render('absensi', {
         title: 'Rekap Absensi Pegawai - SIMPEG Korwil Cibitung',
         page: 'absensi',
         user: (req as any).session?.user || null,
         recap,
         clarifications: formattedClarifications,
-        units: allUnits,
+        units,
         allActiveEmployees,
         selectedUnit,
         bulan,

@@ -7,6 +7,7 @@
       if (typeof tahun !== 'undefined' && tahun) params.set('tahun', tahun);
       if (typeof search !== 'undefined' && search) params.set('search', search);
       if (typeof selectedStatus !== 'undefined' && selectedStatus && selectedStatus !== 'ALL') params.set('status', selectedStatus);
+      if (typeof selectedAktif !== 'undefined' && selectedAktif && selectedAktif !== 'ALL') params.set('keaktifan', selectedAktif);
       if (pagination.limit && pagination.limit !== 25) params.set('limit', pagination.limit);
       params.set('page', pageNum);
       return '?' + params.toString();
@@ -19,6 +20,7 @@
       if (typeof tahun !== 'undefined' && tahun) params.set('tahun', tahun);
       if (typeof search !== 'undefined' && search) params.set('search', search);
       if (typeof selectedStatus !== 'undefined' && selectedStatus && selectedStatus !== 'ALL') params.set('status', selectedStatus);
+      if (typeof selectedAktif !== 'undefined' && selectedAktif && selectedAktif !== 'ALL') params.set('keaktifan', selectedAktif);
       params.set('limit', limitVal);
       params.set('page', 1);
       return '?' + params.toString();

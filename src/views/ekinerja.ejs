@@ -100,10 +100,11 @@
              open: false,
              search: '',
              selectedVal: '<%= selectedUnit %>',
-             options: [{ value: 'unit-all', label: 'Semua Unit Kerja' }, ...<%= JSON.stringify(units.map(u => ({ value: u.id, label: u.namaUnit }))) %>],
+             options: <%= JSON.stringify(units.map(u => ({ value: u.id, label: u.namaUnit }))) %>,
              get filteredOptions() {
-               if (!this.search) return this.options;
-               return this.options.filter(o => o.label.toLowerCase().includes(this.search.toLowerCase()));
+               if (!this.search || !this.search.trim()) return this.options;
+               const term = this.search.trim().toLowerCase();
+               return this.options.filter(o => o.label.toLowerCase().includes(term));
              },
              get selectedLabel() {
                if (!this.selectedVal || this.selectedVal === 'unit-all') return 'Semua Unit Kerja';
@@ -125,7 +126,7 @@
         <button type="button" 
                 @click="open = !open" 
                 class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
-          <span class="truncate pr-2" x-text="selectedLabel"></span>
+          <span class="truncate pr-2" x-text="selectedLabel"><%= units.find(u => u.id === selectedUnit)?.namaUnit || 'Semua Unit Kerja' %></span>
           <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200" :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
         </button>
 

@@ -7,6 +7,7 @@ export const pegawaiAdminController = {
     try {
       const selectedUnit = (req.query.unit as string) || 'unit-all';
       const selectedStatus = (req.query.status as string) || 'ALL';
+      const selectedAktif = (req.query.keaktifan as string) || 'ALL';
       const search = (req.query.search as string) || '';
 
       // Pagination setup (default 25 rows)
@@ -24,6 +25,12 @@ export const pegawaiAdminController = {
         whereClause.statusKepegawaian = selectedStatus;
       }
 
+      if (selectedAktif === 'AKTIF') {
+        whereClause.aktif = true;
+      } else if (selectedAktif === 'NONAKTIF') {
+        whereClause.aktif = false;
+      }
+
       if (search.trim() !== '') {
         const q = search.trim();
         whereClause.OR = [
@@ -33,7 +40,7 @@ export const pegawaiAdminController = {
         ];
       }
 
-      const [allUnits, totalFilteredEmployees, employees, totalAll, countPns, countPppk, countPppkPw, countOs] = await Promise.all([
+      const [allUnits, totalFilteredEmployees, employees, totalAll, countPns, countPppk, countPppkPw, countOs, countAktif, countNonAktif] = await Promise.all([
         prisma.unit.findMany({ orderBy: { namaUnit: 'asc' } }),
         prisma.employee.count({ where: whereClause }),
         prisma.employee.findMany({
@@ -50,7 +57,9 @@ export const pegawaiAdminController = {
         prisma.employee.count({ where: { statusKepegawaian: 'PNS' } }),
         prisma.employee.count({ where: { statusKepegawaian: 'PPPK' } }),
         prisma.employee.count({ where: { statusKepegawaian: 'PPPK_PW' } }),
-        prisma.employee.count({ where: { statusKepegawaian: 'OUTSOURCING' } })
+        prisma.employee.count({ where: { statusKepegawaian: 'OUTSOURCING' } }),
+        prisma.employee.count({ where: { aktif: true } }),
+        prisma.employee.count({ where: { aktif: false } })
       ]);
 
       const units = [
@@ -90,12 +99,15 @@ export const pegawaiAdminController = {
         allUnits,
         selectedUnit,
         selectedStatus,
+        selectedAktif,
         search,
         totalAll,
         countPns,
         countPppk,
         countPppkPw,
         countOs,
+        countAktif,
+        countNonAktif,
         pagination,
         toast,
         user: (req as any).session?.user || { role: 'SUPER_ADMIN', namaLengkap: 'Administrator Utama' }
@@ -269,6 +281,10 @@ export const pegawaiAdminController = {
         }
       }
 
+      const referer = req.get('referer');
+      if (referer && referer.includes('/admin/pegawai')) {
+        return res.redirect(referer);
+      }
       res.redirect('/admin/pegawai');
     } catch (error) {
       console.error('Error in toggleActive employee:', error);
