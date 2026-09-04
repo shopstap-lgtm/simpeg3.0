@@ -167,11 +167,11 @@ export const ekinerjaReviewController = {
         };
         return (req as any).session.save((saveErr: any) => {
           if (saveErr) console.error('[EkinerjaReview] Session save error:', saveErr);
-          return res.redirect(`/admin/ekinerja-review?tab=${isApproved ? 'history' : 'history'}`);
+          return res.redirect(`/admin/ekinerja-review?tab=${tab}`);
         });
       }
 
-      res.redirect('/admin/ekinerja-review?tab=history');
+      res.redirect(`/admin/ekinerja-review?tab=${tab}`);
     } catch (error) {
       console.error('Error in ekinerjaReviewController.review:', error);
       if ((req as any).session) {
