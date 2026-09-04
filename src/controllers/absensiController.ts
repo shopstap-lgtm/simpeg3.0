@@ -1,6 +1,23 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { holidayService } from '../services/holidayService';
+const buildAbsensiRedirectUrl = (req: Request, fallbackBulan?: number, fallbackTahun?: number) => {
+  const unit = (req.body?.filterUnit || req.query?.unit || '') as string;
+  const bulan = req.body?.filterBulan || req.body?.bulan || req.query?.bulan || fallbackBulan || '';
+  const tahun = req.body?.filterTahun || req.body?.tahun || req.query?.tahun || fallbackTahun || '';
+  const search = (req.body?.filterSearch || req.query?.search || '') as string;
+  const page = (req.body?.filterPage || req.query?.page || '') as string;
+
+  const params = new URLSearchParams();
+  if (unit && unit !== 'unit-all') params.set('unit', unit);
+  if (bulan) params.set('bulan', String(bulan));
+  if (tahun) params.set('tahun', String(tahun));
+  if (search && search.trim()) params.set('search', search.trim());
+  if (page && String(page) !== '1') params.set('page', String(page));
+
+  const qs = params.toString();
+  return qs ? `/absensi?${qs}` : '/absensi';
+};
 
 export const absensiController = {
   show: async (req: Request, res: Response) => {
@@ -301,6 +318,8 @@ export const absensiController = {
         });
       }
 
+      const redirectUrl = buildAbsensiRedirectUrl(req, b, t);
+
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'success',
@@ -308,12 +327,13 @@ export const absensiController = {
             ? `Status presensi tanggal ${tgl} berhasil dikosongkan.`
             : `Status presensi tanggal ${tgl} berhasil diubah menjadi ${status === 'LIBUR' ? 'Libur (L)' : status}.`
         };
+        return (req as any).session.save(() => res.redirect(redirectUrl));
       }
 
-      res.redirect(`/absensi?bulan=${b}&tahun=${t}`);
+      res.redirect(redirectUrl);
     } catch (error: any) {
       console.error('Error in absensiController.directUpdate:', error);
-      res.redirect('/absensi');
+      res.redirect(buildAbsensiRedirectUrl(req));
     }
   },
 
@@ -388,6 +408,8 @@ export const absensiController = {
         await prisma.$transaction(updates);
       }
 
+      const redirectUrl = buildAbsensiRedirectUrl(req, b, t);
+
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'success',
@@ -395,18 +417,21 @@ export const absensiController = {
             ? `Presensi tanggal ${tgl} untuk seluruh pegawai (${activeEmployees.length} orang) berhasil dikosongkan.`
             : `Presensi tanggal ${tgl} untuk seluruh pegawai (${activeEmployees.length} orang) berhasil diubah menjadi ${status === 'LIBUR' ? 'Libur (L)' : status}.`
         };
+        return (req as any).session.save(() => res.redirect(redirectUrl));
       }
 
-      res.redirect(`/absensi?bulan=${b}&tahun=${t}`);
+      res.redirect(redirectUrl);
     } catch (error: any) {
       console.error('Error in absensiController.bulkDateUpdate:', error);
+      const redirectUrl = buildAbsensiRedirectUrl(req);
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'danger',
           message: 'Gagal memperbarui status presensi massal: ' + (error.message || 'Terjadi kesalahan sistem')
         };
+        return (req as any).session.save(() => res.redirect(redirectUrl));
       }
-      res.redirect('/absensi');
+      res.redirect(redirectUrl);
     }
   },
 
@@ -427,8 +452,9 @@ export const absensiController = {
             type: 'warning',
             message: 'Silakan lengkapi tanggal dan alasan klarifikasi.'
           };
+          return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
         }
-        return res.redirect('/absensi');
+        return res.redirect(buildAbsensiRedirectUrl(req));
       }
 
       // Validasi izin klarifikasi untuk status NL dan PC
@@ -465,8 +491,9 @@ export const absensiController = {
               type: 'warning',
               message: 'Pengajuan klarifikasi untuk status Hadir Normal (NL) pada bulan / tanggal tersebut sedang ditutup oleh Admin.'
             };
+            return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
           }
-          return res.redirect('/absensi');
+          return res.redirect(buildAbsensiRedirectUrl(req));
         }
       } else if (normStatusAwal === 'PC' || normStatusAwal === 'TL') {
         const isMonthMatch = !monthNum || monthNum === activeKlarifikasiMonth;
@@ -476,8 +503,9 @@ export const absensiController = {
               type: 'warning',
               message: 'Pengajuan klarifikasi untuk status Terlambat (TL) & Pulang Cepat (PC) pada bulan / tanggal tersebut sedang ditutup oleh Admin.'
             };
+            return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
           }
-          return res.redirect('/absensi');
+          return res.redirect(buildAbsensiRedirectUrl(req));
         }
       }
 
@@ -487,8 +515,9 @@ export const absensiController = {
             type: 'error',
             message: 'Wajib mengunggah berkas bukti klarifikasi berupa dokumen PDF!'
           };
+          return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
         }
-        return res.redirect('/absensi');
+        return res.redirect(buildAbsensiRedirectUrl(req));
       }
 
       if (file.size > 1 * 1024 * 1024) {
@@ -497,8 +526,9 @@ export const absensiController = {
             type: 'error',
             message: 'Ukuran berkas bukti klarifikasi melebihi batas maksimal 1MB!'
           };
+          return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
         }
-        return res.redirect('/absensi');
+        return res.redirect(buildAbsensiRedirectUrl(req));
       }
 
       let fileUrl = '';
@@ -548,23 +578,27 @@ export const absensiController = {
         }
       });
 
+      const redirectUrl = buildAbsensiRedirectUrl(req);
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'success',
           message: 'Permohonan klarifikasi berhasil diajukan dan sedang menunggu review admin.'
         };
+        return (req as any).session.save(() => res.redirect(redirectUrl));
       }
 
-      res.redirect('/absensi');
+      res.redirect(redirectUrl);
     } catch (error: any) {
       console.error('Error in submitKlarifikasi:', error);
+      const redirectUrl = buildAbsensiRedirectUrl(req);
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'danger',
           message: 'Gagal mengajukan klarifikasi. Silakan coba kembali.'
         };
+        return (req as any).session.save(() => res.redirect(redirectUrl));
       }
-      res.redirect('/absensi');
+      res.redirect(redirectUrl);
     }
   }
 };

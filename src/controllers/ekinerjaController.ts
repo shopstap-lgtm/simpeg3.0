@@ -1,5 +1,24 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+const buildEkinerjaRedirectUrl = (req: Request, fallbackBulan?: number, fallbackTahun?: number) => {
+  const unit = (req.body?.filterUnit || req.query?.unit || '') as string;
+  const bulan = req.body?.bulan || req.body?.filterBulan || req.query?.bulan || fallbackBulan || '';
+  const tahun = req.body?.tahun || req.body?.filterTahun || req.query?.tahun || fallbackTahun || '';
+  const search = (req.body?.filterSearch || req.query?.search || '') as string;
+  const status = (req.body?.filterStatus || req.query?.status || '') as string;
+  const page = (req.body?.filterPage || req.query?.page || '') as string;
+
+  const params = new URLSearchParams();
+  if (unit && unit !== 'unit-all') params.set('unit', unit);
+  if (bulan) params.set('bulan', String(bulan));
+  if (tahun) params.set('tahun', String(tahun));
+  if (search && search.trim()) params.set('search', search.trim());
+  if (status && status.toLowerCase() !== 'all') params.set('status', status);
+  if (page && String(page) !== '1') params.set('page', String(page));
+
+  const qs = params.toString();
+  return qs ? `/ekinerja?${qs}` : '/ekinerja';
+};
 
 export const ekinerjaController = {
   show: async (req: Request, res: Response) => {
@@ -328,13 +347,15 @@ export const ekinerjaController = {
       }
 
       if (!existingReport && !fileHarian && !fileBulanan) {
+        const redirectUrl = buildEkinerjaRedirectUrl(req, b, t);
         if ((req as any).session) {
           (req as any).session.toast = {
             type: 'error',
             message: 'Silakan pilih berkas PDF laporan (Harian dan/atau Bulanan) untuk diunggah.'
           };
+          return (req as any).session.save(() => res.redirect(redirectUrl));
         }
-        return res.redirect(`/ekinerja?bulan=${b}&tahun=${t}`);
+        return res.redirect(redirectUrl);
       }
 
       await prisma.ekinerjaReport.upsert({
@@ -367,23 +388,27 @@ export const ekinerjaController = {
         }
       });
 
+      const redirectUrl = buildEkinerjaRedirectUrl(req, b, t);
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'success',
           message: 'Laporan E-Kinerja berhasil diunggah dan sedang menunggu review verifikator.'
         };
+        return (req as any).session.save(() => res.redirect(redirectUrl));
       }
 
-      res.redirect(`/ekinerja?bulan=${b}&tahun=${t}`);
+      res.redirect(redirectUrl);
     } catch (error: any) {
       console.error('Error in submitLaporan:', error);
+      const redirectUrl = buildEkinerjaRedirectUrl(req);
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'danger',
           message: 'Gagal mengunggah laporan. Silakan coba kembali.'
         };
+        return (req as any).session.save(() => res.redirect(redirectUrl));
       }
-      res.redirect('/ekinerja');
+      res.redirect(redirectUrl);
     }
   }
 };
