@@ -12,6 +12,7 @@
         deleteModal: false,
         selectedReport: null,
         activeDocType: 'harian',
+        mobileTab: 'pdf',
         reviewAction: 'approve',
         nilaiHarian: '',
         nilaiBulanan: '',
@@ -56,7 +57,28 @@
           this.nilaiHarian = (item.nilaiHarian !== undefined && item.nilaiHarian !== null && item.nilaiHarian !== '') ? item.nilaiHarian : '';
           this.nilaiBulanan = (item.nilaiBulanan !== undefined && item.nilaiBulanan !== null && item.nilaiBulanan !== '') ? item.nilaiBulanan : '';
           this.catatanAdmin = item.catatanAdmin || '';
+          this.mobileTab = (item.fileHarianUrl || item.fileBulananUrl) ? 'pdf' : 'form';
           this.reviewModal = true;
+          this.$nextTick(() => {
+            this.loadPdfPreview();
+            if (window.lucide) window.lucide.createIcons();
+          });
+        },
+
+        switchDoc(type) {
+          this.activeDocType = type;
+          this.$nextTick(() => {
+            this.loadPdfPreview();
+            if (window.lucide) window.lucide.createIcons();
+          });
+        },
+
+        loadPdfPreview() {
+          const url = this.currentPdfUrl;
+          const container = document.getElementById('mobilePdfCanvasContainer');
+          if (container && window.renderPdfToCanvas) {
+            window.renderPdfToCanvas(url, container);
+          }
         },
 
         openDelete(item) {
@@ -597,7 +619,7 @@
           class="bg-white rounded-3xl max-w-7xl w-full p-4 sm:p-6 shadow-2xl border border-slate-100 flex flex-col max-h-[96vh]">
       
       <!-- Modal Header — uses x-show safely since it does NOT contain form -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-4 border-b border-slate-100">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 mb-3 border-b border-slate-100 shrink-0">
         <div class="min-w-0">
           <div class="flex items-center gap-2">
             <h3 class="font-extrabold text-base sm:text-lg text-slate-900 truncate" x-text="selectedReport ? selectedReport.employee.nama : '—'"></h3>
@@ -615,7 +637,7 @@
           <!-- Doc type switcher -->
           <div class="flex items-center bg-slate-100 p-1 rounded-xl">
             <button type="button" 
-                    @click="activeDocType = 'harian'" 
+                    @click="switchDoc('harian')" 
                     :class="activeDocType === 'harian' ? 'bg-white text-indigo-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'"
                     class="px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition-all">
               <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-600"></i>
@@ -623,7 +645,7 @@
               <span x-show="selectedReport && selectedReport.fileHarianUrl" class="w-1.5 h-1.5 rounded-full bg-emerald-500" style="display:none;"></span>
             </button>
             <button type="button" 
-                    @click="activeDocType = 'bulanan'" 
+                    @click="switchDoc('bulanan')" 
                     :class="activeDocType === 'bulanan' ? 'bg-white text-emerald-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'"
                     class="px-3 py-1.5 rounded-lg text-xs flex items-center gap-1.5 transition-all">
               <i data-lucide="file-check-2" class="w-3.5 h-3.5 text-emerald-600"></i>
@@ -645,7 +667,7 @@
              :href="currentPdfUrl || '#'" 
              target="_blank"
              class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors" 
-             title="Buka di Tab Baru"
+             title="Buka di Tab Baru / App HP"
              style="display:none;">
             <i data-lucide="external-link" class="w-4 h-4"></i>
           </a>
@@ -656,18 +678,49 @@
         </div>
       </div>
 
-      <!-- Modal Body: Side-by-Side Grid (PDF left 58%, Form right 42%) -->
-      <div class="flex-1 overflow-hidden">
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 h-full" style="min-height: 75vh; max-height: 78vh;">
+      <!-- Mobile Segmented Tabs: 1. Pratinjau PDF | 2. Form Beri Nilai (ONLY visible on mobile: lg:hidden) -->
+      <div class="flex lg:hidden items-center bg-slate-100 p-1 rounded-xl mb-3 border border-slate-200/80 shrink-0">
+        <button type="button" 
+                @click="mobileTab = 'pdf'; $nextTick(() => { loadPdfPreview(); if (window.lucide) window.lucide.createIcons(); });" 
+                :class="mobileTab === 'pdf' ? 'bg-white text-indigo-700 shadow-xs font-bold' : 'text-slate-600 hover:text-slate-900 font-medium'"
+                class="flex-1 py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all">
+          <i data-lucide="file-text" class="w-4 h-4 text-indigo-600"></i>
+          <span>1. Pratinjau PDF</span>
+          <span x-show="currentPdfUrl" class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+        </button>
+        <button type="button" 
+                @click="mobileTab = 'form'" 
+                :class="mobileTab === 'form' ? 'bg-emerald-600 text-white shadow-xs font-bold' : 'text-slate-700 hover:text-slate-900 font-semibold'"
+                class="flex-1 py-2 px-3 rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all">
+          <i data-lucide="award" class="w-4 h-4"></i>
+          <span>2. Form Beri Nilai</span>
+          <span x-show="reviewAction === 'approve' && (!nilaiHarian || !nilaiBulanan)" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+        </button>
+      </div>
+
+      <!-- Modal Body: Flexible on mobile, Side-by-Side on desktop -->
+      <div class="flex-1 overflow-hidden flex flex-col min-h-0">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 flex-1 overflow-hidden lg:h-full lg:max-h-[78vh]">
           
-          <!-- LEFT: PDF Viewer (Equal height with review form) -->
-          <div class="lg:col-span-7 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 relative flex items-center justify-center min-h-[50vh] lg:min-h-full h-full">
+          <!-- LEFT: PDF Viewer -->
+          <div :class="{ 'hidden lg:flex': mobileTab !== 'pdf', 'flex': mobileTab === 'pdf' }"
+               class="lg:col-span-7 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 relative flex-col items-center justify-between min-h-[50vh] max-h-[66vh] lg:max-h-full lg:min-h-full h-full">
+            
+            <!-- Desktop Native PDF Iframe (High performance native browser controls on PC) -->
             <iframe x-show="currentPdfUrl" 
                     :src="currentPdfViewerUrl"
-                    class="absolute inset-0 w-full h-full rounded-2xl border-0" 
+                    class="hidden lg:block absolute inset-0 w-full h-full rounded-2xl border-0" 
                     allowfullscreen
                     style="display:none;"></iframe>
-            <div x-show="!currentPdfUrl" class="p-8 text-center">
+
+            <!-- Mobile High-Performance PDF.js Canvas Viewer (Works 100% on Mobile Android & Safari without 'Buka' download box) -->
+            <div x-show="currentPdfUrl" 
+                 id="mobilePdfCanvasContainer"
+                 class="lg:hidden w-full flex-1 overflow-y-auto p-2.5 space-y-3 custom-scrollbar flex flex-col items-center">
+            </div>
+
+            <!-- Empty State when no PDF is uploaded -->
+            <div x-show="!currentPdfUrl" class="p-8 text-center my-auto">
               <i data-lucide="file-x" class="w-12 h-12 mx-auto text-slate-300 mb-3"></i>
               <p class="font-bold text-sm text-slate-700">Berkas Belum Diunggah</p>
               <p class="text-xs text-slate-400 mt-1 max-w-xs mx-auto">
@@ -675,11 +728,45 @@
                 <span class="font-bold text-slate-600" x-text="activeDocType === 'harian' ? 'Laporan Harian' : 'Laporan Bulanan'"></span>.
               </p>
             </div>
+
+            <!-- Mobile Bottom Action Bar on PDF Tab (Quick jump to Form) -->
+            <div class="lg:hidden w-full p-2.5 bg-white/95 backdrop-blur-md border-t border-slate-200 flex items-center gap-2 shrink-0 z-10">
+              <a x-show="currentPdfUrl" 
+                 :href="currentPdfUrl || '#'" 
+                 target="_blank"
+                 class="btn-secondary py-2.5 px-3 text-xs font-semibold shrink-0 text-slate-700 flex items-center gap-1.5"
+                 title="Buka Dokumen di Aplikasi HP">
+                <i data-lucide="external-link" class="w-3.5 h-3.5 text-slate-500"></i>
+                <span class="hidden sm:inline">Buka di App HP</span>
+              </a>
+              <button type="button" 
+                      @click="mobileTab = 'form'" 
+                      class="btn-primary flex-1 py-2.5 px-3 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md flex items-center justify-center gap-1.5">
+                <i data-lucide="award" class="w-4 h-4"></i>
+                <span>Lanjut Beri Nilai &amp; Catatan &rarr;</span>
+              </button>
+            </div>
           </div>
 
           <!-- RIGHT: Review Form — INTENTIONALLY NOT inside <template x-if> -->
           <!-- Form action is set via JS at submit time to avoid Alpine reactive issues -->
-          <div class="lg:col-span-5 overflow-y-auto custom-scrollbar" style="max-height: 76vh;">
+          <div :class="{ 'hidden lg:block': mobileTab !== 'form', 'block': mobileTab === 'form' }"
+               class="lg:col-span-5 overflow-y-auto custom-scrollbar max-h-[75vh] lg:max-h-[76vh]">
+            
+            <!-- Mobile Helper Bar: Status of Report & Jump back to PDF button -->
+            <div class="lg:hidden flex items-center justify-between p-2.5 rounded-xl bg-indigo-50/90 border border-indigo-100 text-xs mb-3 shadow-2xs">
+              <div class="min-w-0 pr-2">
+                <span class="font-bold text-indigo-900 block truncate" x-text="activeDocType === 'harian' ? 'Menilai: Laporan Harian' : 'Menilai: Laporan Bulanan'"></span>
+                <span class="text-[11px] text-indigo-600 truncate block" x-text="currentPdfName"></span>
+              </div>
+              <button type="button" 
+                      @click="mobileTab = 'pdf'; $nextTick(() => { loadPdfPreview(); if (window.lucide) window.lucide.createIcons(); });" 
+                      class="btn-secondary py-1 px-2.5 text-[11px] font-bold bg-white text-indigo-700 border-indigo-200 shrink-0 gap-1 flex items-center shadow-2xs">
+                <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                <span>Lihat PDF Lagi</span>
+              </button>
+            </div>
+
             <form x-ref="reviewForm"
                   method="POST"
                   action="/admin/ekinerja-review/placeholder/review"
