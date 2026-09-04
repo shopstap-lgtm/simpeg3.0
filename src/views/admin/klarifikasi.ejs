@@ -2,6 +2,11 @@
 <%- include('../partials/admin-nav') %>
 <%- include('../partials/toast') %>
 
+<script>
+  window.klarifikasiPendingData = <%- JSON.stringify(pendingList) %>;
+  window.klarifikasiArchiveData = <%- JSON.stringify(archiveList) %>;
+</script>
+
 <main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-8"
       x-data="{
         activeTab: '<%= activeTab || 'pending' %>',
@@ -18,6 +23,68 @@
         selectedItem: null,
         catatanAdmin: '',
         excelFileList: [],
+        allPendingItems: (window.klarifikasiPendingData || []),
+        allArchiveItems: (window.klarifikasiArchiveData || []),
+        mobilePendingPage: 1,
+        mobilePendingPerPage: 10,
+        get totalPendingCount() {
+          return this.allPendingItems.length;
+        },
+        get mobileTotalPendingPages() {
+          if (this.mobilePendingPerPage === 'all') return 1;
+          const perPage = parseInt(this.mobilePendingPerPage, 10) || 10;
+          return Math.max(1, Math.ceil(this.totalPendingCount / perPage));
+        },
+        get visiblePendingPageNumbers() {
+          const total = this.mobileTotalPendingPages;
+          const cur = this.mobilePendingPage;
+          if (total <= 5) {
+            return Array.from({ length: total }, (_, i) => i + 1);
+          }
+          if (cur <= 3) {
+            return [1, 2, 3, 4, '...', total];
+          }
+          if (cur >= total - 2) {
+            return [1, '...', total - 3, total - 2, total - 1, total];
+          }
+          return [1, '...', cur - 1, cur, cur + 1, '...', total];
+        },
+        isPendingVisible(idx) {
+          if (this.mobilePendingPerPage === 'all') return true;
+          const perPage = parseInt(this.mobilePendingPerPage, 10) || 10;
+          const start = (this.mobilePendingPage - 1) * perPage;
+          const end = start + perPage;
+          return idx >= start && idx < end;
+        },
+        nextPendingPage() {
+          if (this.mobilePendingPage < this.mobileTotalPendingPages) {
+            this.mobilePendingPage++;
+            this.scrollMobileToTop('mobile-pending-list');
+          }
+        },
+        prevPendingPage() {
+          if (this.mobilePendingPage > 1) {
+            this.mobilePendingPage--;
+            this.scrollMobileToTop('mobile-pending-list');
+          }
+        },
+        setPendingPage(p) {
+          if (p >= 1 && p <= this.mobileTotalPendingPages) {
+            this.mobilePendingPage = p;
+            this.scrollMobileToTop('mobile-pending-list');
+          }
+        },
+        scrollMobileToTop(elementId) {
+          const el = document.getElementById(elementId);
+          if (el) {
+            const rect = el.getBoundingClientRect();
+            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+            window.scrollTo({
+              top: Math.max(0, rect.top + scrollTop - 80),
+              behavior: 'smooth'
+            });
+          }
+        },
         get actionUrl() {
           if (!this.selectedItem) return '#';
           const params = new URLSearchParams();
@@ -267,7 +334,7 @@
     <div x-show="activeTab === 'pending'" class="space-y-4">
       
       <!-- Mobile Cards -->
-      <div class="block lg:hidden space-y-4">
+      <div class="block lg:hidden space-y-4" id="mobile-pending-list">
         <% if (pendingList.length === 0) { %>
           <div class="p-8 text-center text-slate-400">
             <i data-lucide="check-check" class="w-8 h-8 mx-auto text-emerald-500 mb-2"></i>
@@ -275,8 +342,8 @@
           </div>
         <% } %>
 
-        <% pendingList.forEach(function(item) { %>
-          <div class="p-4 rounded-2xl border border-amber-200 bg-amber-50/20 space-y-3">
+        <% pendingList.forEach(function(item, idx) { %>
+          <div x-show="isPendingVisible(<%= idx %>)" class="p-4 rounded-2xl border border-amber-200 bg-amber-50/20 space-y-3">
             <div class="flex items-start justify-between gap-3">
               <div>
                 <h3 class="font-bold text-sm text-slate-900"><%= item.employeeName %></h3>
@@ -319,15 +386,15 @@
             </div>
 
             <div class="pt-2 border-t border-slate-200 flex items-center justify-between gap-2">
-              <button @click="openDelete(<%= JSON.stringify(item) %>)" class="p-2 rounded-xl text-rose-600 hover:bg-rose-50 border border-rose-200" title="Hapus Pengajuan">
+              <button @click="openDelete(allPendingItems[<%= idx %>])" class="p-2 rounded-xl text-rose-600 hover:bg-rose-50 border border-rose-200" title="Hapus Pengajuan">
                 <i data-lucide="trash-2" class="w-4 h-4"></i>
               </button>
               <div class="flex items-center gap-2">
-                <button @click="openAction(<%= JSON.stringify(item) %>, 'reject')" class="btn-danger py-1.5 px-3 text-xs gap-1">
+                <button @click="openAction(allPendingItems[<%= idx %>], 'reject')" class="btn-danger py-1.5 px-3 text-xs gap-1">
                   <i data-lucide="x" class="w-3.5 h-3.5"></i>
                   <span>Tolak</span>
                 </button>
-                <button @click="openAction(<%= JSON.stringify(item) %>, 'approve')" class="btn-primary py-1.5 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200">
+                <button @click="openAction(allPendingItems[<%= idx %>], 'approve')" class="btn-primary py-1.5 px-3 text-xs gap-1 bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200">
                   <i data-lucide="check" class="w-3.5 h-3.5"></i>
                   <span>Setujui</span>
                 </button>
@@ -335,6 +402,79 @@
             </div>
           </div>
         <% }); %>
+
+        <!-- Mobile Pagination Controls for Antrean Menunggu Klarifikasi -->
+        <% if (pendingList.length > 0) { %>
+          <div class="p-3.5 bg-white rounded-2xl border border-slate-200/80 shadow-2xs space-y-3 mt-4">
+            <!-- Counter & Page size selector -->
+            <div class="flex items-center justify-between text-xs text-slate-600 gap-2">
+              <div class="flex items-center gap-1 font-medium truncate">
+                <span>Menampilkan</span>
+                <span class="font-bold text-slate-900" x-text="Math.min((mobilePendingPage - 1) * mobilePendingPerPage + 1, totalPendingCount)"></span>
+                <span>–</span>
+                <span class="font-bold text-slate-900" x-text="Math.min(mobilePendingPage * mobilePendingPerPage, totalPendingCount)"></span>
+                <span>dari</span>
+                <span class="font-bold text-indigo-600"><%= pendingList.length %></span>
+              </div>
+
+              <div class="flex items-center gap-1.5 shrink-0">
+                <span class="text-[10px] text-slate-400 font-bold uppercase">Per hal:</span>
+                <select x-model.number="mobilePendingPerPage" 
+                        @change="mobilePendingPage = 1" 
+                        class="form-select py-1 px-2 text-xs font-bold rounded-xl bg-slate-50 border-slate-200 text-slate-800 focus:outline-none">
+                  <option :value="5">5</option>
+                  <option :value="10">10</option>
+                  <option :value="25">25</option>
+                  <option :value="totalPendingCount">Semua</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Page Navigation Buttons (Only shown if more than 1 page) -->
+            <div x-show="mobileTotalPendingPages > 1" class="flex items-center justify-between gap-1 pt-2 border-t border-slate-100">
+              <!-- Prev Button -->
+              <button type="button" 
+                      @click="prevPendingPage()" 
+                      :disabled="mobilePendingPage <= 1"
+                      :class="mobilePendingPage <= 1 ? 'opacity-30 cursor-not-allowed text-slate-400 bg-slate-50' : 'bg-white hover:bg-slate-50 text-slate-700 shadow-2xs active:scale-95'"
+                      class="inline-flex items-center justify-center px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold transition-all gap-1">
+                <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+                <span class="hidden sm:inline">Prev</span>
+              </button>
+
+              <!-- Page Number Pills -->
+              <div class="flex items-center gap-1 overflow-x-auto custom-scrollbar px-1 py-0.5 max-w-[210px] sm:max-w-none">
+                <template x-for="(p, pIdx) in visiblePendingPageNumbers" :key="pIdx">
+                  <div class="inline-flex">
+                    <template x-if="p === '...'">
+                      <span class="px-1 text-slate-400 font-bold text-xs">...</span>
+                    </template>
+                    <template x-if="p !== '...'">
+                      <button type="button" 
+                              @click="setPendingPage(p)"
+                              :class="p === mobilePendingPage 
+                                ? 'bg-indigo-600 text-white font-extrabold shadow-sm shadow-indigo-200' 
+                                : 'bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold'"
+                              class="w-7 h-7 sm:w-8 sm:h-8 rounded-xl text-xs flex items-center justify-center transition-all"
+                              x-text="p">
+                      </button>
+                    </template>
+                  </div>
+                </template>
+              </div>
+
+              <!-- Next Button -->
+              <button type="button" 
+                      @click="nextPendingPage()" 
+                      :disabled="mobilePendingPage >= mobileTotalPendingPages"
+                      :class="mobilePendingPage >= mobileTotalPendingPages ? 'opacity-30 cursor-not-allowed text-slate-400 bg-slate-50' : 'bg-white hover:bg-slate-50 text-slate-700 shadow-2xs active:scale-95'"
+                      class="inline-flex items-center justify-center px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold transition-all gap-1">
+                <span class="hidden sm:inline">Next</span>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        <% } %>
       </div>
 
       <!-- Desktop Table -->
@@ -362,7 +502,7 @@
               </tr>
             <% } %>
 
-            <% pendingList.forEach(function(item) { %>
+            <% pendingList.forEach(function(item, idx) { %>
               <tr class="hover:bg-amber-50/30 transition-colors">
                 <td class="px-3.5 py-3 align-middle">
                   <div class="font-bold text-slate-900 text-xs leading-tight"><%= item.employeeName %></div>
@@ -404,15 +544,15 @@
 
                 <td class="px-3 py-3 text-right align-middle whitespace-nowrap">
                   <div class="flex items-center justify-end gap-1">
-                    <button @click="openAction(<%= JSON.stringify(item) %>, 'approve')" class="px-2 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[11px] hover:bg-emerald-700 transition-colors flex items-center gap-1 shadow-xs" title="Setujui Klarifikasi">
+                    <button @click="openAction(allPendingItems[<%= idx %>], 'approve')" class="px-2 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[11px] hover:bg-emerald-700 transition-colors flex items-center gap-1 shadow-xs" title="Setujui Klarifikasi">
                       <i data-lucide="check" class="w-3 h-3"></i>
                       <span>Setujui</span>
                     </button>
-                    <button @click="openAction(<%= JSON.stringify(item) %>, 'reject')" class="px-2 py-1 rounded-lg bg-amber-600 text-white font-bold text-[11px] hover:bg-amber-700 transition-colors flex items-center gap-1 shadow-xs" title="Tolak Klarifikasi">
+                    <button @click="openAction(allPendingItems[<%= idx %>], 'reject')" class="px-2 py-1 rounded-lg bg-amber-600 text-white font-bold text-[11px] hover:bg-amber-700 transition-colors flex items-center gap-1 shadow-xs" title="Tolak Klarifikasi">
                       <i data-lucide="x" class="w-3 h-3"></i>
                       <span>Tolak</span>
                     </button>
-                    <button @click="openDelete(<%= JSON.stringify(item) %>)" class="p-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors" title="Hapus Pengajuan">
+                    <button @click="openDelete(allPendingItems[<%= idx %>])" class="p-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors" title="Hapus Pengajuan">
                       <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                     </button>
                   </div>
@@ -454,7 +594,7 @@
               </tr>
             <% } %>
 
-            <% archiveList.forEach(function(item) { %>
+            <% archiveList.forEach(function(item, aIdx) { %>
               <tr class="hover:bg-slate-50/80 transition-colors">
                 <td class="px-3.5 py-3 align-middle">
                   <div class="font-bold text-slate-900 text-xs leading-tight"><%= item.employeeName %></div>
@@ -500,7 +640,7 @@
                 </td>
 
                 <td class="px-2.5 py-3 text-right align-middle whitespace-nowrap">
-                  <button @click="openDelete(<%= JSON.stringify(item) %>)" class="p-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors" title="Hapus dari Riwayat (Status dipulihkan)">
+                  <button @click="openDelete(allArchiveItems[<%= aIdx %>])" class="p-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors" title="Hapus dari Riwayat (Status dipulihkan)">
                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                   </button>
                 </td>
