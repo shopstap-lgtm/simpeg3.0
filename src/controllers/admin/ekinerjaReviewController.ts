@@ -9,12 +9,30 @@ const BULAN_NAMES = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
 export const ekinerjaReviewController = {
   show: async (req: Request, res: Response) => {
     try {
-      const activeTab = (req.query.tab as string) || 'pending';
       const filterUnit = (req.query.unit as string) || 'unit-all';
+      const filterStatus = (req.query.status as string) || 'ALL';
+      const search = ((req.query.search as string) || '').trim();
+      let activeTab = (req.query.tab as string) || 'pending';
+
+      // Auto-switch tab based on review status filter
+      if (filterStatus === 'APPROVED' || filterStatus === 'REJECTED') {
+        activeTab = 'history';
+      } else if (filterStatus === 'PENDING') {
+        activeTab = 'pending';
+      }
 
       const whereClause: any = {};
       if (filterUnit !== 'unit-all') {
-        whereClause.employee = { unitId: filterUnit };
+        whereClause.employee = { ...whereClause.employee, unitId: filterUnit };
+      }
+      if (search) {
+        whereClause.employee = {
+          ...whereClause.employee,
+          OR: [
+            { nama: { contains: search, mode: 'insensitive' } },
+            { nip: { contains: search } }
+          ]
+        };
       }
 
       const [allUnits, allReports] = await Promise.all([
@@ -54,12 +72,24 @@ export const ekinerjaReviewController = {
         submittedAt: item.createdAt.toISOString().replace('T', ' ').substring(0, 16)
       }));
 
-      const pendingList = formatted.filter(item => item.statusReview === 'PENDING');
-      const archiveList = formatted.filter(item => item.statusReview === 'APPROVED' || item.statusReview === 'REJECTED');
-
+      // Total counters matching unit & search
       const pendingCount = formatted.filter(c => c.statusReview === 'PENDING').length;
       const approvedCount = formatted.filter(c => c.statusReview === 'APPROVED').length;
       const rejectedCount = formatted.filter(c => c.statusReview === 'REJECTED').length;
+
+      // Filtered lists for tabs
+      let pendingList = formatted.filter(item => item.statusReview === 'PENDING');
+      let archiveList = formatted.filter(item => item.statusReview === 'APPROVED' || item.statusReview === 'REJECTED');
+
+      if (filterStatus === 'APPROVED') {
+        archiveList = archiveList.filter(item => item.statusReview === 'APPROVED');
+        pendingList = [];
+      } else if (filterStatus === 'REJECTED') {
+        archiveList = archiveList.filter(item => item.statusReview === 'REJECTED');
+        pendingList = [];
+      } else if (filterStatus === 'PENDING') {
+        archiveList = [];
+      }
 
       const units = [
         { id: 'unit-all', namaUnit: 'Semua Unit Kerja' },
@@ -79,6 +109,8 @@ export const ekinerjaReviewController = {
         archiveList,
         units,
         filterUnit,
+        filterStatus,
+        search,
         pendingCount,
         approvedCount,
         rejectedCount,

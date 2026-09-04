@@ -5,13 +5,30 @@ import { deleteFileFromStorage } from '../../lib/supabase';
 export const klarifikasiController = {
   show: async (req: Request, res: Response) => {
     try {
-      const activeTab = (req.query.tab as string) || 'pending';
       const filterUnit = (req.query.unit as string) || 'unit-all';
-      const filterHistoryStatus = (req.query.historyStatus as string) || 'ALL';
+      const filterStatus = (req.query.status as string) || (req.query.historyStatus as string) || 'ALL';
+      const search = ((req.query.search as string) || '').trim();
+      let activeTab = (req.query.tab as string) || 'pending';
+
+      // Auto-switch tab based on review status filter
+      if (filterStatus === 'APPROVED' || filterStatus === 'REJECTED') {
+        activeTab = 'history';
+      } else if (filterStatus === 'PENDING') {
+        activeTab = 'pending';
+      }
 
       const whereClause: any = {};
       if (filterUnit !== 'unit-all') {
-        whereClause.employee = { unitId: filterUnit };
+        whereClause.employee = { ...whereClause.employee, unitId: filterUnit };
+      }
+      if (search) {
+        whereClause.employee = {
+          ...whereClause.employee,
+          OR: [
+            { nama: { contains: search, mode: 'insensitive' } },
+            { nip: { contains: search } }
+          ]
+        };
       }
 
       const [allUnits, allClarifications] = await Promise.all([
@@ -44,18 +61,24 @@ export const klarifikasiController = {
         createdAt: c.createdAt.toISOString().replace('T', ' ').substring(0, 16)
       }));
 
-      // Tab 1: Antrean Menunggu Verifikasi (Only PENDING)
-      const pendingList = formatted.filter(c => c.statusVerifikasi === 'PENDING');
-
-      // Tab 2: Riwayat & Arsip (Only APPROVED & REJECTED)
-      let archiveList = formatted.filter(c => c.statusVerifikasi !== 'PENDING');
-      if (filterHistoryStatus !== 'ALL') {
-        archiveList = archiveList.filter(c => c.statusVerifikasi === filterHistoryStatus);
-      }
-
+      // Total counters matching unit & search
       const pendingCount = formatted.filter(c => c.statusVerifikasi === 'PENDING').length;
       const approvedCount = formatted.filter(c => c.statusVerifikasi === 'APPROVED').length;
       const rejectedCount = formatted.filter(c => c.statusVerifikasi === 'REJECTED').length;
+
+      // Filtered lists for tabs
+      let pendingList = formatted.filter(c => c.statusVerifikasi === 'PENDING');
+      let archiveList = formatted.filter(c => c.statusVerifikasi !== 'PENDING');
+
+      if (filterStatus === 'APPROVED') {
+        archiveList = archiveList.filter(c => c.statusVerifikasi === 'APPROVED');
+        pendingList = [];
+      } else if (filterStatus === 'REJECTED') {
+        archiveList = archiveList.filter(c => c.statusVerifikasi === 'REJECTED');
+        pendingList = [];
+      } else if (filterStatus === 'PENDING') {
+        archiveList = [];
+      }
 
       const units = [
         { id: 'unit-all', namaUnit: 'Semua Unit Kerja' },
@@ -75,7 +98,9 @@ export const klarifikasiController = {
         archiveList,
         units,
         filterUnit,
-        filterHistoryStatus,
+        filterStatus,
+        filterHistoryStatus: filterStatus,
+        search,
         pendingCount,
         approvedCount,
         rejectedCount,
