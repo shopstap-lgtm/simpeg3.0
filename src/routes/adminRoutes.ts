@@ -72,6 +72,7 @@ router.post('/klarifikasi/:id/delete', klarifikasiController.delete);
 // Upload Rekap Absensi (SUPER_ADMIN & ADMIN_DINAS Only)
 router.get('/upload-absensi', requireSuperAdminOrDinas, uploadAbsensiController.show);
 router.post('/upload-absensi', requireSuperAdminOrDinas, diskUpload.array('excelFiles', 60), uploadAbsensiController.processUpload);
+router.post('/upload-absensi/reset', requireSuperAdminOrDinas, uploadAbsensiController.resetAttendance);
 
 // Ekinerja Review
 // ⚠️ Export routes MUST be before :id routes, otherwise Express treats "export" as :id value

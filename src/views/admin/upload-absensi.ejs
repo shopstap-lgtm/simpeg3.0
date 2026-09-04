@@ -6,6 +6,7 @@
       x-data="{
         isDragging: false,
         excelFileList: [],
+        resetModal: false,
         handleFiles(files) {
           if (!files) return;
           this.excelFileList = Array.from(files).map(f => f.name);
@@ -23,14 +24,14 @@
         <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5"></i>
         <span>Operasional Absensi</span>
       </div>
-      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Upload Rekap Absensi (Excel)</h1>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Upload Rekap Absensi Bisma (Excel)</h1>
       <p class="text-xs sm:text-sm text-slate-500 mt-1">
-        Sinkronisasi rekapitulasi data kehadiran presensi pegawai dari file export e-absensi ke dalam database SIMPEG.
+        Sinkronisasi rekapitulasi data kehadiran presensi pegawai dari file export Absen Bisma langsung ke dalam database SIMPEG.
       </p>
     </div>
 
-    <!-- Quick Stats Pill -->
-    <div class="flex items-center gap-2">
+    <!-- Quick Stats Pill & Action -->
+    <div class="flex items-center flex-wrap gap-2">
       <div class="px-4 py-2 rounded-2xl bg-white border border-slate-200 shadow-2xs text-xs font-semibold text-slate-700 flex items-center gap-2">
         <i data-lucide="users" class="w-4 h-4 text-indigo-600"></i>
         <span><%= totalEmployees %> Pegawai Aktif</span>
@@ -39,6 +40,14 @@
         <i data-lucide="building-2" class="w-4 h-4 text-emerald-600"></i>
         <span><%= totalUnits %> Unit Kerja</span>
       </div>
+      <% if (totalDays > 0) { %>
+        <button type="button" 
+                @click="resetModal = true" 
+                class="px-3.5 py-2 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-600"></i>
+          <span>Kosongkan Presensi</span>
+        </button>
+      <% } %>
     </div>
   </div>
 
@@ -116,9 +125,9 @@
             <h3 class="text-sm sm:text-base font-bold text-slate-800">Klik atau seret file Excel ke area ini</h3>
             <p class="text-xs text-slate-500 mt-1">Mendukung format Microsoft Excel (.xlsx / .xls) hingga 60 file sekaligus</p>
           </div>
-          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-200/80 text-[11px] font-semibold text-slate-700">
-            <i data-lucide="shield-check" class="w-3.5 h-3.5 text-teal-600"></i>
-            <span>Format nama: Export_eabsensi_DDMMYYYY_HHMMSS.xlsx</span>
+          <div class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200/80 text-[11px] font-semibold text-emerald-800 shadow-2xs">
+            <i data-lucide="calendar-check" class="w-3.5 h-3.5 text-emerald-600"></i>
+            <span>Tanggal otomatis dibaca dari isi file: <b>DATA PER-03 Agustus 2026</b></span>
           </div>
         </div>
       </div>
@@ -177,10 +186,18 @@
       </div>
 
       <div class="text-xs text-slate-600 space-y-3 leading-relaxed">
-        <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
-          <p class="font-bold text-slate-800">1. Ketentuan Nama File:</p>
-          <p class="font-mono text-indigo-600 font-semibold mt-1">Export_eabsensi_DDMMYYYY_HHMMSS.xlsx</p>
-          <p class="text-[11px] text-slate-500 mt-0.5">Contoh: <span class="font-mono text-slate-700">Export_eabsensi_13082026_131053.xlsx</span> $\rightarrow$ Tanggal 13 Agustus 2026.</p>
+        <div class="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200">
+          <p class="font-bold text-emerald-900 flex items-center gap-1.5">
+            <i data-lucide="calendar" class="w-4 h-4 text-emerald-600"></i>
+            <span>1. Pembacaan Tanggal Absensi (Absen Bisma):</span>
+          </p>
+          <p class="text-[11px] text-emerald-800 mt-1">
+            Sistem secara otomatis membaca tanggal presensi dari baris data dalam file Excel:
+            <span class="font-mono font-bold bg-white px-1.5 py-0.5 rounded border border-emerald-200 text-emerald-700">DATA PER-03 Agustus 2026</span>.
+          </p>
+          <p class="text-[11px] text-slate-500 mt-1">
+            Nama file Excel bebas (tidak wajib berformat khusus), sistem akan memetakan presensi ke tanggal yang tertera di dalam dokumen.
+          </p>
         </div>
 
         <p class="font-bold text-slate-800">2. Kolom yang Dibaca dari File:</p>
@@ -267,6 +284,50 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- MODAL KONFIRMASI KOSONGKAN PRESENSI -->
+  <div x-show="resetModal" 
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs"
+       style="display: none;"
+       @keydown.escape.window="resetModal = false">
+    
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100"
+         @click.away="resetModal = false">
+      <div class="flex items-center gap-3 text-rose-600">
+        <div class="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center shrink-0">
+          <i data-lucide="alert-triangle" class="w-6 h-6 text-rose-600"></i>
+        </div>
+        <div>
+          <h3 class="font-bold text-base text-slate-900">Kosongkan Data Presensi?</h3>
+          <p class="text-xs text-slate-500">Tindakan ini akan menghapus seluruh data kehadiran</p>
+        </div>
+      </div>
+
+      <div class="p-3.5 rounded-2xl bg-rose-50/70 border border-rose-200 text-xs text-rose-900 space-y-1">
+        <p class="font-bold">Perhatian:</p>
+        <p>Seluruh <b><%= totalDays %> record kehadiran</b> dan periode presensi yang tersimpan saat ini akan dihapus permanen dan total record akan kembali menjadi <b>0 record</b>.</p>
+      </div>
+
+      <form action="/admin/upload-absensi/reset" method="POST" class="flex items-center justify-end gap-2 pt-2">
+        <button type="button" 
+                @click="resetModal = false"
+                class="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-bold text-xs hover:bg-slate-50 transition-colors cursor-pointer">
+          Batal
+        </button>
+        <button type="submit" 
+                class="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+          <span>Ya, Kosongkan Sekarang</span>
+        </button>
+      </form>
+    </div>
   </div>
 
 </main>
