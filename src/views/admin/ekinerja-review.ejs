@@ -132,13 +132,24 @@
 
         get currentPdfUrl() {
           if (!this.selectedReport) return '';
-          return this.activeDocType === 'harian' ? this.selectedReport.fileHarianUrl : this.selectedReport.fileBulananUrl;
+          const url = this.activeDocType === 'harian' ? this.selectedReport.fileHarianUrl : this.selectedReport.fileBulananUrl;
+          if (!url) return '';
+          const v = this.selectedReport.updatedAtTimestamp || Date.now();
+          return url.includes('?') ? `${url}&v=${v}` : `${url}?v=${v}`;
         },
 
         get currentPdfViewerUrl() {
           const url = this.currentPdfUrl;
           if (!url) return 'about:blank';
           return url.includes('#') ? url : (url + '#toolbar=1&navpanes=0&view=FitH');
+        },
+
+        getPdfUrl(type) {
+          if (!this.selectedReport) return '#';
+          const url = type === 'harian' ? this.selectedReport.fileHarianUrl : this.selectedReport.fileBulananUrl;
+          if (!url) return '#';
+          const v = this.selectedReport.updatedAtTimestamp || Date.now();
+          return url.includes('?') ? `${url}&v=${v}` : `${url}?v=${v}`;
         },
 
         get currentPdfName() {
@@ -1059,13 +1070,13 @@
                       </div>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0" x-show="selectedReport && selectedReport.fileHarianUrl">
-                      <a :href="selectedReport ? selectedReport.fileHarianUrl : '#'" 
+                      <a :href="getPdfUrl('harian')" 
                          :download="selectedReport ? selectedReport.fileHarianName : 'Laporan-Harian.pdf'"
                          class="p-2 rounded-xl bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-100 shadow-2xs"
                          title="Unduh Berkas PDF">
                         <i data-lucide="download" class="w-4 h-4"></i>
                       </a>
-                      <a :href="selectedReport ? selectedReport.fileHarianUrl : '#'" 
+                      <a :href="getPdfUrl('harian')" 
                          target="_blank"
                          rel="noopener noreferrer"
                          class="inline-flex items-center gap-1 py-1.5 px-3 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 shadow-xs"
@@ -1093,13 +1104,13 @@
                       </div>
                     </div>
                     <div class="flex items-center gap-1.5 shrink-0" x-show="selectedReport && selectedReport.fileBulananUrl">
-                      <a :href="selectedReport ? selectedReport.fileBulananUrl : '#'" 
+                      <a :href="getPdfUrl('bulanan')" 
                          :download="selectedReport ? selectedReport.fileBulananName : 'Laporan-Bulanan.pdf'"
                          class="p-2 rounded-xl bg-white border border-emerald-200 text-emerald-600 hover:bg-emerald-100 shadow-2xs"
                          title="Unduh Berkas PDF">
                         <i data-lucide="download" class="w-4 h-4"></i>
                       </a>
-                      <a :href="selectedReport ? selectedReport.fileBulananUrl : '#'" 
+                      <a :href="getPdfUrl('bulanan')" 
                          target="_blank"
                          rel="noopener noreferrer"
                          class="inline-flex items-center gap-1 py-1.5 px-3 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 shadow-xs"

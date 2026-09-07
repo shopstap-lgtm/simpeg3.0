@@ -166,7 +166,8 @@ export const ekinerjaController = {
             statusReview: report.statusReview,
             catatanAdmin: report.catatanAdmin,
             reviewedBy: report.reviewedBy,
-            reviewedAt: report.reviewedAt
+            reviewedAt: report.reviewedAt,
+            updatedAtTimestamp: report.updatedAt ? new Date(report.updatedAt).getTime() : Date.now()
           } : undefined,
           canUpload
         };
@@ -304,6 +305,10 @@ export const ekinerjaController = {
       let fileBulananName: string | undefined;
 
       if (fileHarian) {
+        if (existingReport?.fileHarianUrl) {
+          await deleteFileFromStorage(existingReport.fileHarianUrl);
+        }
+
         const ext = fileHarian.originalname.includes('.') 
           ? '.' + fileHarian.originalname.split('.').pop()!.toLowerCase() 
           : '.pdf';
@@ -312,7 +317,7 @@ export const ekinerjaController = {
         const result = await uploadToStorage('ekinerja', fileHarian.buffer, fileHarian.mimetype, folder, autoName);
         if (result) {
           fileHarianUrl = result.url;
-          fileHarianName = autoName;
+          fileHarianName = result.path || autoName;
         } else {
           // Fallback to Base64 if Supabase upload fails
           console.warn('[Upload] Supabase upload failed, falling back to Base64 for fileHarian');
@@ -322,6 +327,10 @@ export const ekinerjaController = {
       }
 
       if (fileBulanan) {
+        if (existingReport?.fileBulananUrl) {
+          await deleteFileFromStorage(existingReport.fileBulananUrl);
+        }
+
         const ext = fileBulanan.originalname.includes('.')
           ? '.' + fileBulanan.originalname.split('.').pop()!.toLowerCase()
           : '.pdf';
@@ -330,20 +339,12 @@ export const ekinerjaController = {
         const result = await uploadToStorage('ekinerja', fileBulanan.buffer, fileBulanan.mimetype, folder, autoName);
         if (result) {
           fileBulananUrl = result.url;
-          fileBulananName = autoName;
+          fileBulananName = result.path || autoName;
         } else {
           console.warn('[Upload] Supabase upload failed, falling back to Base64 for fileBulanan');
           fileBulananUrl = `data:${fileBulanan.mimetype};base64,${fileBulanan.buffer.toString('base64')}`;
           fileBulananName = fileBulanan.originalname;
         }
-      }
-
-      // Bersihkan berkas fisik lama yang digantikan agar tidak menjadi sampah
-      if (fileHarianUrl && existingReport?.fileHarianUrl && existingReport.fileHarianUrl !== fileHarianUrl) {
-        await deleteFileFromStorage(existingReport.fileHarianUrl);
-      }
-      if (fileBulananUrl && existingReport?.fileBulananUrl && existingReport.fileBulananUrl !== fileBulananUrl) {
-        await deleteFileFromStorage(existingReport.fileBulananUrl);
       }
 
       if (!existingReport && !fileHarian && !fileBulanan) {

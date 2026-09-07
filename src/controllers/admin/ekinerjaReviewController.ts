@@ -99,7 +99,8 @@ export const ekinerjaReviewController = {
         catatanAdmin: item.catatanAdmin,
         reviewedBy: item.reviewedBy,
         reviewedAt: formatWIB(item.reviewedAt),
-        submittedAt: formatWIB(item.createdAt)
+        submittedAt: formatWIB(item.createdAt),
+        updatedAtTimestamp: item.updatedAt ? new Date(item.updatedAt).getTime() : Date.now()
       }));
 
       // Total counters matching unit & search
