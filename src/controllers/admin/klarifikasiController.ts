@@ -1,6 +1,10 @@
 import { Request, Response } from 'express';
 import prisma from '../../lib/prisma';
+import * as XLSX from 'xlsx';
 import { deleteFileFromStorage } from '../../lib/supabase';
+
+const BULAN_NAMES = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+  'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
 
 const formatWIB = (date: Date | string | null | undefined): string => {
   if (!date) return '-';
@@ -15,6 +19,30 @@ const formatWIB = (date: Date | string | null | undefined): string => {
     minute: '2-digit',
     hour12: false
   }).format(d);
+};
+
+const matchesClarificationMonthYear = (c: any, bulan: number, tahun: number): boolean => {
+  const padBulan = String(bulan).padStart(2, '0');
+  const yStr = String(tahun);
+
+  if (c.tanggalAbsen) {
+    const t = String(c.tanggalAbsen);
+    if (t.includes(`${yStr}-${padBulan}`) || 
+        t.includes(`${padBulan}-${yStr}`) ||
+        t.includes(`/${padBulan}/${yStr}`)) {
+      return true;
+    }
+  }
+
+  if (c.createdAt) {
+    const d = new Date(c.createdAt);
+    if (!isNaN(d.getTime())) {
+      if (d.getFullYear() === tahun && (d.getMonth() + 1) === bulan) {
+        return true;
+      }
+    }
+  }
+  return false;
 };
 
 const buildRedirectUrl = (req: Request, defaultTab = 'pending') => {
@@ -338,6 +366,286 @@ export const klarifikasiController = {
     } catch (error) {
       console.error('Error in klarifikasiController.delete:', error);
       res.redirect(buildRedirectUrl(req, 'pending'));
+    }
+  },
+
+  exportExcel: async (req: Request, res: Response) => {
+    try {
+      const bulan = parseInt(req.query.bulan as string) || new Date().getMonth() + 1;
+      const tahun = parseInt(req.query.tahun as string) || new Date().getFullYear();
+      const filterUnit = (req.query.unit as string) || 'unit-all';
+      const filterStatus = (req.query.status as string) || 'ALL';
+
+      // Only allow SUPER_ADMIN and ADMIN_KORWIL
+      const userRole = (req as any).session?.user?.role;
+      if (userRole === 'ADMIN_DINAS') {
+        return res.status(403).send('Akses ditolak.');
+      }
+
+      const whereClause: any = {};
+      if (filterUnit !== 'unit-all') {
+        whereClause.employee = { unitId: filterUnit };
+      }
+      if (filterStatus && filterStatus !== 'ALL') {
+        whereClause.statusVerifikasi = filterStatus;
+      }
+
+      const allClarifications = await prisma.clarification.findMany({
+        where: whereClause,
+        include: {
+          employee: {
+            include: { unit: true }
+          }
+        },
+        orderBy: [
+          { employee: { unit: { namaUnit: 'asc' } } },
+          { employee: { nama: 'asc' } },
+          { createdAt: 'desc' }
+        ]
+      });
+
+      const filtered = allClarifications.filter(c => matchesClarificationMonthYear(c, bulan, tahun));
+
+      const rows = filtered.map((c, idx) => {
+        const statusLabel = c.statusVerifikasi === 'APPROVED' ? 'Disetujui' :
+          c.statusVerifikasi === 'REJECTED' ? 'Ditolak' : 'Menunggu Verifikasi';
+        return {
+          'No': idx + 1,
+          'NIP': c.employee.nip,
+          'Nama Pegawai': c.employee.nama,
+          'Jabatan': c.employee.jabatan || 'Guru',
+          'Unit Kerja / Sekolah': c.employee.unit.namaUnit,
+          'Status Kepegawaian': c.employee.statusKepegawaian || '-',
+          'Tanggal Absen': c.tanggalAbsen,
+          'Status Awal': c.statusAwal,
+          'Status Pengganti': c.statusPengganti,
+          'Alasan / Keterangan': c.alasan,
+          'Nama Berkas Bukti': c.fileName || '-',
+          'Status Review': statusLabel,
+          'Catatan Admin': c.catatanAdmin || '-',
+          'Diverifikasi Oleh': c.reviewedBy || '-',
+          'Waktu Verifikasi': c.reviewedAt || '-',
+          'Waktu Pengajuan': formatWIB(c.createdAt)
+        };
+      });
+
+      if (rows.length === 0) {
+        rows.push({
+          'No': '-',
+          'NIP': '-',
+          'Nama Pegawai': 'Tidak ada permohonan klarifikasi untuk periode ini',
+          'Jabatan': '-',
+          'Unit Kerja / Sekolah': '-',
+          'Status Kepegawaian': '-',
+          'Tanggal Absen': '-',
+          'Status Awal': '-',
+          'Status Pengganti': '-',
+          'Alasan / Keterangan': '-',
+          'Nama Berkas Bukti': '-',
+          'Status Review': '-',
+          'Catatan Admin': '-',
+          'Diverifikasi Oleh': '-',
+          'Waktu Verifikasi': '-',
+          'Waktu Pengajuan': '-'
+        } as any);
+      }
+
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.json_to_sheet(rows);
+
+      ws['!cols'] = [
+        { wch: 5 },  // No
+        { wch: 22 }, // NIP
+        { wch: 35 }, // Nama Pegawai
+        { wch: 20 }, // Jabatan
+        { wch: 35 }, // Unit Kerja
+        { wch: 18 }, // Status Kepegawaian
+        { wch: 24 }, // Tanggal Absen
+        { wch: 12 }, // Status Awal
+        { wch: 16 }, // Status Pengganti
+        { wch: 40 }, // Alasan
+        { wch: 30 }, // Berkas
+        { wch: 20 }, // Status
+        { wch: 35 }, // Catatan
+        { wch: 22 }, // Diverifikasi Oleh
+        { wch: 20 }, // Waktu Verifikasi
+        { wch: 20 }  // Waktu Pengajuan
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, `Klarifikasi ${BULAN_NAMES[bulan]} ${tahun}`);
+
+      const buffer = XLSX.write(wb, { bookType: 'xlsx', type: 'buffer' });
+      const filename = `Laporan_Klarifikasi_Absensi_${BULAN_NAMES[bulan]}_${tahun}.xlsx`;
+
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.send(buffer);
+    } catch (error) {
+      console.error('Error in exportExcel klarifikasi:', error);
+      res.status(500).send('Gagal mengekspor data klarifikasi.');
+    }
+  },
+
+  exportPdf: async (req: Request, res: Response) => {
+    try {
+      const bulan = parseInt(req.query.bulan as string) || new Date().getMonth() + 1;
+      const tahun = parseInt(req.query.tahun as string) || new Date().getFullYear();
+      const filterUnit = (req.query.unit as string) || 'unit-all';
+      const filterStatus = (req.query.status as string) || 'ALL';
+
+      // Only allow SUPER_ADMIN and ADMIN_KORWIL
+      const userRole = (req as any).session?.user?.role;
+      if (userRole === 'ADMIN_DINAS') {
+        return res.status(403).send('Akses ditolak.');
+      }
+
+      const whereClause: any = {};
+      if (filterUnit !== 'unit-all') {
+        whereClause.employee = { unitId: filterUnit };
+      }
+      if (filterStatus && filterStatus !== 'ALL') {
+        whereClause.statusVerifikasi = filterStatus;
+      }
+
+      const [allUnits, allClarifications] = await Promise.all([
+        prisma.unit.findMany({ orderBy: { namaUnit: 'asc' } }),
+        prisma.clarification.findMany({
+          where: whereClause,
+          include: {
+            employee: {
+              include: { unit: true }
+            }
+          },
+          orderBy: [
+            { employee: { unit: { namaUnit: 'asc' } } },
+            { employee: { nama: 'asc' } },
+            { createdAt: 'desc' }
+          ]
+        })
+      ]);
+
+      const unitLabel = filterUnit === 'unit-all' ? 'Semua Unit Kerja' :
+        allUnits.find(u => u.id === filterUnit)?.namaUnit || '-';
+
+      const filtered = allClarifications.filter(c => matchesClarificationMonthYear(c, bulan, tahun));
+
+      const totalCount = filtered.length;
+      const approvedCount = filtered.filter(c => c.statusVerifikasi === 'APPROVED').length;
+      const rejectedCount = filtered.filter(c => c.statusVerifikasi === 'REJECTED').length;
+      const pendingCount = filtered.filter(c => c.statusVerifikasi === 'PENDING').length;
+
+      const printedAt = new Date().toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', dateStyle: 'long', timeStyle: 'short' });
+
+      const html = `<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Laporan Klarifikasi Absensi ${BULAN_NAMES[bulan]} ${tahun}</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: Arial, sans-serif; font-size: 10px; color: #1e293b; background: #fff; }
+  @page { size: A4 landscape; margin: 10mm 12mm; }
+  .header { text-align: center; margin-bottom: 10px; border-bottom: 2px solid #1e3a5f; padding-bottom: 8px; }
+  .header h1 { font-size: 14px; font-weight: bold; color: #1e3a5f; }
+  .header p { font-size: 10px; color: #475569; margin-top: 2px; }
+  .meta { display: flex; justify-content: space-between; font-size: 9px; color: #64748b; margin-bottom: 8px; }
+  .summary { display: flex; gap: 8px; margin-bottom: 8px; font-size: 9px; }
+  .summary-box { padding: 4px 8px; border-radius: 4px; border: 1px solid #e2e8f0; font-weight: 500; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #1e3a5f; color: white; padding: 6px 6px; text-align: left; font-size: 9px; }
+  td { padding: 5px 6px; border-bottom: 1px solid #e2e8f0; vertical-align: top; font-size: 9px; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .status { font-weight: bold; font-size: 8px; padding: 2px 6px; border-radius: 4px; display: inline-block; }
+  .footer { margin-top: 14px; font-size: 8px; color: #94a3b8; text-align: center; }
+  @media print {
+    .no-print { display: none !important; }
+    body { background: white; }
+  }
+</style>
+</head>
+<body>
+<div class="no-print" style="position:fixed;top:12px;right:14px;z-index:999;">
+  <button onclick="window.print()" style="background:#1e3a5f;color:white;border:none;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:bold;box-shadow:0 2px 6px rgba(0,0,0,0.15);">🖨 Cetak / Save PDF</button>
+  <button onclick="window.close()" style="background:#64748b;color:white;border:none;padding:8px 12px;border-radius:8px;cursor:pointer;font-size:11px;margin-left:6px;">✕ Tutup</button>
+</div>
+<div class="header">
+  <h1>LAPORAN KLARIFIKASI ABSENSI PEGAWAI</h1>
+  <p>Korwil Pendidikan Kecamatan Cibitung &nbsp;|&nbsp; Periode: ${BULAN_NAMES[bulan]} ${tahun} &nbsp;|&nbsp; Unit: ${unitLabel}</p>
+</div>
+<div class="meta">
+  <div class="summary">
+    <div class="summary-box">Total: <b>${totalCount}</b></div>
+    <div class="summary-box" style="border-color:#bbf7d0;color:#166534;background:#f0fdf4;">Disetujui: <b>${approvedCount}</b></div>
+    <div class="summary-box" style="border-color:#fecaca;color:#991b1b;background:#fef2f2;">Ditolak: <b>${rejectedCount}</b></div>
+    <div class="summary-box" style="border-color:#fef08a;color:#854d0e;background:#fefce8;">Menunggu: <b>${pendingCount}</b></div>
+  </div>
+  <span style="align-self:center;">Dicetak: ${printedAt}</span>
+</div>
+<table>
+  <thead>
+    <tr>
+      <th style="width:28px;text-align:center;">No</th>
+      <th style="width:110px;">NIP</th>
+      <th style="width:160px;">Nama Pegawai</th>
+      <th style="width:150px;">Unit Kerja / Sekolah</th>
+      <th style="width:95px;">Tanggal Absen</th>
+      <th style="width:80px;text-align:center;">Status</th>
+      <th style="width:160px;">Alasan / Keterangan</th>
+      <th style="width:85px;text-align:center;">Verifikasi</th>
+      <th>Catatan Admin / Verifikator</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${filtered.length === 0 ? `
+    <tr>
+      <td colspan="9" style="text-align:center;padding:24px;color:#94a3b8;font-size:11px;">
+        Tidak ada data klarifikasi absensi untuk periode ${BULAN_NAMES[bulan]} ${tahun}
+      </td>
+    </tr>` : filtered.map((c, idx) => {
+      const statusText = c.statusVerifikasi === 'APPROVED' ? 'Disetujui' :
+        c.statusVerifikasi === 'REJECTED' ? 'Ditolak' : 'Menunggu';
+      const statusColor = c.statusVerifikasi === 'APPROVED' ? '#16a34a' :
+        c.statusVerifikasi === 'REJECTED' ? '#dc2626' : '#d97706';
+      const statusBg = c.statusVerifikasi === 'APPROVED' ? '#f0fdf4' :
+        c.statusVerifikasi === 'REJECTED' ? '#fef2f2' : '#fffbeb';
+      return `
+    <tr>
+      <td style="text-align:center;">${idx + 1}</td>
+      <td style="font-family:monospace;">${c.employee.nip}</td>
+      <td><b>${c.employee.nama}</b><div style="color:#64748b;font-size:8px;">${c.employee.statusKepegawaian || ''}</div></td>
+      <td>${c.employee.unit.namaUnit}</td>
+      <td style="font-weight:600;">${c.tanggalAbsen}</td>
+      <td style="text-align:center;">
+        <span style="font-weight:bold;color:#64748b;">${c.statusAwal}</span>
+        <span style="color:#94a3b8;margin:0 2px;">➔</span>
+        <span style="font-weight:bold;color:#0f766e;">${c.statusPengganti}</span>
+      </td>
+      <td>${c.alasan || '-'}</td>
+      <td style="text-align:center;">
+        <span class="status" style="color:${statusColor};border:1px solid ${statusColor};background:${statusBg};">
+          ${statusText}
+        </span>
+      </td>
+      <td>
+        ${c.catatanAdmin ? `<div>${c.catatanAdmin}</div>` : ''}
+        ${c.reviewedBy ? `<div style="color:#64748b;font-size:8px;margin-top:2px;">Oleh: ${c.reviewedBy} (${c.reviewedAt || '-'})</div>` : ''}
+        ${!c.catatanAdmin && !c.reviewedBy ? '-' : ''}
+      </td>
+    </tr>`;
+    }).join('')}
+  </tbody>
+</table>
+<div class="footer">
+  Dokumen ini digenerate otomatis oleh Sistem SIMPEG Korwil Cibitung &mdash; ${printedAt}
+</div>
+</body>
+</html>`;
+
+      res.setHeader('Content-Type', 'text/html');
+      res.send(html);
+    } catch (error) {
+      console.error('Error in exportPdf klarifikasi:', error);
+      res.status(500).send('Gagal mengekspor PDF data klarifikasi.');
     }
   },
 

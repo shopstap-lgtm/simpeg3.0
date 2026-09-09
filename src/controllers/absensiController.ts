@@ -83,7 +83,8 @@ export const absensiController = {
       ]);
 
       // JIKA NIP DIISI (Opsi 1: Cek Mandiri Pegawai - berlaku baik untuk publik maupun admin yang sedang mencoba)
-      if (nipQuery) {
+      const isCekPresensiClosed = !isAdmin && !!(cms as any)?.maintenanceCekPresensi;
+      if (nipQuery && !isCekPresensiClosed) {
         const foundEmp = await prisma.employee.findFirst({
           where: { nip: nipQuery, aktif: true },
           include: { unit: true }
@@ -339,7 +340,10 @@ export const absensiController = {
           totalPages: limit === 999999 ? 1 : Math.max(1, Math.ceil(totalFilteredEmployees / limit)),
           from: totalFilteredEmployees === 0 ? 0 : (page - 1) * limit + 1,
           to: limit === 999999 ? totalFilteredEmployees : Math.min(page * limit, totalFilteredEmployees)
-        }
+        },
+        maintenanceCekPresensi: !!(cms as any)?.maintenanceCekPresensi,
+        maintenanceTitle: (cms as any)?.maintenanceTitle || 'Sedang Dalam Pemeliharaan',
+        maintenanceMessage: (cms as any)?.maintenanceMessage || 'Form cek presensi mandiri pegawai sedang dalam pemeliharaan berkala. Mohon kembali beberapa saat lagi.'
       });
     } catch (error: any) {
       console.error('Error in absensiController.show:', error);

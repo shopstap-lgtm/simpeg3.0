@@ -20,18 +20,14 @@
       }">
 
   <!-- Page Header -->
-  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
     <div>
-      <div class="flex items-center gap-2">
-        <span class="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 text-xs font-bold uppercase tracking-wider border border-amber-100">Super Admin Only</span>
-        <span class="text-xs text-slate-400">Master Data</span>
-      </div>
-      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">Data Unit Kerja / Sekolah</h1>
-      <p class="text-xs sm:text-sm text-slate-500">Kelola daftar unit kerja / sekolah beserta informasi kepala sekolah</p>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900">Unit Kerja / Sekolah</h1>
+      <p class="text-xs sm:text-sm text-slate-500 mt-0.5">Kelola daftar sekolah dan informasi kepala sekolah di lingkungan Korwil Cibitung</p>
     </div>
     <button @click="addModal = true"
             id="btn-tambah-unit"
-            class="btn-primary py-2.5 px-4 text-xs gap-2 shadow-sm">
+            class="btn-primary py-2.5 px-4 text-xs gap-2 shadow-xs self-start md:self-auto">
       <i data-lucide="plus" class="w-4 h-4"></i>
       <span>Tambah Unit Kerja</span>
     </button>

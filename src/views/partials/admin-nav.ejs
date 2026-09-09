@@ -7,8 +7,7 @@
          localStorage.setItem('simpeg_sidebar_collapsed', this.sidebarCollapsed);
        }
      }" 
-     class="h-screen max-h-screen min-h-screen w-full flex bg-slate-50 text-slate-800 font-sans antialiased overflow-hidden"
-     style="height: 100vh; height: 100dvh; min-height: 100vh; max-height: 100vh;">
+     class="h-full w-full flex bg-slate-50 text-slate-800 font-sans antialiased overflow-hidden">
 
   <!-- =========================================================
        1. MOBILE SLIDE-OVER BACKDROP & DRAWER
@@ -136,8 +135,7 @@
        2. DESKTOP COLLAPSIBLE LEFT SIDEBAR (GUARANTEED 100VH FULL WINDOW)
        ========================================================= -->
   <aside :class="sidebarCollapsed ? 'w-20' : 'w-64'" 
-         class="hidden lg:flex flex-col h-screen max-h-screen min-h-screen shrink-0 bg-slate-900 text-slate-200 border-r border-slate-800/80 transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] select-none shadow-xl justify-between overflow-hidden"
-         style="height: 100vh; height: 100dvh; min-height: 100vh; max-height: 100vh;">
+         class="hidden lg:flex flex-col h-full shrink-0 bg-slate-900 text-slate-200 border-r border-slate-800/80 transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] select-none shadow-xl justify-between overflow-hidden">
     
     <!-- Top Part (Header + Menus) -->
     <div class="flex flex-col min-h-0">
@@ -515,8 +513,7 @@
   <!-- =========================================================
        3. MAIN CANVAS & CONTENT AREA (SCROLLABLE RIGHT COLUMN)
        ========================================================= -->
-  <div class="flex-1 flex flex-col min-w-0 h-screen max-h-screen min-h-screen overflow-y-auto custom-scrollbar"
-       style="height: 100vh; height: 100dvh; min-height: 100vh; max-height: 100vh;">
+  <div class="flex-1 flex flex-col min-w-0 h-full overflow-y-auto custom-scrollbar overscroll-y-contain">
     
     <!-- Top Header Bar (Sticky at top of scrollable canvas) -->
     <header class="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-200/80 px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between shadow-2xs shrink-0">

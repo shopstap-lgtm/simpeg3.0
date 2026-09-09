@@ -134,6 +134,7 @@ model CmsConfig {
   // Mode Pemeliharaan (Maintenance Mode)
   maintenanceDashboard   Boolean  @default(false)
   maintenanceAbsensi     Boolean  @default(false)
+  maintenanceCekPresensi Boolean  @default(false)
   maintenanceEkinerja    Boolean  @default(false)
   maintenanceKlarifikasi Boolean  @default(false)
   maintenanceTitle       String   @default("Sedang Dalam Pemeliharaan")

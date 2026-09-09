@@ -20,6 +20,13 @@
       window.lucide.createIcons();
     }
   });
+
+  // Prevent outer window focus jump on admin pages
+  window.addEventListener('scroll', () => {
+    if (window.scrollY !== 0 || window.scrollX !== 0) {
+      window.scrollTo(0, 0);
+    }
+  }, { passive: true });
 </script>
 </body>
 </html>

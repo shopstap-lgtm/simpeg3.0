@@ -26,12 +26,16 @@ const buildRedirectUrl = (req: Request, defaultTab = 'pending') => {
   const unit = (req.query.unit as string) || '';
   const status = (req.query.status as string) || '';
   const search = (req.query.search as string) || '';
+  const page = (req.query.page as string) || '';
+  const limit = (req.query.limit as string) || '';
 
   const params = new URLSearchParams();
   params.set('tab', tab);
   if (unit && unit !== 'unit-all') params.set('unit', unit);
   if (status && status !== 'ALL') params.set('status', status);
   if (search) params.set('search', search);
+  if (page && page !== '1') params.set('page', page);
+  if (limit && limit !== '25') params.set('limit', limit);
 
   return `/admin/ekinerja-review?${params.toString()}`;
 };
@@ -51,13 +55,13 @@ export const ekinerjaReviewController = {
         activeTab = 'pending';
       }
 
-      const whereClause: any = {};
+      const whereBase: any = {};
       if (filterUnit !== 'unit-all') {
-        whereClause.employee = { ...whereClause.employee, unitId: filterUnit };
+        whereBase.employee = { ...whereBase.employee, unitId: filterUnit };
       }
       if (search) {
-        whereClause.employee = {
-          ...whereClause.employee,
+        whereBase.employee = {
+          ...whereBase.employee,
           OR: [
             { nama: { contains: search, mode: 'insensitive' } },
             { nip: { contains: search } }
@@ -65,18 +69,110 @@ export const ekinerjaReviewController = {
         };
       }
 
-      const [allUnits, allReports] = await Promise.all([
+      // Step 1: Run units and status counters via groupBy in parallel
+      const [allUnits, statusCounts] = await Promise.all([
         prisma.unit.findMany({ orderBy: { namaUnit: 'asc' } }),
-        prisma.ekinerjaReport.findMany({
-          where: whereClause,
-          include: {
-            employee: { include: { unit: true } }
-          },
-          orderBy: { createdAt: 'asc' }
+        prisma.ekinerjaReport.groupBy({
+          by: ['statusReview'],
+          where: whereBase,
+          _count: { _all: true }
         })
       ]);
 
-      const formatted = allReports.map(item => ({
+      let pendingCount = 0;
+      let approvedCount = 0;
+      let rejectedCount = 0;
+      for (const row of statusCounts) {
+        if (row.statusReview === 'PENDING') pendingCount = row._count._all;
+        else if (row.statusReview === 'APPROVED') approvedCount = row._count._all;
+        else if (row.statusReview === 'REJECTED') rejectedCount = row._count._all;
+      }
+
+      // Calculate total archive items matching current status filter
+      let totalArchiveCount = 0;
+      if (filterStatus === 'APPROVED') {
+        totalArchiveCount = approvedCount;
+      } else if (filterStatus === 'REJECTED') {
+        totalArchiveCount = rejectedCount;
+      } else if (filterStatus === 'PENDING') {
+        totalArchiveCount = 0;
+      } else {
+        totalArchiveCount = approvedCount + rejectedCount;
+      }
+
+      // Pagination setup for archive list
+      const pageQuery = parseInt(req.query.page as string) || 1;
+      const limitQuery = (req.query.limit as string) || '25';
+      const isAllLimit = limitQuery === 'all';
+      const limit = isAllLimit ? 999999 : ([10, 25, 50, 100].includes(parseInt(limitQuery)) ? parseInt(limitQuery) : 25);
+      const totalPages = totalArchiveCount === 0 ? 1 : (isAllLimit ? 1 : Math.ceil(totalArchiveCount / limit));
+      const page = Math.min(Math.max(1, pageQuery), totalPages);
+
+      // Common report selector to avoid unnecessary payload
+      const reportSelect = {
+        id: true,
+        employeeId: true,
+        bulan: true,
+        tahun: true,
+        fileHarianUrl: true,
+        fileHarianName: true,
+        fileBulananUrl: true,
+        fileBulananName: true,
+        nilaiHarian: true,
+        nilaiBulanan: true,
+        statusReview: true,
+        catatanAdmin: true,
+        reviewedBy: true,
+        reviewedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        employee: {
+          select: {
+            id: true,
+            nip: true,
+            nama: true,
+            statusKepegawaian: true,
+            unitId: true,
+            unit: { select: { namaUnit: true } }
+          }
+        }
+      };
+
+      // Step 2: Fetch pending reports and paginated archive reports concurrently
+      const pendingPromise = (filterStatus === 'ALL' || filterStatus === 'PENDING') && pendingCount > 0
+        ? prisma.ekinerjaReport.findMany({
+            where: { ...whereBase, statusReview: 'PENDING' },
+            select: reportSelect,
+            orderBy: { createdAt: 'asc' }
+          })
+        : Promise.resolve([]);
+
+      const archiveWhere: any = {
+        ...whereBase,
+        statusReview: filterStatus === 'APPROVED' || filterStatus === 'REJECTED'
+          ? filterStatus
+          : { in: ['APPROVED', 'REJECTED'] }
+      };
+
+      const archivePromise = (filterStatus !== 'PENDING' && totalArchiveCount > 0)
+        ? prisma.ekinerjaReport.findMany({
+            where: archiveWhere,
+            select: reportSelect,
+            orderBy: [
+              { updatedAt: 'desc' },
+              { createdAt: 'desc' }
+            ],
+            take: isAllLimit ? undefined : limit,
+            skip: isAllLimit ? undefined : (page - 1) * limit
+          })
+        : Promise.resolve([]);
+
+      const [pendingReports, archiveReports] = await Promise.all([
+        pendingPromise,
+        archivePromise
+      ]);
+
+      const mapReport = (item: any) => ({
         id: item.id,
         employeeId: item.employeeId,
         employee: {
@@ -101,26 +197,22 @@ export const ekinerjaReviewController = {
         reviewedAt: formatWIB(item.reviewedAt),
         submittedAt: formatWIB(item.createdAt),
         updatedAtTimestamp: item.updatedAt ? new Date(item.updatedAt).getTime() : Date.now()
-      }));
+      });
 
-      // Total counters matching unit & search
-      const pendingCount = formatted.filter(c => c.statusReview === 'PENDING').length;
-      const approvedCount = formatted.filter(c => c.statusReview === 'APPROVED').length;
-      const rejectedCount = formatted.filter(c => c.statusReview === 'REJECTED').length;
+      const pendingList = pendingReports.map(mapReport);
+      const archiveList = archiveReports.map(mapReport);
 
-      // Filtered lists for tabs
-      let pendingList = formatted.filter(item => item.statusReview === 'PENDING');
-      let archiveList = formatted.filter(item => item.statusReview === 'APPROVED' || item.statusReview === 'REJECTED');
+      const from = totalArchiveCount === 0 ? 0 : (isAllLimit ? 1 : (page - 1) * limit + 1);
+      const to = totalArchiveCount === 0 ? 0 : (isAllLimit ? totalArchiveCount : Math.min(page * limit, totalArchiveCount));
 
-      if (filterStatus === 'APPROVED') {
-        archiveList = archiveList.filter(item => item.statusReview === 'APPROVED');
-        pendingList = [];
-      } else if (filterStatus === 'REJECTED') {
-        archiveList = archiveList.filter(item => item.statusReview === 'REJECTED');
-        pendingList = [];
-      } else if (filterStatus === 'PENDING') {
-        archiveList = [];
-      }
+      const pagination = {
+        page,
+        limit: isAllLimit ? 'all' : limit,
+        totalItems: totalArchiveCount,
+        totalPages,
+        from,
+        to
+      };
 
       const units = [
         { id: 'unit-all', namaUnit: 'Semua Unit Kerja' },
@@ -145,6 +237,7 @@ export const ekinerjaReviewController = {
         pendingCount,
         approvedCount,
         rejectedCount,
+        pagination,
         toast,
         user: (req as any).session?.user || { role: 'SUPER_ADMIN', namaLengkap: 'Administrator Utama' }
       });

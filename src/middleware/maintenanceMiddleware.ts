@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../lib/prisma';
 
-export type MaintenanceTarget = 'dashboard' | 'absensi' | 'ekinerja' | 'klarifikasi';
+export type MaintenanceTarget = 'dashboard' | 'absensi' | 'ekinerja' | 'klarifikasi' | 'cek-presensi';
 
 export function checkMaintenance(target: MaintenanceTarget, pageName: string) {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -19,6 +19,7 @@ export function checkMaintenance(target: MaintenanceTarget, pageName: string) {
       else if (target === 'absensi') isClosed = !!cms.maintenanceAbsensi;
       else if (target === 'ekinerja') isClosed = !!cms.maintenanceEkinerja;
       else if (target === 'klarifikasi') isClosed = !!cms.maintenanceKlarifikasi;
+      else if (target === 'cek-presensi') isClosed = !!(cms as any).maintenanceCekPresensi;
 
       if (!isClosed) {
         return next();

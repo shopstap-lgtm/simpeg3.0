@@ -48,32 +48,38 @@ export const cmsController = {
         selectedMonthEkinerja, 
         selectedYear,
         ekinerjaFilterStatus,
-        ekinerjaFilterKepegawaian
+        ekinerjaFilterKepegawaian,
+        formType
       } = req.body;
 
-      let kepegawaianStr = 'PNS,PPPK,PPPK_PW';
-      if (Array.isArray(ekinerjaFilterKepegawaian)) {
-        kepegawaianStr = ekinerjaFilterKepegawaian.join(',');
-      } else if (typeof ekinerjaFilterKepegawaian === 'string' && ekinerjaFilterKepegawaian.trim()) {
-        kepegawaianStr = ekinerjaFilterKepegawaian.trim();
+      const updateData: any = {};
+
+      if (heroBadge !== undefined) updateData.heroBadge = heroBadge;
+      if (heroTitle !== undefined) updateData.heroTitle = heroTitle;
+      if (heroSubtitle !== undefined) updateData.heroSubtitle = heroSubtitle;
+      if (pengumumanText !== undefined) updateData.pengumumanText = pengumumanText;
+      if (selectedMonth !== undefined) updateData.selectedMonth = parseInt(selectedMonth) || 7;
+      if (selectedMonthEkinerja !== undefined) updateData.selectedMonthEkinerja = parseInt(selectedMonthEkinerja) || 7;
+      if (selectedYear !== undefined) updateData.selectedYear = parseInt(selectedYear) || 2026;
+
+      if (ekinerjaFilterStatus !== undefined) {
+        const validStatuses = ['ALL', 'BELUM_KIRIM', 'APPROVED', 'PENDING'];
+        updateData.ekinerjaFilterStatus = validStatuses.includes(ekinerjaFilterStatus) ? ekinerjaFilterStatus : 'ALL';
       }
 
-      const validStatuses = ['ALL', 'BELUM_KIRIM', 'APPROVED', 'PENDING'];
-      const statusToSave = validStatuses.includes(ekinerjaFilterStatus) ? ekinerjaFilterStatus : 'ALL';
+      if (ekinerjaFilterKepegawaian !== undefined) {
+        let kepegawaianStr = 'PNS,PPPK,PPPK_PW';
+        if (Array.isArray(ekinerjaFilterKepegawaian)) {
+          kepegawaianStr = ekinerjaFilterKepegawaian.join(',');
+        } else if (typeof ekinerjaFilterKepegawaian === 'string' && ekinerjaFilterKepegawaian.trim()) {
+          kepegawaianStr = ekinerjaFilterKepegawaian.trim();
+        }
+        updateData.ekinerjaFilterKepegawaian = kepegawaianStr;
+      }
 
       await prisma.cmsConfig.upsert({
         where: { id: 'cms-main' },
-        update: {
-          heroBadge: heroBadge || undefined,
-          heroTitle: heroTitle || undefined,
-          heroSubtitle: heroSubtitle || undefined,
-          pengumumanText: pengumumanText || undefined,
-          selectedMonth: parseInt(selectedMonth) || 7,
-          selectedMonthEkinerja: parseInt(selectedMonthEkinerja) || 7,
-          selectedYear: parseInt(selectedYear) || 2026,
-          ekinerjaFilterStatus: statusToSave,
-          ekinerjaFilterKepegawaian: kepegawaianStr
-        },
+        update: updateData,
         create: {
           id: 'cms-main',
           heroBadge: heroBadge || 'Portal Resmi Korwil',
@@ -83,15 +89,22 @@ export const cmsController = {
           selectedMonth: parseInt(selectedMonth) || 7,
           selectedMonthEkinerja: parseInt(selectedMonthEkinerja) || 7,
           selectedYear: parseInt(selectedYear) || 2026,
-          ekinerjaFilterStatus: statusToSave,
-          ekinerjaFilterKepegawaian: kepegawaianStr
+          ekinerjaFilterStatus: updateData.ekinerjaFilterStatus || 'ALL',
+          ekinerjaFilterKepegawaian: updateData.ekinerjaFilterKepegawaian || 'PNS,PPPK,PPPK_PW'
         }
       });
+
+      let message = 'Pengaturan tampilan CMS berhasil diperbarui.';
+      if (formType === 'filter') {
+        message = 'Pengaturan filter tampilan E-Kinerja publik berhasil disimpan.';
+      } else if (formType === 'text_periode') {
+        message = 'Pengaturan teks & periode aktif portal berhasil disimpan.';
+      }
 
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'success',
-          message: 'Pengaturan tampilan CMS Dashboard berhasil diperbarui.'
+          message
         };
       }
 
@@ -107,6 +120,7 @@ export const cmsController = {
       const {
         maintenanceDashboard,
         maintenanceAbsensi,
+        maintenanceCekPresensi,
         maintenanceEkinerja,
         maintenanceKlarifikasi,
         maintenanceTitle,
@@ -115,14 +129,16 @@ export const cmsController = {
 
       const isDashboard = maintenanceDashboard === 'true' || maintenanceDashboard === 'on' || maintenanceDashboard === '1' || maintenanceDashboard === true;
       const isAbsensi = maintenanceAbsensi === 'true' || maintenanceAbsensi === 'on' || maintenanceAbsensi === '1' || maintenanceAbsensi === true;
+      const isCekPresensi = maintenanceCekPresensi === 'true' || maintenanceCekPresensi === 'on' || maintenanceCekPresensi === '1' || maintenanceCekPresensi === true;
       const isEkinerja = maintenanceEkinerja === 'true' || maintenanceEkinerja === 'on' || maintenanceEkinerja === '1' || maintenanceEkinerja === true;
       const isKlarifikasi = maintenanceKlarifikasi === 'true' || maintenanceKlarifikasi === 'on' || maintenanceKlarifikasi === '1' || maintenanceKlarifikasi === true;
 
-      await prisma.cmsConfig.upsert({
+      await (prisma.cmsConfig as any).upsert({
         where: { id: 'cms-main' },
         update: {
           maintenanceDashboard: isDashboard,
           maintenanceAbsensi: isAbsensi,
+          maintenanceCekPresensi: isCekPresensi,
           maintenanceEkinerja: isEkinerja,
           maintenanceKlarifikasi: isKlarifikasi,
           maintenanceTitle: maintenanceTitle || 'Sedang Dalam Pemeliharaan',
@@ -132,6 +148,7 @@ export const cmsController = {
           id: 'cms-main',
           maintenanceDashboard: isDashboard,
           maintenanceAbsensi: isAbsensi,
+          maintenanceCekPresensi: isCekPresensi,
           maintenanceEkinerja: isEkinerja,
           maintenanceKlarifikasi: isKlarifikasi,
           maintenanceTitle: maintenanceTitle || 'Sedang Dalam Pemeliharaan',

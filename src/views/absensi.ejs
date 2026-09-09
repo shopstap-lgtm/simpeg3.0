@@ -253,16 +253,45 @@
               <% const showSelfCheck=!isAdmin || !!nipQuery || (typeof isCekMandiri !=='undefined' && isCekMandiri); %>
 
                 <% if (showSelfCheck) { %>
-                  <!-- TAMPILAN PUBLIK: Cek Presensi Pegawai via NIP -->
-                  <div class="custom-card p-5 sm:p-6 bg-white shadow-xs border border-slate-200/80 rounded-2xl mb-6">
-                    <div class="max-w-md mx-auto text-center mb-4">
-                      <h2 class="text-lg sm:text-xl font-black text-slate-900">Cek Presensi Pegawai</h2>
+                  <% if (typeof maintenanceCekPresensi !== 'undefined' && maintenanceCekPresensi && !isAdmin) { %>
+                    <!-- MAINTENANCE DISPLAY UNTUK PUBLIK: Form Cek Presensi Ditutup -->
+                    <div class="custom-card p-6 sm:p-8 bg-white shadow-xs border border-slate-200/80 rounded-2xl mb-6 text-center">
+                      <div class="max-w-md mx-auto space-y-4">
+                        <div class="w-14 h-14 mx-auto rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shadow-2xs">
+                          <i data-lucide="lock" class="w-7 h-7"></i>
+                        </div>
+                        <div>
+                          <h2 class="text-lg sm:text-xl font-black text-slate-900 mb-1.5"><%= (typeof maintenanceTitle !== 'undefined' && maintenanceTitle) ? maintenanceTitle : 'Form Cek Presensi Sedang Ditutup' %></h2>
+                          <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                            <%= (typeof maintenanceMessage !== 'undefined' && maintenanceMessage) ? maintenanceMessage : 'Layanan cek presensi mandiri pegawai saat ini sedang dalam proses pemeliharaan sistem. Mohon kembali beberapa saat lagi.' %>
+                          </p>
+                        </div>
+                        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-rose-50 text-rose-700 text-xs font-bold border border-rose-200/70">
+                          <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                          <span>Maintenance Mode Aktif</span>
+                        </div>
+                      </div>
                     </div>
+                  <% } else { %>
+                    <!-- TAMPILAN: Cek Presensi Pegawai via NIP -->
+                    <div class="custom-card p-5 sm:p-6 bg-white shadow-xs border border-slate-200/80 rounded-2xl mb-6">
+                      <% if (isAdmin && typeof maintenanceCekPresensi !== 'undefined' && maintenanceCekPresensi) { %>
+                        <div class="max-w-md mx-auto mb-4 p-3 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-800 text-xs flex items-center gap-2.5">
+                          <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600 shrink-0"></i>
+                          <div class="text-left">
+                            <span class="font-bold block">Mode Pratinjau Admin</span>
+                            Form Cek Presensi saat ini berstatus <b>DITUTUP (Maintenance)</b> untuk publik.
+                          </div>
+                        </div>
+                      <% } %>
+                      <div class="max-w-md mx-auto text-center mb-4">
+                        <h2 class="text-lg sm:text-xl font-black text-slate-900">Cek Presensi Pegawai</h2>
+                      </div>
 
-                    <!-- Form Input NIP, Bulan, Tahun -->
-                    <form action="/absensi" method="GET" class="max-w-md mx-auto space-y-3.5">
-                      <% if (typeof isCekMandiri !=='undefined' && isCekMandiri) { %>
-                        <input type="hidden" name="cekMandiri" value="1">
+                      <!-- Form Input NIP, Bulan, Tahun -->
+                      <form action="/absensi" method="GET" class="max-w-md mx-auto space-y-3.5">
+                        <% if (typeof isCekMandiri !=='undefined' && isCekMandiri) { %>
+                          <input type="hidden" name="cekMandiri" value="1">
                         <% } %>
                           <div>
                             <label for="nipInput"
@@ -369,6 +398,7 @@
                           </div>
                           <% } %>
                   </div>
+                  <% } %>
                   <% } else { %>
                     <!-- TAMPILAN ADMIN: Filter & Search Toolbar with Modern Rounded Searchable Dropdowns -->
                     <div class="custom-card p-4 sm:p-5 bg-white shadow-xs">

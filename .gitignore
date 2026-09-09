@@ -42,3 +42,7 @@ lerna-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+# Database backups
+backup/
+*.sql

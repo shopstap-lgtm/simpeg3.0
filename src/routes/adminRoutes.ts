@@ -64,6 +64,9 @@ router.get('/logout', authController.logout);
 router.use(requireAdmin);
 
 // Klarifikasi Absensi
+// ⚠️ Export routes MUST be before :id routes
+router.get('/klarifikasi/export/excel', klarifikasiController.exportExcel);
+router.get('/klarifikasi/export/pdf', klarifikasiController.exportPdf);
 router.get('/klarifikasi', klarifikasiController.show);
 router.post('/klarifikasi/:id/approve', klarifikasiController.approve);
 router.post('/klarifikasi/:id/reject', klarifikasiController.reject);
