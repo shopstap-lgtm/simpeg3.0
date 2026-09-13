@@ -2,9 +2,15 @@
 <%- include('../partials/admin-nav') %>
 <%- include('../partials/toast') %>
 
+<script id="klarifikasi-pending-data" type="application/json">
+  <%- JSON.stringify(pendingList || []) %>
+</script>
+<script id="klarifikasi-archive-data" type="application/json">
+  <%- JSON.stringify(archiveList || []) %>
+</script>
 <script>
-  window.klarifikasiPendingData = <%- JSON.stringify(pendingList) %>;
-  window.klarifikasiArchiveData = <%- JSON.stringify(archiveList) %>;
+  window.klarifikasiPendingData = JSON.parse(document.getElementById('klarifikasi-pending-data')?.textContent || '[]');
+  window.klarifikasiArchiveData = JSON.parse(document.getElementById('klarifikasi-archive-data')?.textContent || '[]');
 </script>
 
 <main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-8"

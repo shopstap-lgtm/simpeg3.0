@@ -2,9 +2,15 @@
 <%- include('../partials/admin-nav') %>
 <%- include('../partials/toast') %>
 
+<script id="ekinerja-pending-data" type="application/json">
+  <%- JSON.stringify(pendingList || []) %>
+</script>
+<script id="ekinerja-archive-data" type="application/json">
+  <%- JSON.stringify(archiveList || []) %>
+</script>
 <script>
-  window.ekinerjaPendingData = <%- JSON.stringify(pendingList) %>;
-  window.ekinerjaArchiveData = <%- JSON.stringify(archiveList) %>;
+  window.ekinerjaPendingData = JSON.parse(document.getElementById('ekinerja-pending-data')?.textContent || '[]');
+  window.ekinerjaArchiveData = JSON.parse(document.getElementById('ekinerja-archive-data')?.textContent || '[]');
 </script>
 
 <main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-6"
