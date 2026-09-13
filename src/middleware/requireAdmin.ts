@@ -67,3 +67,26 @@ export function requireSuperAdminOrDinas(req: Request, res: Response, next: Next
 
   next();
 }
+
+export function requireNonDinas(req: Request, res: Response, next: NextFunction) {
+  const user = (req as any).session?.user;
+  if (!user) {
+    if ((req as any).session) {
+      (req as any).session.loginError = 'Silakan masuk terlebih dahulu.';
+    }
+    return res.redirect('/admin/login');
+  }
+
+  if (user.role === 'ADMIN_DINAS') {
+    if ((req as any).session) {
+      (req as any).session.toast = {
+        type: 'danger',
+        message: 'Akses Ditolak: Menu ini tidak dapat diakses oleh Admin Dinas.'
+      };
+    }
+    return res.redirect('/admin/klarifikasi');
+  }
+
+  next();
+}
+

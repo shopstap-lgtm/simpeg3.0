@@ -14,7 +14,7 @@ import { uploadAbsensiController } from '../controllers/admin/uploadAbsensiContr
 import { unitKerjaController } from '../controllers/admin/unitKerjaController';
 import { fileManagerController } from '../controllers/admin/fileManagerController';
 import { ncrAdminController } from '../controllers/admin/ncrAdminController';
-import { requireAdmin, requireSuperAdmin, requireSuperAdminOrDinas } from '../middleware/requireAdmin';
+import { requireAdmin, requireSuperAdmin, requireSuperAdminOrDinas, requireNonDinas } from '../middleware/requireAdmin';
 
 const router = Router();
 
@@ -83,14 +83,14 @@ router.get('/upload-absensi', requireSuperAdminOrDinas, uploadAbsensiController.
 router.post('/upload-absensi', requireSuperAdminOrDinas, diskUpload.array('excelFiles', 60), uploadAbsensiController.processUpload);
 router.post('/upload-absensi/reset', requireSuperAdminOrDinas, uploadAbsensiController.resetAttendance);
 
-// Ekinerja Review
+// Ekinerja Review (SUPER_ADMIN & ADMIN_KORWIL Only - ADMIN_DINAS excluded)
 // ⚠️ Export routes MUST be before :id routes, otherwise Express treats "export" as :id value
-router.get('/ekinerja-review/export/excel', ekinerjaReviewController.exportExcel);
-router.get('/ekinerja-review/export/pdf', ekinerjaReviewController.exportPdf);
-router.get('/ekinerja-review', ekinerjaReviewController.show);
-router.post('/ekinerja-review/:id/review', ekinerjaReviewController.review);
-router.post('/ekinerja-review/:id/score', ekinerjaReviewController.review);
-router.post('/ekinerja-review/:id/delete', ekinerjaReviewController.deleteReview);
+router.get('/ekinerja-review/export/excel', requireNonDinas, ekinerjaReviewController.exportExcel);
+router.get('/ekinerja-review/export/pdf', requireNonDinas, ekinerjaReviewController.exportPdf);
+router.get('/ekinerja-review', requireNonDinas, ekinerjaReviewController.show);
+router.post('/ekinerja-review/:id/review', requireNonDinas, ekinerjaReviewController.review);
+router.post('/ekinerja-review/:id/score', requireNonDinas, ekinerjaReviewController.review);
+router.post('/ekinerja-review/:id/delete', requireNonDinas, ekinerjaReviewController.deleteReview);
 
 // Bulk Download seluruh berkas fisik uploads dalam satu file .tar.gz
 router.get('/backup/uploads-zip', (req, res) => {
@@ -157,10 +157,10 @@ router.get('/files/download-month', requireSuperAdmin, fileManagerController.dow
 router.post('/files/download-selected', requireSuperAdmin, fileManagerController.downloadSelected);
 router.post('/files/standardize-names', requireSuperAdmin, fileManagerController.standardizeNames);
 
-// 8. Kelola Master NCR Gaji (Admin Korwil & Super Admin)
-router.get('/ncr-gaji', requireAdmin, ncrAdminController.show);
-router.post('/ncr-gaji/upload', requireAdmin, ncrDiskUpload.single('file'), ncrAdminController.uploadMaster);
-router.get('/ncr-gaji/:id/detail', requireAdmin, ncrAdminController.detail);
-router.post('/ncr-gaji/:id/delete', requireAdmin, ncrAdminController.deletePeriod);
+// 8. Kelola Master NCR Gaji (Admin Korwil & Super Admin - ADMIN_DINAS excluded)
+router.get('/ncr-gaji', requireNonDinas, ncrAdminController.show);
+router.post('/ncr-gaji/upload', requireNonDinas, ncrDiskUpload.single('file'), ncrAdminController.uploadMaster);
+router.get('/ncr-gaji/:id/detail', requireNonDinas, ncrAdminController.detail);
+router.post('/ncr-gaji/:id/delete', requireNonDinas, ncrAdminController.deletePeriod);
 
 export default router;
