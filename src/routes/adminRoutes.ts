@@ -13,6 +13,7 @@ import { employeeController } from '../controllers/admin/employeeController';
 import { uploadAbsensiController } from '../controllers/admin/uploadAbsensiController';
 import { unitKerjaController } from '../controllers/admin/unitKerjaController';
 import { fileManagerController } from '../controllers/admin/fileManagerController';
+import { ncrAdminController } from '../controllers/admin/ncrAdminController';
 import { requireAdmin, requireSuperAdmin, requireSuperAdminOrDinas } from '../middleware/requireAdmin';
 
 const router = Router();
@@ -48,6 +49,11 @@ const diskStorage = multer.diskStorage({
 const diskUpload = multer({
   storage: diskStorage,
   limits: { fileSize: 1 * 1024 * 1024 } // 1MB
+});
+
+const ncrDiskUpload = multer({
+  storage: diskStorage,
+  limits: { fileSize: 250 * 1024 * 1024 } // 250MB for master 1-Kabupaten PDF
 });
 
 const memoryUpload = multer({
@@ -150,5 +156,11 @@ router.get('/files/download-all', requireSuperAdmin, fileManagerController.downl
 router.get('/files/download-month', requireSuperAdmin, fileManagerController.downloadByMonth);
 router.post('/files/download-selected', requireSuperAdmin, fileManagerController.downloadSelected);
 router.post('/files/standardize-names', requireSuperAdmin, fileManagerController.standardizeNames);
+
+// 8. Kelola Master NCR Gaji (Admin Korwil & Super Admin)
+router.get('/ncr-gaji', requireAdmin, ncrAdminController.show);
+router.post('/ncr-gaji/upload', requireAdmin, ncrDiskUpload.single('file'), ncrAdminController.uploadMaster);
+router.get('/ncr-gaji/:id/detail', requireAdmin, ncrAdminController.detail);
+router.post('/ncr-gaji/:id/delete', requireAdmin, ncrAdminController.deletePeriod);
 
 export default router;

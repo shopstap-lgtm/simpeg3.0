@@ -1,0 +1,320 @@
+<%- include('partials/head') %>
+<%- include('partials/public-nav') %>
+<%- include('partials/toast') %>
+
+<main class="flex-grow py-6 sm:py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full flex flex-col justify-center"
+      style="min-height: calc(100vh - 140px);"
+      x-data="ncrPublicPage()">
+
+  <div class="w-full space-y-4">
+    <!-- Header Minimalis & Clean -->
+    <div class="text-center space-y-1">
+      <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-bold tracking-wide uppercase">
+        <i data-lucide="banknote" class="w-3.5 h-3.5"></i>
+        <span>Layanan Gaji Mandiri</span>
+      </div>
+      <h1 class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+        Unduh Lembar Slip NCR Gaji
+      </h1>
+      <p class="text-xs text-slate-500 max-w-md mx-auto">
+        Kecamatan Cibitung &bull; Masukkan NIP, periode penggajian, dan 4 digit awal NPWP
+      </p>
+    </div>
+
+    <!-- Form Bar Card: Berjajar Seri (Single Row / Inline) -->
+    <div class="custom-card p-3.5 sm:p-4 bg-white border border-slate-200 shadow-sm rounded-2xl">
+      <form @submit.prevent="submitDownload()" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-2.5 items-center w-full">
+
+        <!-- 1. Input NIP / Cari Nama Pegawai -->
+        <div class="relative col-span-1 sm:col-span-2 md:col-span-4 min-w-0">
+          <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+            <i data-lucide="user" class="w-4 h-4 text-indigo-500"></i>
+          </div>
+
+          <input type="text" 
+                 x-model="nipInput" 
+                 @input.debounce.300ms="searchPegawai()" 
+                 placeholder="Masukkan NIP atau nama..."
+                 required
+                 autocomplete="off"
+                 class="w-full pl-10 pr-8 h-10 text-xs sm:text-sm font-semibold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-slate-400 shadow-2xs">
+
+          <div x-show="isSearching" class="absolute right-3 top-1/2 -translate-y-1/2" style="display: none;">
+            <div class="animate-spin rounded-full h-3.5 w-3.5 border-2 border-indigo-600 border-t-transparent"></div>
+          </div>
+
+          <!-- Live Autocomplete Suggestions Dropdown -->
+          <div x-show="searchResults.length > 0" 
+               @click.away="searchResults = []"
+               class="absolute left-0 top-full mt-1.5 w-full min-w-[280px] max-w-md bg-white rounded-2xl shadow-xl border border-slate-200 z-50 max-h-56 overflow-y-auto divide-y divide-slate-100"
+               style="display: none;">
+            <template x-for="emp in searchResults" :key="emp.id">
+              <button type="button" 
+                      @click="selectEmployee(emp)" 
+                      class="w-full text-left p-2.5 hover:bg-indigo-50 transition-colors flex items-center justify-between gap-2 cursor-pointer">
+                <div class="min-w-0 flex-1">
+                  <div class="font-bold text-xs text-slate-900 truncate" x-text="emp.nama"></div>
+                  <div class="text-[11px] text-slate-500 font-mono mt-0.5 truncate">
+                    NIP: <span class="font-bold text-indigo-700" x-text="emp.nip"></span> &bull; <span x-text="emp.unitNama"></span>
+                  </div>
+                </div>
+                <span class="text-[11px] font-semibold text-indigo-600 shrink-0">Pilih &rarr;</span>
+              </button>
+            </template>
+          </div>
+        </div>
+
+        <!-- 2. Pilihan Bulan -->
+        <div class="col-span-1 sm:col-span-1 md:col-span-2 min-w-0">
+          <select x-model="bulan" required class="form-select w-full h-10 py-2 pl-3 pr-8 text-xs sm:text-sm font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 shadow-2xs cursor-pointer">
+            <option value="1">Januari</option>
+            <option value="2">Februari</option>
+            <option value="3">Maret</option>
+            <option value="4">April</option>
+            <option value="5">Mei</option>
+            <option value="6">Juni</option>
+            <option value="7">Juli</option>
+            <option value="8">Agustus</option>
+            <option value="9">September</option>
+            <option value="10">Oktober</option>
+            <option value="11">November</option>
+            <option value="12">Desember</option>
+          </select>
+        </div>
+
+        <!-- 3. Pilihan Tahun -->
+        <div class="col-span-1 sm:col-span-1 md:col-span-2 min-w-0">
+          <select x-model="tahun" required class="form-select w-full h-10 py-2 pl-3 pr-8 text-xs sm:text-sm font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 shadow-2xs cursor-pointer">
+            <option value="2026">2026</option>
+            <option value="2025">2025</option>
+          </select>
+        </div>
+
+        <!-- 4. 4 Digit Awal NPWP -->
+        <div class="relative col-span-1 sm:col-span-1 md:col-span-2 min-w-0">
+          <div class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+            <i data-lucide="shield-check" class="w-4 h-4 text-emerald-500"></i>
+          </div>
+          <input type="text" 
+                 x-model="npwpFirst4" 
+                 maxlength="4" 
+                 placeholder="4 Digit Awal NPWP"
+                 required
+                 class="w-full pl-9 pr-3 h-10 text-xs sm:text-sm font-mono font-bold text-left text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-slate-400 placeholder:font-sans placeholder:font-normal shadow-2xs">
+        </div>
+
+        <!-- 5. Tombol Unduh -->
+        <div class="col-span-1 sm:col-span-1 md:col-span-2 min-w-0">
+          <button type="submit" 
+                  :disabled="isDownloading"
+                  class="w-full h-10 btn-primary py-2 px-3 text-xs sm:text-sm font-bold justify-center gap-1.5 shadow-indigo-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap">
+            <template x-if="!isDownloading">
+              <div class="flex items-center justify-center gap-1.5">
+                <i data-lucide="download" class="w-4 h-4 shrink-0"></i>
+                <span>Unduh Slip</span>
+              </div>
+            </template>
+            <template x-if="isDownloading">
+              <div class="flex items-center justify-center gap-1.5">
+                <div class="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></div>
+                <span>Memproses...</span>
+              </div>
+            </template>
+          </button>
+        </div>
+
+      </form>
+
+      <!-- Selected Employee Info Pill -->
+      <div x-show="selectedEmployeeName" 
+           class="mt-2.5 px-3 py-1.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-center justify-between gap-2"
+           style="display: none;">
+        <div class="flex items-center gap-2 truncate">
+          <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-600 shrink-0"></i>
+          <span class="truncate">
+            <strong x-text="selectedEmployeeName"></strong>
+            <span class="text-emerald-700" x-show="selectedEmployeeUnit" x-text="' &bull; ' + selectedEmployeeUnit"></span>
+          </span>
+        </div>
+        <button type="button" @click="selectedEmployeeName = ''; selectedEmployeeUnit = '';" 
+                class="text-emerald-700 hover:text-emerald-900 text-[11px] font-bold underline shrink-0 cursor-pointer">
+          Ganti
+        </button>
+      </div>
+
+      <!-- Quick Periode Tersedia (if any) -->
+      <% if (periods && periods.length > 0) { %>
+        <div class="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap items-center gap-1.5 text-[11px]">
+          <span class="text-slate-400 font-medium">Periode Siap:</span>
+          <% periods.forEach(function(p) { %>
+            <button type="button" 
+                    @click="bulan = <%= p.bulan %>; tahun = <%= p.tahun %>;"
+                    :class="(bulan == <%= p.bulan %> && tahun == <%= p.tahun %>) ? 'bg-indigo-600 text-white font-bold' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'"
+                    class="px-2 py-0.5 rounded-md text-[11px] transition-colors cursor-pointer">
+              <%= p.namaBulan %> <%= p.tahun %>
+            </button>
+          <% }); %>
+        </div>
+      <% } %>
+
+      <!-- Dynamic Alert Messages -->
+      <div x-show="errorMessage" 
+           class="mt-2.5 p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-start gap-2.5"
+           style="display: none;">
+        <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600 shrink-0 mt-0.5"></i>
+        <div class="text-left">
+          <p class="font-semibold" x-text="errorMessage"></p>
+        </div>
+      </div>
+
+      <div x-show="successMessage" 
+           class="mt-2.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-start gap-2.5"
+           style="display: none;">
+        <i data-lucide="check-circle" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+        <div class="text-left">
+          <p class="font-semibold" x-text="successMessage"></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Small Discrete Footer Note (1 Line, No Extra Cards) -->
+    <div class="text-center text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
+      <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-500"></i>
+      <span>Slip gaji resmi hanya memuat lembar pegawai bersangkutan &bull; Dilindungi autentikasi NPWP</span>
+    </div>
+
+  </div>
+
+</main>
+
+<script>
+function ncrPublicPage() {
+  return {
+    bulan: <%= currentMonth %>,
+    tahun: <%= currentYear %>,
+    nipInput: '',
+    npwpFirst4: '',
+    
+    // Autocomplete helpers
+    searchQuery: '',
+    searchResults: [],
+    isSearching: false,
+    selectedEmployeeName: '',
+    selectedEmployeeUnit: '',
+
+    // Process states
+    isDownloading: false,
+    errorMessage: '',
+    successMessage: '',
+
+    searchPegawai() {
+      const q = this.nipInput.trim();
+      // If user types numbers only and length >= 9, it's likely a direct NIP, skip name search
+      if (/^\d{9,}$/.test(q)) {
+        this.searchResults = [];
+        return;
+      }
+      if (q.length < 2) {
+        this.searchResults = [];
+        return;
+      }
+
+      this.isSearching = true;
+      fetch('/ncr-gaji/search-employees?q=' + encodeURIComponent(q))
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            this.searchResults = data.employees;
+          }
+        })
+        .catch(err => console.error(err))
+        .finally(() => {
+          this.isSearching = false;
+        });
+    },
+
+    selectEmployee(emp) {
+      this.nipInput = emp.nip;
+      this.selectedEmployeeName = emp.nama;
+      this.selectedEmployeeUnit = emp.unitNama;
+      this.searchResults = [];
+      this.errorMessage = '';
+      this.successMessage = '';
+    },
+
+    submitDownload() {
+      const cleanNip = this.nipInput.replace(/\D/g, '');
+      const cleanPin = (this.npwpFirst4 || '').replace(/\D/g, '');
+
+      this.errorMessage = '';
+      this.successMessage = '';
+
+      if (!cleanNip) {
+        this.errorMessage = 'Silakan masukkan NIP pegawai dengan benar.';
+        return;
+      }
+
+      if (cleanPin.length !== 4) {
+        this.errorMessage = 'Silakan masukkan tepat 4 digit awal nomor NPWP Anda.';
+        return;
+      }
+
+      this.isDownloading = true;
+
+      fetch('/ncr-gaji/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nip: cleanNip,
+          bulan: this.bulan,
+          tahun: this.tahun,
+          npwpFirst4: cleanPin,
+          npwpLast4: cleanPin
+        })
+      })
+      .then(async res => {
+        if (!res.ok) {
+          const errData = await res.json().catch(() => null);
+          throw new Error(errData?.message || 'Gagal memproses slip NCR.');
+        }
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+
+        const disposition = res.headers.get('content-disposition');
+        let filename = 'NCR_Gaji_' + this.bulan + '_' + this.tahun + '_' + cleanNip + '.pdf';
+        if (disposition && disposition.indexOf('filename=') !== -1) {
+          const matches = /filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/.exec(disposition);
+          if (matches != null && matches[1]) {
+            filename = matches[1].replace(/['"]/g, '');
+          }
+        }
+
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        this.successMessage = 'Slip NCR Gaji berhasil diunduh!';
+      })
+      .catch(err => {
+        this.errorMessage = err.message || 'Terjadi kesalahan sistem saat mengunduh.';
+      })
+      .finally(() => {
+        this.isDownloading = false;
+        this.$nextTick(() => {
+          if (window.lucide) {
+            lucide.createIcons();
+          }
+        });
+      });
+    }
+  };
+}
+</script>
+
+<%- include('partials/footer') %>

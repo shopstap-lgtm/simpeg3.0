@@ -1,0 +1,529 @@
+<%- include('../partials/head') %>
+<%- include('../partials/admin-nav') %>
+<%- include('../partials/toast') %>
+
+<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-6 overflow-y-auto"
+      x-data="ncrAdminPage()">
+
+  <!-- Page Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <div class="flex items-center gap-2 text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">
+        <i data-lucide="banknote" class="w-4 h-4"></i>
+        <span>Penggajian & Pelaporan</span>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Kelola Master NCR Gaji</h1>
+      <p class="text-xs sm:text-sm text-slate-500 mt-1">
+        Unggah berkas PDF master NCR se-Kabupaten. Sistem otomatis memfilter & menyimpan halaman sekolah Cibitung saja.
+      </p>
+    </div>
+
+    <!-- Upload Action Button -->
+    <div>
+      <button type="button"
+              id="btn-upload-ncr"
+              @click="openUploadModal()" 
+              class="btn-primary py-2.5 px-4 text-xs sm:text-sm gap-2 shadow-md hover:shadow-lg transition-all cursor-pointer">
+        <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+        <span>Upload PDF Master NCR</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Highlights & Statistics Cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="custom-card p-4 bg-white flex items-center gap-3.5 border-l-4 border-l-indigo-600">
+      <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+        <i data-lucide="calendar" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <span class="text-xs text-slate-400 font-semibold block uppercase">Total Periode</span>
+        <p class="text-xl font-extrabold text-slate-900 mt-0.5"><%= totalPeriods %> Periode</p>
+      </div>
+    </div>
+
+    <div class="custom-card p-4 bg-white flex items-center gap-3.5 border-l-4 border-l-emerald-600">
+      <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+        <i data-lucide="file-check" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <span class="text-xs text-slate-400 font-semibold block uppercase">Halaman Cibitung</span>
+        <p class="text-xl font-extrabold text-emerald-600 mt-0.5"><%= totalFilteredPages %> Halaman</p>
+      </div>
+    </div>
+
+    <div class="custom-card p-4 bg-white flex items-center gap-3.5 border-l-4 border-l-rose-500">
+      <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+        <i data-lucide="trash-2" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <span class="text-xs text-slate-400 font-semibold block uppercase">Kecamatan Lain Dibuang</span>
+        <p class="text-xl font-extrabold text-slate-900 mt-0.5"><%= totalPagesSaved %> Halaman</p>
+      </div>
+    </div>
+
+    <div class="custom-card p-4 bg-white flex items-center gap-3.5 border-l-4 border-l-amber-500">
+      <div class="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+        <i data-lucide="users" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <span class="text-xs text-slate-400 font-semibold block uppercase">Master Pegawai</span>
+        <p class="text-xl font-extrabold text-slate-900 mt-0.5"><%= totalEmployees %> Pegawai</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Information Alert Box -->
+  <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/80 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-xs">
+    <div class="flex items-start gap-3.5">
+      <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+        <i data-lucide="shield-check" class="w-5 h-5"></i>
+      </div>
+      <div class="space-y-1">
+        <h3 class="text-sm font-bold text-blue-950">Mekanisme Cerdas Pemotongan & Keamanan NCR Gaji</h3>
+        <p class="text-xs text-blue-800/90 leading-relaxed max-w-4xl">
+          1. <strong>Filter Otomatis Wilayah:</strong> Anda cukup mengunggah 1 file PDF NCR utuh se-Kabupaten. Sistem akan mendeteksi unit kerja sekolah di Cibitung dan otomatis membuang ribuan halaman kecamatan lain.<br>
+          2. <strong>Deteksi & Sinkronisasi NPWP:</strong> Nomor NPWP pada halaman gaji dideteksi dan disinkronkan ke database pegawai secara otomatis.<br>
+          3. <strong>Verifikasi Publik:</strong> Pegawai yang mengunduh slip gaji di halaman publik wajib memvalidasi <strong>4 digit awal NPWP</strong> untuk keamanan privasi gaji.
+        </p>
+      </div>
+    </div>
+    <a href="/ncr-gaji" target="_blank" class="shrink-0 btn-secondary py-2 px-3.5 text-xs gap-2 border-blue-300 text-blue-700 hover:bg-blue-100">
+      <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+      <span>Buka Halaman Publik</span>
+    </a>
+  </div>
+
+  <!-- Periods List Card -->
+  <div class="custom-card bg-white overflow-hidden shadow-sm">
+    <div class="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div>
+        <h2 class="text-base font-bold text-slate-900">Daftar Periode NCR Gaji</h2>
+        <p class="text-xs text-slate-500 mt-0.5">Riwayat berkas master NCR Gaji yang telah diunggah dan terfilter</p>
+      </div>
+      <span class="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-lg">
+        <%= periods.length %> Periode Tersedia
+      </span>
+    </div>
+
+    <% if (periods.length === 0) { %>
+      <div class="p-12 text-center">
+        <div class="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-3">
+          <i data-lucide="file-x-2" class="w-8 h-8"></i>
+        </div>
+        <h3 class="text-base font-bold text-slate-800">Belum Ada Berkas NCR Gaji</h3>
+        <p class="text-xs text-slate-500 max-w-md mx-auto mt-1 mb-4">
+          Silakan unggah berkas master PDF NCR Gaji 1-Kabupaten melalui tombol di bawah. Sistem akan memfilter halaman sekolah Cibitung secara otomatis.
+        </p>
+        <button type="button"
+                id="btn-upload-ncr-empty"
+                @click="openUploadModal()" 
+                class="btn-primary py-2 px-4 text-xs gap-2 cursor-pointer">
+          <i data-lucide="upload" class="w-4 h-4"></i>
+          <span>Upload PDF Master Sekarang</span>
+        </button>
+      </div>
+    <% } else { %>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse text-xs">
+          <thead>
+            <tr class="bg-slate-50/80 border-b border-slate-100 text-slate-500 font-bold uppercase tracking-wider">
+              <th class="py-3.5 px-4">Periode</th>
+              <th class="py-3.5 px-4">Nama Berkas Asli</th>
+              <th class="py-3.5 px-4 text-center">Halaman Disimpan</th>
+              <th class="py-3.5 px-4 text-center">Halaman Dibuang</th>
+              <th class="py-3.5 px-4 text-center">Pegawai Terindeks</th>
+              <th class="py-3.5 px-4">Diunggah Oleh</th>
+              <th class="py-3.5 px-4">Waktu Proses</th>
+              <th class="py-3.5 px-4 text-right">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <% periods.forEach(function(p) { %>
+              <tr class="hover:bg-slate-50/60 transition-colors">
+                <td class="py-3.5 px-4">
+                  <div class="font-bold text-slate-900 text-sm"><%= p.namaBulan %> <%= p.tahun %></div>
+                  <span class="text-[11px] text-indigo-600 font-semibold"><%= p.judul %></span>
+                </td>
+                <td class="py-3.5 px-4">
+                  <div class="font-medium text-slate-700 max-w-xs truncate" title="<%= p.fileName %>">
+                    <%= p.fileName %>
+                  </div>
+                  <span class="text-[10px] text-slate-400">Master 1 Kabupaten</span>
+                </td>
+                <td class="py-3.5 px-4 text-center">
+                  <span class="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                    <i data-lucide="file-check" class="w-3.5 h-3.5"></i>
+                    <span><%= p.totalFilteredPages %> hal</span>
+                  </span>
+                  <div class="text-[10px] text-slate-400 mt-0.5">dari <%= p.totalOriginalPages %> hal</div>
+                </td>
+                <td class="py-3.5 px-4 text-center">
+                  <span class="inline-flex items-center gap-1 font-semibold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md text-[11px]">
+                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                    <span><%= p.discardedPages %> hal</span>
+                  </span>
+                </td>
+                <td class="py-3.5 px-4 text-center">
+                  <span class="inline-flex items-center gap-1 font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg">
+                    <i data-lucide="users" class="w-3.5 h-3.5"></i>
+                    <span><%= p.totalEmployeesMatched %> Pegawai</span>
+                  </span>
+                </td>
+                <td class="py-3.5 px-4 text-slate-600 font-medium">
+                  <%= p.uploadedBy %>
+                </td>
+                <td class="py-3.5 px-4 text-slate-500 whitespace-nowrap">
+                  <%= p.createdAt %>
+                </td>
+                <td class="py-3.5 px-4 text-right">
+                  <div class="flex items-center justify-end gap-1.5">
+                    <!-- Detail Modal Button -->
+                    <button type="button"
+                            @click="openDetail('<%= p.id %>')" 
+                            class="p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors cursor-pointer"
+                            title="Lihat Daftar Pegawai & Halaman">
+                      <i data-lucide="eye" class="w-4 h-4"></i>
+                    </button>
+
+                    <!-- Download Filtered Master PDF Button -->
+                    <a href="<%= p.fileUrl %>" download 
+                       class="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors cursor-pointer"
+                       title="Unduh PDF Master Cibitung Lengkap">
+                      <i data-lucide="download" class="w-4 h-4"></i>
+                    </a>
+
+                    <!-- Delete Period Button -->
+                    <form action="/admin/ncr-gaji/<%= p.id %>/delete" method="POST" 
+                          onsubmit="return confirm('Apakah Anda yakin ingin menghapus data NCR Gaji <%= p.namaBulan %> <%= p.tahun %>? Berkas master di server juga akan dihapus.');" 
+                          class="inline">
+                      <button type="submit" 
+                              class="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors cursor-pointer"
+                              title="Hapus Periode">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                      </button>
+                    </form>
+                  </div>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- =========================================================
+       UPLOAD MASTER NCR MODAL (TELEPORTED TO BODY FOR 100% Z-INDEX OVERLAY)
+       ========================================================= -->
+  <template x-teleport="body">
+    <div x-show="uploadModal"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 !m-0 !mt-0 modal-overlay z-modal overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4"
+         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 999999 !important;"
+         @keydown.escape.window="if (!isUploading) uploadModal = false">
+      
+      <div @click.away="if (!isUploading) uploadModal = false" 
+           class="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-100">
+        
+        <!-- Modal Header -->
+        <div class="px-6 py-4 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-indigo-500/30 border border-indigo-400/30 flex items-center justify-center text-indigo-200">
+              <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-sm text-white">Unggah Berkas Master NCR Gaji</h3>
+              <p class="text-[11px] text-slate-300">File PDF se-Kabupaten akan difilter otomatis</p>
+            </div>
+          </div>
+          <button type="button" x-show="!isUploading" @click="uploadModal = false" class="text-slate-400 hover:text-white p-1">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- Modal Form -->
+        <form action="/admin/ncr-gaji/upload" method="POST" enctype="multipart/form-data" 
+              @submit="isUploading = true" class="p-6 space-y-4">
+          
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Bulan Gaji</label>
+              <select name="bulan" x-model="bulan" required class="form-select text-xs font-semibold">
+                <option value="1">Januari</option>
+                <option value="2">Februari</option>
+                <option value="3">Maret</option>
+                <option value="4">April</option>
+                <option value="5">Mei</option>
+                <option value="6">Juni</option>
+                <option value="7">Juli</option>
+                <option value="8">Agustus</option>
+                <option value="9">September</option>
+                <option value="10">Oktober</option>
+                <option value="11">November</option>
+                <option value="12">Desember</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Tahun</label>
+              <input type="number" name="tahun" x-model="tahun" required min="2020" max="2035" 
+                     class="form-input text-xs font-semibold">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+              Berkas PDF Master NCR (1 Kabupaten) *
+            </label>
+            <input type="file" name="file" accept=".pdf,application/pdf" required 
+                   class="block w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border border-slate-200 rounded-xl p-1 bg-slate-50 cursor-pointer">
+            <p class="text-[11px] text-slate-400 mt-1">
+              Maksimal 250 MB. Format harus berkas .PDF asli hasil sistem payroll.
+            </p>
+          </div>
+
+          <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-3 text-[11px] text-amber-800 space-y-1">
+            <div class="font-bold flex items-center gap-1.5 text-amber-900">
+              <i data-lucide="info" class="w-3.5 h-3.5"></i>
+              <span>Proses Filter Otomatis:</span>
+            </div>
+            <p>
+              Sistem akan memindai seluruh halaman PDF, menyaring hanya sekolah di Cibitung, mengekstrak NPWP pegawai, dan membuang halaman kecamatan lain. Proses mungkin membutuhkan waktu beberapa detik tergantung ketebalan halaman.
+            </p>
+          </div>
+
+          <!-- Loading State Overlay -->
+          <div x-show="isUploading" class="py-4 text-center space-y-2">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-indigo-600 border-t-transparent"></div>
+            <p class="text-xs font-bold text-indigo-700">Sedang memproses & memfilter halaman PDF...</p>
+            <p class="text-[11px] text-slate-400">Mohon tunggu, jangan menutup jendela peramban.</p>
+          </div>
+
+          <!-- Form Actions -->
+          <div x-show="!isUploading" class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2.5">
+            <button type="button" @click="uploadModal = false" class="btn-secondary py-2 px-4 text-xs cursor-pointer">
+              Batal
+            </button>
+            <button type="submit" class="btn-primary py-2 px-5 text-xs gap-2 cursor-pointer">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>Proses & Simpan NCR</span>
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </template>
+
+  <!-- =========================================================
+       DETAIL PEGAWAI & HALAMAN MODAL (TELEPORTED TO BODY)
+       ========================================================= -->
+  <template x-teleport="body">
+    <div x-show="detailModal"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 !m-0 !mt-0 modal-overlay z-modal overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4"
+         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 999999 !important;"
+         @keydown.escape.window="detailModal = false">
+      
+      <div @click.away="detailModal = false" 
+           class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
+        
+        <!-- Header -->
+        <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0 shadow-xs">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center text-indigo-200 shrink-0">
+              <i data-lucide="list" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-sm sm:text-base text-white tracking-tight" 
+                  x-text="selectedPeriod ? (selectedPeriod.judul + ' (' + selectedPeriod.totalFilteredPages + ' Halaman Disimpan)') : 'Memuat Rincian...'">
+              </h3>
+              <p class="text-[11px] text-slate-400 mt-0.5" 
+                 x-text="selectedPeriod ? ('Berkas: ' + selectedPeriod.fileName) : 'Sedang mengambil data...'"></p>
+            </div>
+          </div>
+          <button type="button" @click="detailModal = false" class="text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- Search Bar & Stats Filter Bar -->
+        <div class="p-3.5 sm:p-4 bg-slate-50 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+          <div class="relative flex-1">
+            <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input type="text" x-model="searchDetailQuery" 
+                   placeholder="Cari Nama Pegawai, NIP, atau Unit Kerja Sekolah..." 
+                   class="form-input text-xs pl-9 py-2 w-full bg-white border-slate-200 focus:bg-white">
+            <button type="button" x-show="searchDetailQuery" @click="searchDetailQuery = ''"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold p-0.5">
+              &times;
+            </button>
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="text-xs font-semibold px-2.5 py-1 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-lg"
+                  x-text="filteredPages().length + ' Pegawai Ditampilkan'"></span>
+          </div>
+        </div>
+
+        <!-- Table Container (Seamless Scrollable with Solid Sticky Header) -->
+        <div class="flex-1 overflow-x-auto overflow-y-auto min-h-0 bg-white custom-scrollbar relative">
+          <!-- Loading State -->
+          <div x-show="periodPages.length === 0" class="py-16 text-center text-slate-400 text-xs">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-3 border-indigo-600 border-t-transparent mb-3"></div>
+            <p class="font-medium text-slate-600">Memuat daftar pegawai terindeks...</p>
+            <p class="text-[11px] text-slate-400 mt-0.5">Mohon tunggu beberapa saat</p>
+          </div>
+
+          <!-- Table Content -->
+          <div x-show="periodPages.length > 0" class="w-full">
+            <table class="w-full text-left border-collapse text-xs min-w-[780px]">
+              <thead class="sticky top-0 z-20 bg-slate-100 border-b border-slate-200 shadow-2xs">
+                <tr class="text-slate-700 font-bold uppercase tracking-wider text-[11px]">
+                  <th class="py-3 px-4 bg-slate-100 whitespace-nowrap w-12 text-center border-b border-slate-200">No</th>
+                  <th class="py-3 px-4 bg-slate-100 whitespace-nowrap text-center border-b border-slate-200">Halaman</th>
+                  <th class="py-3 px-4 bg-slate-100 whitespace-nowrap border-b border-slate-200">Nama Pegawai</th>
+                  <th class="py-3 px-4 bg-slate-100 whitespace-nowrap border-b border-slate-200">NIP</th>
+                  <th class="py-3 px-4 bg-slate-100 whitespace-nowrap border-b border-slate-200">Unit Kerja Sekolah</th>
+                  <th class="py-3 px-4 bg-slate-100 text-center whitespace-nowrap border-b border-slate-200">NPWP Terdeteksi</th>
+                  <th class="py-3 px-4 bg-slate-100 text-center whitespace-nowrap border-b border-slate-200">4 Digit Awal</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 bg-white">
+                <!-- Empty Search Result -->
+                <tr x-show="filteredPages().length === 0" style="display: none;">
+                  <td colspan="7" class="py-12 text-center text-slate-400">
+                    <i data-lucide="search-x" class="w-8 h-8 text-slate-300 mx-auto mb-2"></i>
+                    <p class="font-semibold text-slate-600">Tidak ada pegawai yang cocok</p>
+                    <p class="text-[11px] text-slate-400 mt-0.5">Coba gunakan kata kunci pencarian yang berbeda</p>
+                  </td>
+                </tr>
+
+                <template x-for="(item, idx) in filteredPages()" :key="item.id">
+                  <tr class="hover:bg-slate-50/80 transition-colors">
+                    <td class="py-2.5 px-4 text-slate-400 font-medium text-center" x-text="idx + 1"></td>
+                    <td class="py-2.5 px-4 text-center">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-bold text-[11px] border border-indigo-100"
+                            x-text="'Hal. ' + item.pageNumber"></span>
+                    </td>
+                    <td class="py-2.5 px-4 font-bold text-slate-900" x-text="item.nama"></td>
+                    <td class="py-2.5 px-4 font-mono text-slate-600 whitespace-nowrap" x-text="item.nip"></td>
+                    <td class="py-2.5 px-4 text-slate-600" x-text="item.unitNama"></td>
+                    <td class="py-2.5 px-4 text-center whitespace-nowrap">
+                      <span x-show="item.npwp && item.npwp !== '-'" 
+                            class="font-mono text-[11px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100" 
+                            x-text="item.npwp"></span>
+                      <span x-show="!item.npwp || item.npwp === '-'" 
+                            class="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium border border-amber-100">
+                        Belum Terdeteksi
+                      </span>
+                    </td>
+                    <td class="py-2.5 px-4 text-center whitespace-nowrap">
+                      <span x-show="(item.npwpFirst4 || item.npwpLast4) && (item.npwpFirst4 !== '-' && item.npwpLast4 !== '-')" 
+                            class="px-2 py-0.5 bg-slate-900 text-white font-mono font-bold rounded-md text-[11px]" 
+                            x-text="(item.npwpFirst4 || item.npwpLast4) + ' ••••'"></span>
+                      <span x-show="(!item.npwpFirst4 && !item.npwpLast4) || (item.npwpFirst4 === '-' && item.npwpLast4 === '-')" 
+                            class="text-slate-400 text-[11px]">-</span>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+          <p class="text-[11px] text-slate-500">
+            <span class="font-bold text-slate-700">* Catatan:</span> 4 digit awal NPWP digunakan pegawai sebagai autentikasi saat mengunduh lembar slip di halaman publik.
+          </p>
+          <button type="button" @click="detailModal = false" class="btn-secondary py-1.5 px-5 text-xs cursor-pointer w-full sm:w-auto">
+            Tutup
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </template>
+
+</main>
+
+<script>
+function ncrAdminPage() {
+  return {
+    uploadModal: false,
+    detailModal: false,
+    isUploading: false,
+    selectedPeriod: null,
+    periodPages: [],
+    searchDetailQuery: '',
+    bulan: <%= typeof currentMonth !== 'undefined' ? currentMonth : 9 %>,
+    tahun: <%= typeof currentYear !== 'undefined' ? currentYear : 2026 %>,
+
+    openUploadModal() {
+      this.uploadModal = true;
+      this.$nextTick(() => {
+        if (window.lucide) {
+          lucide.createIcons();
+        }
+      });
+    },
+
+    filteredPages() {
+      if (!this.searchDetailQuery || !this.searchDetailQuery.trim()) {
+        return this.periodPages;
+      }
+      const q = this.searchDetailQuery.toLowerCase();
+      return this.periodPages.filter(p => 
+        (p.nama && p.nama.toLowerCase().includes(q)) || 
+        (p.nip && p.nip.includes(q)) || 
+        (p.unitNama && p.unitNama.toLowerCase().includes(q))
+      );
+    },
+
+    openDetail(periodId) {
+      this.selectedPeriod = null;
+      this.periodPages = [];
+      this.searchDetailQuery = '';
+      this.detailModal = true;
+      this.$nextTick(() => {
+        if (window.lucide) {
+          lucide.createIcons();
+        }
+      });
+
+      fetch('/admin/ncr-gaji/' + periodId + '/detail')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            this.selectedPeriod = data.period;
+            this.periodPages = data.pages;
+            this.$nextTick(() => {
+              if (window.lucide) {
+                lucide.createIcons();
+              }
+            });
+          } else {
+            alert(data.message || 'Gagal mengambil data detail');
+          }
+        })
+        .catch(err => {
+          console.error(err);
+          alert('Terjadi kesalahan jaringan saat memuat detail.');
+        });
+    }
+  };
+}
+</script>
+
+<%- include('../partials/admin-footer') %>

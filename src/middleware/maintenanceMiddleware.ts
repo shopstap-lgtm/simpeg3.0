@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../lib/prisma';
 
-export type MaintenanceTarget = 'dashboard' | 'absensi' | 'ekinerja' | 'klarifikasi' | 'cek-presensi';
+export type MaintenanceTarget = 'dashboard' | 'absensi' | 'ekinerja' | 'klarifikasi' | 'cek-presensi' | 'ncr';
 
 export function checkMaintenance(target: MaintenanceTarget, pageName: string) {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -20,6 +20,7 @@ export function checkMaintenance(target: MaintenanceTarget, pageName: string) {
       else if (target === 'ekinerja') isClosed = !!cms.maintenanceEkinerja;
       else if (target === 'klarifikasi') isClosed = !!cms.maintenanceKlarifikasi;
       else if (target === 'cek-presensi') isClosed = !!(cms as any).maintenanceCekPresensi;
+      else if (target === 'ncr') isClosed = !!(cms as any).maintenanceNcr;
 
       if (!isClosed) {
         return next();
@@ -56,6 +57,8 @@ export function checkMaintenance(target: MaintenanceTarget, pageName: string) {
       return res.status(503).render('maintenance', {
         title: `Pemeliharaan Sistem - ${pageName}`,
         pageName,
+        page: 'maintenance',
+        user: (req as any).session?.user || null,
         currentPath: req.path,
         maintenanceTitle: cms.maintenanceTitle || 'Sedang Dalam Pemeliharaan',
         maintenanceMessage: cms.maintenanceMessage || 'Halaman ini sedang ditutup sementara untuk proses pemeliharaan data.'

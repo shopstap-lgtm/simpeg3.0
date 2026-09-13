@@ -27,10 +27,12 @@ model Employee {
   unitId             String
   unit               Unit             @relation(fields: [unitId], references: [id], onDelete: Cascade)
   aktif              Boolean          @default(true)
+  npwp               String?
 
   attendanceDays     AttendanceDay[]
   clarifications     Clarification[]
   ekinerjaReports    EkinerjaReport[]
+  ncrEmployeePages   NcrEmployeePage[]
 
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
@@ -137,6 +139,7 @@ model CmsConfig {
   maintenanceCekPresensi Boolean  @default(false)
   maintenanceEkinerja    Boolean  @default(false)
   maintenanceKlarifikasi Boolean  @default(false)
+  maintenanceNcr         Boolean  @default(false)
   maintenanceTitle       String   @default("Sedang Dalam Pemeliharaan")
   maintenanceMessage     String   @default("Halaman ini sedang dalam proses pemeliharaan dan pembaruan data berkala oleh tim admin Korwil Cibitung. Mohon kembali beberapa saat lagi.")
 
@@ -170,3 +173,47 @@ model AdminUser {
 
   @@index([username])
 }
+
+model NcrPeriod {
+  id                    String            @id @default(cuid())
+  bulan                 Int               // 1 - 12
+  tahun                 Int
+  judul                 String            @default("NCR Gaji")
+  fileName              String            // Nama file master asli yang diupload
+  fileUrl               String            // Path file master Cibitung hasil filter
+  totalOriginalPages    Int               @default(0)
+  totalFilteredPages    Int               @default(0)
+  totalEmployeesMatched Int               @default(0)
+  uploadedBy            String?           @default("Admin Korwil")
+
+  employeePages         NcrEmployeePage[]
+
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@unique([bulan, tahun])
+  @@index([bulan, tahun])
+}
+
+model NcrEmployeePage {
+  id           String    @id @default(cuid())
+  ncrPeriodId  String
+  employeeId   String?
+  nip          String
+  nama         String
+  unitNama     String?
+  pageNumber   Int       // Nomor halaman pada file PDF master Cibitung hasil filter (1-indexed)
+  npwp         String?
+  npwpLast4    String?
+
+  ncrPeriod    NcrPeriod @relation(fields: [ncrPeriodId], references: [id], onDelete: Cascade)
+  employee     Employee? @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([ncrPeriodId, nip])
+  @@index([nip])
+  @@index([employeeId])
+}
+

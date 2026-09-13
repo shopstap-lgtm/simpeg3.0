@@ -49,6 +49,9 @@
         rejectedReason: '',
         rejectedEmployeeName: '',
         rejectedDate: '',
+        rejectedDayObj: null,
+        rejectedEmpObj: null,
+        rejectedAllDays: [],
         selectedEmployee: null,
         eligibleDays: [],
         isRentang: false,
@@ -63,13 +66,20 @@
         searchQuery: '<%= search %>',
         unitFilter: '<%= selectedUnit %>',
         fileName: '',
-        currentAllDays: [],
+        filePreviewUrl: null,
+        isPdf: false,
+        fileError: '',
+        isSubmitting: false,
+        submitSuccess: false,
+        successMessage: '',
+        errorMessage: '',
         pdfModal: false,
-        pdfTitle: '',
         pdfUrl: '',
+        pdfTitle: '',
         pdfFileName: '',
 
-        isModalOpen() {
+        // Modal visibility check helper
+        get isAnyModalOpen() {
           return this.klarifikasiModal || this.adminDirectModal || this.bulkDateModal || this.statusHistoryModal || this.rejectedInfoModal || this.pdfModal;
         },
 
@@ -88,17 +98,31 @@
         },
 
         handleCellClick(emp, dayObj, allDays) {
+          if (!dayObj) return;
+
+          // Cegah klik pada hari libur nasional atau weekend untuk publik
+          if (!this.isAdmin && dayObj.status === 'LIBUR') {
+            alert('Hari Libur (' + (dayObj.keterangan || 'Libur') + '). Tidak dapat mengubah presensi.');
+            return;
+          }
+
+          this.currentEmp = emp;
+          this.currentDay = dayObj;
+          this.currentAllDays = allDays;
           this.selectedEmployee = emp;
           this.selectedDay = dayObj.tanggal;
           this.selectedDate = '<%= tahun %>-<%= String(bulan).padStart(2, '0') %>-' + String(dayObj.tanggal).padStart(2, '0');
-          this.currentStatus = dayObj.status;
-          this.currentAllDays = allDays;
 
           if (this.isAdmin) {
             // ADMIN: Tampilkan modal aksi (bisa Ubah Langsung atau Form Klarifikasi)
             this.directTargetStatus = dayObj.status !== 'EMPTY' ? dayObj.status : 'HADIR';
             this.directKeterangan = dayObj.keterangan || '';
             this.adminDirectModal = true;
+            this.$nextTick(() => {
+              if (window.lucide) {
+                lucide.createIcons();
+              }
+            });
           } else {
             // PUBLIK:
             if (!this.isDefaultPeriod) {
@@ -107,7 +131,7 @@
             }
 
             if (dayObj.clarificationStatus === 'REJECTED') {
-              this.showRejectedDetail(emp.nama, '<%= tahun %>-<%= String(bulan).padStart(2, '0') %>-' + String(dayObj.tanggal).padStart(2, '0'), dayObj.clarificationNote || 'Bukti dokumen tidak memenuhi syarat / belum ditandatangani Kepala Sekolah.');
+              this.showRejectedDetail(emp, dayObj, allDays);
               return;
             }
 
@@ -130,10 +154,13 @@
           }
         },
 
-        showRejectedDetail(empName, dateStr, note) {
-          this.rejectedEmployeeName = empName;
-          this.rejectedDate = dateStr;
-          this.rejectedReason = note;
+        showRejectedDetail(emp, dayObj, allDays) {
+          this.rejectedEmployeeName = emp.nama;
+          this.rejectedDate = '<%= tahun %>-<%= String(bulan).padStart(2, '0') %>-' + String(dayObj.tanggal).padStart(2, '0');
+          this.rejectedReason = dayObj.clarificationNote || 'Bukti dokumen tidak memenuhi syarat / belum ditandatangani Kepala Sekolah.';
+          this.rejectedDayObj = dayObj;
+          this.rejectedEmpObj = emp;
+          this.rejectedAllDays = allDays;
           this.rejectedInfoModal = true;
         },
 
@@ -273,131 +300,121 @@
                       </div>
                     </div>
                   <% } else { %>
-                    <!-- TAMPILAN: Cek Presensi Pegawai via NIP -->
-                    <div class="custom-card p-5 sm:p-6 bg-white shadow-xs border border-slate-200/80 rounded-2xl mb-6">
+                    <!-- TAMPILAN: Cek Presensi Pegawai via NIP (Berjajar Seri & Hemat Ruang) -->
+                    <div class="custom-card p-3 sm:p-4 bg-white shadow-xs border border-slate-200/80 rounded-2xl mb-4">
                       <% if (isAdmin && typeof maintenanceCekPresensi !== 'undefined' && maintenanceCekPresensi) { %>
-                        <div class="max-w-md mx-auto mb-4 p-3 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-800 text-xs flex items-center gap-2.5">
+                        <div class="max-w-4xl mx-auto mb-2.5 p-2 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-800 text-xs flex items-center gap-2">
                           <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600 shrink-0"></i>
                           <div class="text-left">
-                            <span class="font-bold block">Mode Pratinjau Admin</span>
-                            Form Cek Presensi saat ini berstatus <b>DITUTUP (Maintenance)</b> untuk publik.
+                            <span class="font-bold">Mode Pratinjau Admin:</span> Form Cek Presensi sedang ditutup (Maintenance).
                           </div>
                         </div>
                       <% } %>
-                      <div class="max-w-md mx-auto text-center mb-4">
-                        <h2 class="text-lg sm:text-xl font-black text-slate-900">Cek Presensi Pegawai</h2>
+                      <div class="max-w-4xl mx-auto flex items-center justify-between gap-2 mb-2">
+                        <div class="flex items-center gap-2">
+                          <div class="w-6 h-6 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                            <i data-lucide="calendar-check" class="w-3.5 h-3.5"></i>
+                          </div>
+                          <h2 class="text-xs sm:text-sm font-extrabold text-slate-900">Cek Presensi Pegawai Mandiri</h2>
+                        </div>
+                        <% if (isAdmin) { %>
+                          <a href="/absensi?bulan=<%= bulan %>&tahun=<%= tahun %>"
+                            class="btn-secondary py-1 px-2.5 text-xs font-bold text-slate-600 hover:text-indigo-600 shrink-0 gap-1"
+                            title="Kembali ke Mode Manajemen Admin">
+                            <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+                            <span class="hidden sm:inline">Panel Admin</span>
+                          </a>
+                        <% } %>
                       </div>
 
-                      <!-- Form Input NIP, Bulan, Tahun -->
-                      <form action="/absensi" method="GET" class="max-w-md mx-auto space-y-3.5">
+                      <!-- Form Berjajar Seri (Single Row / Inline) -->
+                      <form action="/absensi" method="GET" class="max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-2.5 items-center w-full">
                         <% if (typeof isCekMandiri !=='undefined' && isCekMandiri) { %>
                           <input type="hidden" name="cekMandiri" value="1">
                         <% } %>
-                          <div>
-                            <label for="nipInput"
-                              class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 text-left">
-                              Nomor Induk Pegawai (NIP) <span class="text-rose-500">*</span>
-                            </label>
-                            <div class="relative">
-                              <input type="text" name="nip" id="nipInput"
-                                value="<%= typeof nipQuery !== 'undefined' ? nipQuery : '' %>"
-                                placeholder="Masukkan 18 digit NIP..." required autocomplete="off"
-                                class="w-full pl-4 pr-11 py-2.5 text-sm font-semibold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-slate-400 shadow-2xs">
-                              <div
-                                class="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
-                                <i data-lucide="user" class="w-4 h-4 text-indigo-500"></i>
-                              </div>
-                            </div>
+                        
+                        <!-- 1. Input NIP -->
+                        <div class="relative col-span-1 sm:col-span-2 md:col-span-5 min-w-0">
+                          <div class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                            <i data-lucide="user" class="w-4 h-4 text-indigo-500"></i>
                           </div>
-
-                          <div class="grid grid-cols-2 gap-3">
-                            <!-- Pilihan Bulan -->
-                            <div>
-                              <label
-                                class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1 text-left">Bulan</label>
-                              <select name="bulan"
-                                class="w-full px-3 py-2 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500">
-                                <% [ { val: 1, label: 'Januari' }, { val: 2, label: 'Februari' }, { val: 3,
-                                  label: 'Maret' }, { val: 4, label: 'April' }, { val: 5, label: 'Mei' }, { val: 6,
-                                  label: 'Juni' }, { val: 7, label: 'Juli' }, { val: 8, label: 'Agustus' }, { val: 9,
-                                  label: 'September' }, { val: 10, label: 'Oktober' }, { val: 11, label: 'November' }, {
-                                  val: 12, label: 'Desember' } ].forEach(m=> { %>
-                                  <option value="<%= m.val %>" <%=bulan===m.val ? 'selected' : '' %>><%= m.label %>
-                                  </option>
-                                  <% }); %>
-                              </select>
-                            </div>
-
-                            <!-- Pilihan Tahun -->
-                            <div>
-                              <label
-                                class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1 text-left">Tahun</label>
-                              <select name="tahun"
-                                class="w-full px-3 py-2 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500">
-                                <option value="2026" <%=tahun===2026 ? 'selected' : '' %>>2026</option>
-                                <option value="2025" <%=tahun===2025 ? 'selected' : '' %>>2025</option>
-                              </select>
-                            </div>
-                          </div>
-
-                          <div class="flex items-center gap-2.5 pt-1">
-                            <button type="submit"
-                              class="flex-1 btn-primary py-2.5 px-4 text-xs sm:text-sm font-bold justify-center gap-2 shadow-indigo-200">
-                              <i data-lucide="search" class="w-4 h-4"></i>
-                              <span>Cek Presensi</span>
-                            </button>
-                            <% if (isAdmin) { %>
-                              <a href="/absensi?bulan=<%= bulan %>&tahun=<%= tahun %>"
-                                class="btn-secondary py-2.5 px-3.5 text-xs font-bold text-slate-600 hover:text-indigo-600 shrink-0 gap-1.5"
-                                title="Kembali ke Mode Manajemen Admin">
-                                <i data-lucide="layout-grid" class="w-4 h-4"></i>
-                                <span class="hidden sm:inline">Panel Admin</span>
-                              </a>
-                              <% } %>
-                          </div>
-                    </form>
-
-                    <!-- Alert Jika NIP Tidak Ditemukan -->
-                    <% if (typeof nipNotFound !=='undefined' && nipNotFound) { %>
-                      <div
-                        class="max-w-xl mx-auto mt-5 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-start gap-3">
-                        <i data-lucide="alert-circle" class="w-5 h-5 text-rose-600 shrink-0 mt-0.5"></i>
-                        <div class="text-xs text-left">
-                          <span class="font-bold block text-rose-900">Pegawai Tidak Ditemukan</span>
-                          Pegawai dengan NIP "<b>
-                            <%= nipQuery %>
-                          </b>" tidak terdaftar atau status kepegawaiannya tidak aktif. Silakan periksa kembali angka
-                          NIP yang Anda masukkan.
+                          <input type="text" name="nip" id="nipInput"
+                            value="<%= typeof nipQuery !== 'undefined' ? nipQuery : '' %>"
+                            placeholder="Masukkan 18 digit NIP..." required autocomplete="off"
+                            class="w-full pl-10 pr-3 h-10 text-xs sm:text-sm font-semibold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all placeholder:text-slate-400 shadow-2xs">
                         </div>
-                      </div>
+
+                        <!-- 2. Pilihan Bulan -->
+                        <div class="col-span-1 sm:col-span-1 md:col-span-3 min-w-0">
+                          <select name="bulan"
+                            class="form-select w-full h-10 py-2 pl-3 pr-8 text-xs sm:text-sm font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 shadow-2xs cursor-pointer">
+                            <% [ { val: 1, label: 'Januari' }, { val: 2, label: 'Februari' }, { val: 3,
+                              label: 'Maret' }, { val: 4, label: 'April' }, { val: 5, label: 'Mei' }, { val: 6,
+                              label: 'Juni' }, { val: 7, label: 'Juli' }, { val: 8, label: 'Agustus' }, { val: 9,
+                              label: 'September' }, { val: 10, label: 'Oktober' }, { val: 11, label: 'November' }, {
+                              val: 12, label: 'Desember' } ].forEach(m=> { %>
+                              <option value="<%= m.val %>" <%=bulan===m.val ? 'selected' : '' %>><%= m.label %></option>
+                            <% }); %>
+                          </select>
+                        </div>
+
+                        <!-- 3. Pilihan Tahun -->
+                        <div class="col-span-1 sm:col-span-1 md:col-span-2 min-w-0">
+                          <select name="tahun"
+                            class="form-select w-full h-10 py-2 pl-3 pr-8 text-xs sm:text-sm font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 shadow-2xs cursor-pointer">
+                            <option value="2026" <%=tahun===2026 ? 'selected' : '' %>>2026</option>
+                            <option value="2025" <%=tahun===2025 ? 'selected' : '' %>>2025</option>
+                          </select>
+                        </div>
+
+                        <!-- 4. Tombol Submit -->
+                        <div class="col-span-1 sm:col-span-2 md:col-span-2 min-w-0">
+                          <button type="submit"
+                            class="w-full h-10 btn-primary py-2 px-3 text-xs sm:text-sm font-bold justify-center gap-1.5 shadow-indigo-200 whitespace-nowrap cursor-pointer">
+                            <i data-lucide="search" class="w-4 h-4 shrink-0"></i>
+                            <span>Cek Presensi</span>
+                          </button>
+                        </div>
+                      </form>
+
+                      <!-- Alert Jika NIP Tidak Ditemukan -->
+                      <% if (typeof nipNotFound !=='undefined' && nipNotFound) { %>
+                        <div
+                          class="max-w-4xl mx-auto mt-2.5 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 flex items-start gap-2.5 text-xs">
+                          <i data-lucide="alert-circle" class="w-4 h-4 text-rose-600 shrink-0 mt-0.5"></i>
+                          <div class="text-left">
+                            <span class="font-bold text-rose-900">Pegawai Tidak Ditemukan:</span>
+                            NIP "<b><%= nipQuery %></b>" tidak terdaftar atau tidak aktif. Silakan periksa kembali angka NIP Anda.
+                          </div>
+                        </div>
                       <% } %>
 
-                        <!-- Informasi Hasil Pengecekan Jika NIP Ditemukan -->
-                        <% if (typeof checkedEmployee !=='undefined' && checkedEmployee) { %>
-                          <div
-                            class="max-w-xl mx-auto mt-5 p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div class="flex items-center gap-2.5 text-left">
-                              <div
-                                class="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
-                                <i data-lucide="check" class="w-4 h-4"></i>
-                              </div>
-                              <div class="text-xs">
-                                <span class="font-bold text-emerald-900 text-sm block">
-                                  <%= checkedEmployee.nama %>
-                                </span>
-                                <span class="text-emerald-700 block">
-                                  <%= checkedEmployee.unit?.namaUnit || '-' %> • NIP: <%= checkedEmployee.nip %>
-                                </span>
-                              </div>
+                      <!-- Informasi Hasil Pengecekan Jika NIP Ditemukan -->
+                      <% if (typeof checkedEmployee !=='undefined' && checkedEmployee) { %>
+                        <div
+                          class="max-w-4xl mx-auto mt-2.5 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                          <div class="flex items-center gap-2 text-left">
+                            <div
+                              class="w-6 h-6 rounded-md bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                              <i data-lucide="check" class="w-3.5 h-3.5"></i>
                             </div>
-                            <a href="/absensi?bulan=<%= bulan %>&tahun=<%= tahun %><%= isAdmin && typeof isCekMandiri !== 'undefined' && isCekMandiri ? '&cekMandiri=1' : '' %>"
-                              class="btn-secondary py-1.5 px-3 text-xs gap-1 bg-white hover:bg-emerald-100 text-emerald-700 border-emerald-300 shrink-0 self-end sm:self-auto">
-                              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-                              <span>Cek NIP Lain</span>
-                            </a>
+                            <div>
+                              <span class="font-bold text-emerald-900 text-xs sm:text-sm">
+                                <%= checkedEmployee.nama %>
+                              </span>
+                              <span class="text-emerald-700">
+                                • <%= checkedEmployee.unit?.namaUnit || '-' %> • NIP: <%= checkedEmployee.nip %>
+                              </span>
+                            </div>
                           </div>
-                          <% } %>
-                  </div>
+                          <a href="/absensi?bulan=<%= bulan %>&tahun=<%= tahun %><%= isAdmin && typeof isCekMandiri !== 'undefined' && isCekMandiri ? '&cekMandiri=1' : '' %>"
+                            class="btn-secondary py-1 px-2 text-[11px] gap-1 bg-white hover:bg-emerald-100 text-emerald-700 border-emerald-300 shrink-0 self-end sm:self-auto">
+                            <i data-lucide="rotate-ccw" class="w-3 h-3"></i>
+                            <span>Cek NIP Lain</span>
+                          </a>
+                        </div>
+                      <% } %>
+                    </div>
                   <% } %>
                   <% } else { %>
                     <!-- TAMPILAN ADMIN: Filter & Search Toolbar with Modern Rounded Searchable Dropdowns -->
@@ -408,11 +425,26 @@
                           <i data-lucide="sliders" class="w-4 h-4 text-indigo-600"></i>
                           <span>Panel Manajemen Absensi Admin</span>
                         </div>
-                        <a href="/absensi?cekMandiri=1"
-                          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-2xs transition-colors">
-                          <i data-lucide="search" class="w-3.5 h-3.5"></i>
-                          <span>Cek Presensi Pegawai</span>
-                        </a>
+                        <div class="flex flex-wrap items-center gap-2">
+                          <a href="/absensi/export/excel?bulan=<%= bulan %>&tahun=<%= tahun %>&unit=<%= selectedUnit %>&search=<%= search %>"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs border border-emerald-200 shadow-2xs transition-colors"
+                            title="Unduh Rekap Absensi Seluruh Pegawai Bulan Ini (.xlsx)">
+                            <i data-lucide="file-spreadsheet" class="w-3.5 h-3.5 text-emerald-600"></i>
+                            <span>Export Excel</span>
+                          </a>
+                          <a href="/absensi/export/pdf?bulan=<%= bulan %>&tahun=<%= tahun %>&unit=<%= selectedUnit %>&search=<%= search %>"
+                            target="_blank"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 shadow-2xs transition-colors"
+                            title="Cetak Dokumen PDF Rekap Absensi Bulan Ini (A4 Landscape)">
+                            <i data-lucide="printer" class="w-3.5 h-3.5 text-rose-600"></i>
+                            <span>Cetak PDF</span>
+                          </a>
+                          <a href="/absensi?cekMandiri=1"
+                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 shadow-2xs transition-colors">
+                            <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                            <span>Cek Presensi Pegawai</span>
+                          </a>
+                        </div>
                       </div>
                       <form action="/absensi" method="GET" id="absensiFilterForm"
                         class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -774,8 +806,7 @@
                                     <% item.days.forEach(function(d) { let badgeClass='' ; let shortCode='' ; let
                                       isWithoutBadge=(d.status==='EMPTY' && !d.clarificationStatus); if
                                       (d.clarificationStatus==='PENDING' ) { badgeClass='cell-day-pending' ;
-                                      shortCode='⏳' ; } else if (d.clarificationStatus==='REJECTED' ) {
-                                      badgeClass='cell-day-rejected' ; shortCode='⚠️' ; } else if (d.status==='HADIR' )
+                                      shortCode='⏳' ; } else if (d.status==='HADIR' )
                                       { badgeClass='cell-day-hadir' ; shortCode='H' ; } else if (d.status==='TK' ) {
                                       badgeClass='cell-day-tk' ; shortCode='TK' ; } else if (d.status==='DL' ) {
                                       badgeClass='cell-day-dl' ; shortCode='DL' ; } else if (d.status==='DL_KUNING' ) {
@@ -796,18 +827,31 @@
                                           <% if (isAdmin) { %>
                                             <button type="button"
                                               class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] bg-transparent text-transparent border-0 hover:bg-slate-100 cursor-pointer transition-all"
-                                              title="Tgl <%= d.tanggal %>: Belum Ada Data (Klik untuk ubah)"
                                               @click="handleCellClick(empInfo, empDays[<%= d.tanggal - 1 %>], empDays)">
                                             </button>
                                             <% } else { %>
                                               <div class="w-7 h-7"></div>
                                               <% } %>
                                                 <% } else { %>
+                                                  <% 
+                                                    let badgeTitle = '';
+                                                    if (d.clarificationStatus === 'PENDING') {
+                                                      badgeTitle = 'Tgl ' + d.tanggal + ': ' + (d.keterangan || d.status) + ' (Sedang Dalam Review)';
+                                                    } else if (d.clarificationStatus === 'REJECTED') {
+                                                      badgeTitle = 'Tgl ' + d.tanggal + ': ' + (d.keterangan || d.status) + ' • Klarifikasi Ditolak: ' + (d.clarificationNote || 'Dokumen belum sesuai');
+                                                    }
+                                                  %>
                                                   <button type="button"
-                                                    class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] <%= badgeClass %> shadow-xs cursor-pointer hover:scale-110 active:scale-95 transition-all"
-                                                    title="Tgl <%= d.tanggal %>: <%= d.keterangan || d.status %><%= d.clarificationStatus === 'PENDING' ? ' (Sedang Dalam Review)' : d.clarificationStatus === 'REJECTED' ? ' (Ditolak: ' + d.clarificationNote + ')' : '' %>"
+                                                    class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] <%= badgeClass %> shadow-xs cursor-pointer hover:scale-110 active:scale-95 transition-all relative"
+                                                    <% if (badgeTitle) { %>title="<%= badgeTitle %>"<% } %>
                                                     @click="handleCellClick(empInfo, empDays[<%= d.tanggal - 1 %>], empDays)">
                                                     <%= shortCode %>
+                                                    <% if (d.clarificationStatus === 'REJECTED') { %>
+                                                      <span class="absolute -top-1 left-1/2 -translate-x-1/2 flex h-2.5 w-2.5 z-10 pointer-events-none" title="Klarifikasi Ditolak: <%= (d.clarificationNote || 'Dokumen belum sesuai').replace(/"/g, '&quot;') %>">
+                                                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                                        <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600 border border-white"></span>
+                                                      </span>
+                                                    <% } %>
                                                   </button>
                                                   <% } %>
                                       </div>
@@ -939,8 +983,7 @@
                                         <% item.days.forEach(function(d) { let bgCol='' ; let char='' ; let
                                           isWithoutBadge=(d.status==='EMPTY' && !d.clarificationStatus); if
                                           (d.clarificationStatus==='PENDING' ) { bgCol='cell-day-pending' ; char='⏳' ; }
-                                          else if (d.clarificationStatus==='REJECTED' ) { bgCol='cell-day-rejected' ;
-                                          char='⚠️' ; } else if (d.status==='HADIR' ) { bgCol='cell-day-hadir' ;
+                                          else if (d.status==='HADIR' ) { bgCol='cell-day-hadir' ;
                                           char='H' ; } else if (d.status==='TK' ) { bgCol='cell-day-tk' ; char='TK' ; }
                                           else if (d.status==='DL' ) { bgCol='cell-day-dl' ; char='DL' ; } else if
                                           (d.status==='DL_KUNING' ) { bgCol='cell-day-dl-kuning' ; char='DL' ; } else if
@@ -957,18 +1000,31 @@
                                               <% if (isAdmin) { %>
                                                 <button type="button"
                                                   class="inline-flex items-center justify-center w-5 h-5 rounded text-[8px] bg-transparent text-transparent hover:bg-slate-100/80 cursor-pointer transition-all"
-                                                  title="Tgl <%= d.tanggal %>: Belum Ada Data (Klik untuk ubah)"
                                                   @click="handleCellClick(empInfo, empDays[<%= d.tanggal - 1 %>], empDays)">
                                                 </button>
                                                 <% } else { %>
                                                   <span class="inline-block w-5 h-5"></span>
                                                   <% } %>
                                                     <% } else { %>
+                                                      <% 
+                                                        let badgeTitle = '';
+                                                        if (d.clarificationStatus === 'PENDING') {
+                                                          badgeTitle = 'Tgl ' + d.tanggal + ': ' + (d.keterangan || d.status) + ' (Sedang Dalam Review)';
+                                                        } else if (d.clarificationStatus === 'REJECTED') {
+                                                          badgeTitle = 'Tgl ' + d.tanggal + ': ' + (d.keterangan || d.status) + ' • Klarifikasi Ditolak: ' + (d.clarificationNote || 'Dokumen belum sesuai');
+                                                        }
+                                                      %>
                                                       <button type="button"
-                                                        class="inline-flex items-center justify-center w-5 h-5 rounded text-[8px] <%= bgCol %> cursor-pointer hover:scale-120 active:scale-95 transition-all shadow-2xs font-bold leading-none"
-                                                        title="Tgl <%= d.tanggal %>: <%= d.keterangan || d.status %><%= d.clarificationStatus === 'PENDING' ? ' (Sedang Dalam Review)' : d.clarificationStatus === 'REJECTED' ? ' (Ditolak: ' + d.clarificationNote + ')' : '' %>"
+                                                        class="inline-flex items-center justify-center w-5 h-5 rounded text-[8px] <%= bgCol %> cursor-pointer hover:scale-120 active:scale-95 transition-all shadow-2xs font-bold leading-none relative"
+                                                        <% if (badgeTitle) { %>title="<%= badgeTitle %>"<% } %>
                                                         @click="handleCellClick(empInfo, empDays[<%= d.tanggal - 1 %>], empDays)">
                                                         <%= char %>
+                                                        <% if (d.clarificationStatus === 'REJECTED') { %>
+                                                          <span class="absolute -top-1 left-1/2 -translate-x-1/2 flex h-2 w-2 z-10 pointer-events-none" title="Klarifikasi Ditolak: <%= (d.clarificationNote || 'Dokumen belum sesuai').replace(/"/g, '&quot;') %>">
+                                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                                            <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-600 border border-white"></span>
+                                                          </span>
+                                                        <% } %>
                                                       </button>
                                                       <% } %>
                                           </td>
@@ -1509,7 +1565,10 @@
 
                             <div class="flex items-center justify-between pb-3 border-b border-slate-100">
                               <div class="flex items-center gap-2.5 text-rose-600">
-                                <i data-lucide="alert-octagon" class="w-5 h-5"></i>
+                                <span class="relative flex h-3 w-3 shrink-0">
+                                  <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                  <span class="relative inline-flex rounded-full h-3 w-3 bg-rose-600"></span>
+                                </span>
                                 <h3 class="font-bold text-base text-slate-900">Klarifikasi Presensi Ditolak</h3>
                               </div>
                               <button @click="rejectedInfoModal = false"
@@ -1518,27 +1577,33 @@
                               </button>
                             </div>
 
-                            <div class="p-3.5 rounded-2xl bg-rose-50 border border-rose-200/80 text-xs space-y-2">
+                            <div class="p-3.5 rounded-2xl bg-rose-50/80 border border-rose-200/80 text-xs space-y-2.5">
                               <div class="flex items-center justify-between font-bold text-slate-800">
                                 <span x-text="rejectedEmployeeName"></span>
-                                <span class="text-rose-700" x-text="'Tgl: ' + rejectedDate"></span>
+                                <span class="text-rose-700 font-mono text-[11px]" x-text="'Tgl: ' + rejectedDate"></span>
                               </div>
                               <div class="pt-2 border-t border-rose-200/60 text-slate-700">
                                 <span class="font-bold text-rose-800 uppercase tracking-wider text-[10px] block">Alasan
                                   Penolakan Admin:</span>
-                                <p class="mt-1 text-slate-800 leading-relaxed font-medium bg-white p-2.5 rounded-xl border border-rose-200"
+                                <p class="mt-1 text-slate-800 leading-relaxed font-medium bg-white p-2.5 rounded-xl border border-rose-200 shadow-2xs"
                                   x-text="rejectedReason"></p>
                               </div>
                             </div>
 
-                            <p class="text-[11px] text-slate-500">
-                              Silakan perbaiki berkas bukti sesuai catatan di atas dan ajukan klarifikasi ulang.
+                            <p class="text-[11px] text-slate-500 leading-relaxed">
+                              Status presensi dikembalikan ke semula dengan tanda titik merah berkedip. Anda dapat mengajukan ulang klarifikasi setelah melengkapi/memperbaiki berkas bukti.
                             </p>
 
-                            <div class="pt-2 flex justify-end">
+                            <div class="pt-2 flex items-center justify-end gap-2">
                               <button type="button" @click="rejectedInfoModal = false"
-                                class="btn-primary py-2 px-4 text-xs">
-                                Mengerti
+                                class="btn-secondary py-2 px-3.5 text-xs font-semibold">
+                                Tutup
+                              </button>
+                              <button type="button"
+                                @click="rejectedInfoModal = false; if (rejectedEmpObj && rejectedDayObj) openKlarifikasiWithDays(rejectedEmpObj, rejectedAllDays, rejectedDate, rejectedDayObj.status, false);"
+                                class="btn-primary py-2 px-3.5 text-xs font-bold gap-1.5 shadow-indigo-200">
+                                <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                                <span>Ajukan Ulang</span>
                               </button>
                             </div>
 

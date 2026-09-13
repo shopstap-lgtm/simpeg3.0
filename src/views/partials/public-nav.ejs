@@ -36,6 +36,12 @@
           <i data-lucide="file-check-2" class="w-4 h-4"></i>
           <span>Laporan E-Kinerja</span>
         </a>
+
+        <a href="/ncr-gaji" 
+           class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all <%= (typeof page !== 'undefined' && page === 'ncr-gaji') ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600 hover:text-slate-900 hover:bg-white/50' %>">
+          <i data-lucide="banknote" class="w-4 h-4"></i>
+          <span>NCR Gaji</span>
+        </a>
       </nav>
 
       <!-- Right Action / Admin Button -->
@@ -98,6 +104,12 @@
        class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all <%= (typeof page !== 'undefined' && page === 'ekinerja') ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50' %>">
       <i data-lucide="file-check-2" class="w-5 h-5"></i>
       <span>Laporan E-Kinerja</span>
+    </a>
+
+    <a href="/ncr-gaji" 
+       class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all <%= (typeof page !== 'undefined' && page === 'ncr-gaji') ? 'bg-indigo-50 text-indigo-700' : 'text-slate-700 hover:bg-slate-50' %>">
+      <i data-lucide="banknote" class="w-5 h-5"></i>
+      <span>NCR Gaji Pegawai</span>
     </a>
 
     <div class="pt-3 border-t border-slate-100">

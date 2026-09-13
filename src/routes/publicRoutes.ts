@@ -6,6 +6,7 @@ import os from 'os';
 import { dashboardController } from '../controllers/dashboardController';
 import { absensiController } from '../controllers/absensiController';
 import { ekinerjaController } from '../controllers/ekinerjaController';
+import { ncrPublicController } from '../controllers/ncrPublicController';
 import { checkMaintenance } from '../middleware/maintenanceMiddleware';
 
 const router = Router();
@@ -41,6 +42,8 @@ router.get('/ping', (req, res) => {
 router.get('/', checkMaintenance('dashboard', 'Dashboard Utama'), dashboardController.show);
 
 // Absensi & Klarifikasi
+router.get('/absensi/export/excel', absensiController.exportExcel);
+router.get('/absensi/export/pdf', absensiController.exportPdf);
 router.get('/absensi', checkMaintenance('absensi', 'Rekap Absensi Harian'), absensiController.show);
 router.post('/absensi/klarifikasi', checkMaintenance('klarifikasi', 'Pengajuan Klarifikasi Absensi'), upload.single('file'), absensiController.submitKlarifikasi);
 router.post('/absensi/direct-update', absensiController.directUpdate);
@@ -52,5 +55,11 @@ router.post('/ekinerja/submit', checkMaintenance('ekinerja', 'Pengunggahan Lapor
   { name: 'fileHarian', maxCount: 1 },
   { name: 'fileBulanan', maxCount: 1 }
 ]), ekinerjaController.submitLaporan);
+
+// NCR Gaji Pegawai
+router.get('/ncr-gaji', checkMaintenance('ncr', 'NCR Gaji Pegawai'), ncrPublicController.show);
+router.get('/ncr-gaji/search-employees', ncrPublicController.searchEmployees);
+router.post('/ncr-gaji/check', checkMaintenance('ncr', 'NCR Gaji Pegawai'), ncrPublicController.checkEligibility);
+router.post('/ncr-gaji/download', checkMaintenance('ncr', 'NCR Gaji Pegawai'), ncrPublicController.downloadSlip);
 
 export default router;
