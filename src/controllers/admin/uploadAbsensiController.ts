@@ -370,6 +370,25 @@ export const uploadAbsensiController = {
             const rawStatus = skpdColIndex !== -1 ? row[skpdColIndex] : 'NL';
             const mappedStatus = mapSkpdStatus(rawStatus);
 
+            // Check if existing record has an approved status from earlier pre-recap clarification (DL, ST, CT)
+            const existingDay = await prisma.attendanceDay.findUnique({
+              where: {
+                employeeId_periodId_tanggal: {
+                  employeeId: emp.id,
+                  periodId: period.id,
+                  tanggal: day
+                }
+              },
+              select: {
+                id: true,
+                status: true
+              }
+            });
+
+            // If teacher already has an approved DL, ST, CT from pre-recap clarification, do NOT overwrite it with TK!
+            const isProtectedStatus = existingDay && ['DL', 'ST', 'CT'].includes(existingDay.status);
+            const finalStatus = (isProtectedStatus && mappedStatus === 'TK') ? existingDay.status : mappedStatus;
+
             await prisma.attendanceDay.upsert({
               where: {
                 employeeId_periodId_tanggal: {
@@ -379,8 +398,10 @@ export const uploadAbsensiController = {
                 }
               },
               update: {
-                status: mappedStatus,
-                keterangan: `Sinkronisasi Absen Bisma: ${file.originalname}`
+                status: finalStatus,
+                keterangan: isProtectedStatus && mappedStatus === 'TK'
+                  ? `Klarifikasi Pra-Rekap Terjaga (${existingDay.status})`
+                  : `Sinkronisasi Absen Bisma: ${file.originalname}`
               },
               create: {
                 employeeId: emp.id,

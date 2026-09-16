@@ -7,6 +7,7 @@ import { dashboardController } from '../controllers/dashboardController';
 import { absensiController } from '../controllers/absensiController';
 import { ekinerjaController } from '../controllers/ekinerjaController';
 import { ncrPublicController } from '../controllers/ncrPublicController';
+import { publicFormController } from '../controllers/publicFormController';
 import { checkMaintenance } from '../middleware/maintenanceMiddleware';
 
 const router = Router();
@@ -35,6 +36,20 @@ const upload = multer({
   limits: { fileSize: 1 * 1024 * 1024 } // 1MB
 });
 
+// Configure multer for form file uploads (disk storage, up to 10MB)
+const formDiskUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, getUploadDir());
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      cb(null, 'form-' + uniqueSuffix + '-' + file.originalname.replace(/\s+/g, '_'));
+    }
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
+
 // Public Menus
 router.get('/ping', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString(), env: process.env.NODE_ENV });
@@ -61,5 +76,10 @@ router.get('/ncr-gaji', checkMaintenance('ncr', 'NCR Gaji Pegawai'), ncrPublicCo
 router.get('/ncr-gaji/search-employees', ncrPublicController.searchEmployees);
 router.post('/ncr-gaji/check', checkMaintenance('ncr', 'NCR Gaji Pegawai'), ncrPublicController.checkEligibility);
 router.post('/ncr-gaji/download', checkMaintenance('ncr', 'NCR Gaji Pegawai'), ncrPublicController.downloadSlip);
+
+// Dynamic Forms (Public & Pegawai)
+router.get('/form/:slug', publicFormController.renderForm);
+router.post('/form/:slug/submit', formDiskUpload.any(), publicFormController.submitForm);
+router.get('/form/:slug/success', publicFormController.renderSuccess);
 
 export default router;

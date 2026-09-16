@@ -1,0 +1,806 @@
+<%- include('../../partials/head') %>
+<%- include('../../partials/admin-nav') %>
+<%- include('../../partials/toast') %>
+
+<% const isEditing = typeof isEdit !== 'undefined' && isEdit; %>
+<% const currentForm = typeof form !== 'undefined' && form ? form : null; %>
+
+<script id="form-initial-fields" type="application/json">
+  <%- JSON.stringify((currentForm && Array.isArray(currentForm.fields)) ? currentForm.fields : []) %>
+</script>
+
+<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-8"
+      x-data="{
+        title: '<%= currentForm ? currentForm.title.replace(/'/g, "\\'") : '' %>',
+        slug: '<%= currentForm ? currentForm.slug : '' %>',
+        description: `<%= currentForm && currentForm.description ? currentForm.description.replace(/`/g, '\\`') : '' %>`,
+        status: '<%= currentForm ? currentForm.status : 'PUBLISHED' %>',
+        targetAudience: '<%= currentForm ? currentForm.targetAudience : 'PUBLIC' %>',
+        allowMultiple: <%= currentForm && currentForm.allowMultiple ? 'true' : 'false' %>,
+        startDate: '<%= currentForm && currentForm.startDate ? currentForm.startDate.toISOString().split('T')[0] : '' %>',
+        endDate: '<%= currentForm && currentForm.endDate ? currentForm.endDate.toISOString().split('T')[0] : '' %>',
+        successMessage: `<%= currentForm && currentForm.successMessage ? currentForm.successMessage.replace(/`/g, '\\`') : 'Terima kasih, data formulir Anda telah berhasil dikirim.' %>`,
+        fields: JSON.parse(document.getElementById('form-initial-fields')?.textContent || '[]'),
+        activeTab: 'editor', // 'editor' | 'preview'
+        autoSlug: <%= isEditing ? 'false' : 'true' %>,
+
+        generateSlug(val) {
+          if (!this.autoSlug) return;
+          this.slug = val.toLowerCase()
+            .trim()
+            .replace(/[^a-z0-9\s-]/g, '')
+            .replace(/\s+/g, '-')
+            .replace(/-+/g, '-');
+        },
+
+        addField(type) {
+          const id = 'f_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+          let label = 'Pertanyaan Baru';
+          let placeholder = '';
+          let options = [];
+
+          if (type === 'text') {
+            label = 'Teks Singkat';
+            placeholder = 'Jawaban singkat...';
+          } else if (type === 'textarea') {
+            label = 'Paragraf / Teks Panjang';
+            placeholder = 'Tuliskan keterangan lengkap...';
+          } else if (type === 'number') {
+            label = 'Angka / Bilangan';
+            placeholder = 'Contoh: 10';
+          } else if (type === 'date') {
+            label = 'Tanggal';
+          } else if (type === 'file') {
+            label = 'Upload Berkas / Dokumen (PDF/Gambar)';
+          } else if (type === 'radio') {
+            label = 'Pilihan Ganda';
+            options = ['Pilihan 1', 'Pilihan 2'];
+          } else if (type === 'checkbox') {
+            label = 'Kotak Centang (Pilih Banyak)';
+            options = ['Opsi A', 'Opsi B'];
+          } else if (type === 'select') {
+            label = 'Menu Dropdown Pilihan';
+            options = ['Pilihan 1', 'Pilihan 2'];
+          } else if (type === 'unit') {
+            label = 'Unit Kerja / Asal Sekolah';
+            placeholder = '-- Pilih Unit Kerja / Sekolah --';
+          } else if (type === 'employee') {
+            label = 'Nama Pegawai / Guru';
+            placeholder = 'Ketik Nama atau NIP Pegawai...';
+          }
+
+          this.fields.push({
+            id: id,
+            type: type,
+            label: label,
+            placeholder: placeholder,
+            helpText: '',
+            required: false,
+            options: options,
+            fileType: type === 'file' ? 'all' : undefined,
+            customExtensions: type === 'file' ? '.pdf, .jpg, .png' : undefined,
+            renamePattern: type === 'file' ? '{NIP}_{NAMA}_{NAMA_FILE}' : undefined
+          });
+
+          this.$nextTick(() => {
+            if (window.lucide) lucide.createIcons();
+          });
+        },
+
+        removeField(index) {
+          if (confirm('Hapus pertanyaan ini?')) {
+            this.fields.splice(index, 1);
+          }
+        },
+
+        moveUp(index) {
+          if (index > 0) {
+            const item = this.fields.splice(index, 1)[0];
+            this.fields.splice(index - 1, 0, item);
+          }
+        },
+
+        moveDown(index) {
+          if (index < this.fields.length - 1) {
+            const item = this.fields.splice(index, 1)[0];
+            this.fields.splice(index + 1, 0, item);
+          }
+        },
+
+        addOption(fieldIndex) {
+          const num = this.fields[fieldIndex].options.length + 1;
+          this.fields[fieldIndex].options.push('Pilihan ' + num);
+        },
+
+        removeOption(fieldIndex, optIndex) {
+          if (this.fields[fieldIndex].options.length <= 1) {
+            alert('Minimal harus ada 1 pilihan opsi!');
+            return;
+          }
+          this.fields[fieldIndex].options.splice(optIndex, 1);
+        },
+
+        getFieldIcon(type) {
+          switch(type) {
+            case 'text': return 'type';
+            case 'textarea': return 'align-left';
+            case 'number': return 'hash';
+            case 'date': return 'calendar';
+            case 'file': return 'paperclip';
+            case 'radio': return 'check-circle-2';
+            case 'checkbox': return 'check-square';
+            case 'select': return 'chevron-down-square';
+            case 'unit': return 'building-2';
+            case 'employee': return 'user-check';
+            default: return 'help-circle';
+          }
+        },
+
+        getFieldTypeName(type) {
+          switch(type) {
+            case 'text': return 'Teks Singkat';
+            case 'textarea': return 'Paragraf';
+            case 'number': return 'Angka';
+            case 'date': return 'Tanggal';
+            case 'file': return 'Upload File';
+            case 'radio': return 'Pilihan Ganda';
+            case 'checkbox': return 'Kotak Centang';
+            case 'select': return 'Dropdown';
+            case 'unit': return 'Unit Kerja (Database)';
+            case 'employee': return 'Pegawai / Guru (Database)';
+            default: return type;
+          }
+        },
+
+        validateForm(e) {
+          if (!this.title.trim()) {
+            alert('Judul formulir wajib diisi!');
+            e.preventDefault();
+            return false;
+          }
+          if (!this.slug.trim()) {
+            alert('URL slug formulir wajib diisi!');
+            e.preventDefault();
+            return false;
+          }
+          if (this.fields.length === 0) {
+            alert('Formulir harus memiliki minimal 1 pertanyaan!');
+            e.preventDefault();
+            return false;
+          }
+          return true;
+        }
+      }"
+      x-init="
+        if (fields.length === 0 && !<%= isEditing ? 'true' : 'false' %>) {
+          addField('text');
+        }
+      ">
+
+  <!-- Top Bar & Actions -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+    <div class="flex items-center gap-3">
+      <a href="/admin/forms" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+      </a>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 text-xs font-bold uppercase tracking-wider border border-violet-100">
+            <%= isEditing ? 'Edit Formulir' : 'Form Builder' %>
+          </span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-0.5">
+          <%= isEditing ? `Edit: ${currentForm.title}` : 'Buat Formulir Dinamis Baru' %>
+        </h1>
+      </div>
+    </div>
+
+    <!-- Mode Toggle (Editor / Preview) & Save -->
+    <div class="flex items-center gap-3">
+      <div class="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200">
+        <button type="button" @click="activeTab = 'editor'"
+          class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+          :class="activeTab === 'editor' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'">
+          <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+          <span>Editor</span>
+        </button>
+        <button type="button" @click="activeTab = 'preview'"
+          class="px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5"
+          :class="activeTab === 'preview' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'">
+          <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+          <span>Pratinjau (Preview)</span>
+        </button>
+      </div>
+
+      <button type="submit" form="form-builder-form" class="btn-primary py-2.5 px-5 text-xs sm:text-sm gap-2 bg-indigo-600 hover:bg-indigo-700 shadow-md shadow-indigo-600/20">
+        <i data-lucide="save" class="w-4 h-4"></i>
+        <span><%= isEditing ? 'Simpan Perubahan' : 'Terbitkan Formulir' %></span>
+      </button>
+    </div>
+  </div>
+
+  <form id="form-builder-form" 
+        action="<%= isEditing ? `/admin/forms/${currentForm.id}/edit` : '/admin/forms/create' %>" 
+        method="POST" 
+        @submit="validateForm($event)"
+        class="space-y-8">
+
+    <!-- Hidden input to send stringified JSON fields -->
+    <input type="hidden" name="fields" :value="JSON.stringify(fields)">
+
+    <!-- ========================================================
+         TAB 1: FORM EDITOR MODE
+         ======================================================== -->
+    <div x-show="activeTab === 'editor'" class="space-y-8">
+      
+      <!-- 1. GENERAL CONFIGURATION CARD -->
+      <div class="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 sm:p-7 space-y-6">
+        <div class="flex items-center gap-2.5 pb-4 border-b border-slate-100">
+          <div class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+            <i data-lucide="sliders" class="w-4 h-4"></i>
+          </div>
+          <div>
+            <h2 class="text-base font-bold text-slate-900">Pengaturan Dasar Formulir</h2>
+            <p class="text-xs text-slate-500">Tentukan judul, link URL, target audiens, dan batas waktu pengisian.</p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Title -->
+          <div class="md:col-span-2">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+              Judul Formulir *
+            </label>
+            <input type="text" name="title" x-model="title" @input="generateSlug(title)" required
+              placeholder="Contoh: Pendataan Ijazah Terakhir Guru & Tendik 2026"
+              class="w-full h-11 px-4 text-sm font-semibold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 shadow-2xs transition-all">
+          </div>
+
+          <!-- Slug URL -->
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+              Link URL Slug *
+            </label>
+            <div class="flex items-center">
+              <span class="inline-flex items-center px-3 h-11 rounded-l-xl border border-r-0 border-slate-200 bg-slate-100 text-slate-500 text-xs font-mono">
+                /form/
+              </span>
+              <input type="text" name="slug" x-model="slug" @input="autoSlug = false" required
+                placeholder="pendataan-ijazah-2026"
+                class="w-full h-11 px-3.5 text-xs font-mono font-semibold text-slate-900 bg-slate-50 border border-slate-200 rounded-r-xl focus:outline-none focus:bg-white focus:border-indigo-500 shadow-2xs transition-all">
+            </div>
+            <p class="text-[11px] text-slate-400 mt-1">Hanya huruf kecil, angka, dan tanda hubung (-).</p>
+          </div>
+
+          <!-- Status Form -->
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+              Status Formulir *
+            </label>
+            <select name="status" x-model="status"
+              class="w-full h-11 px-3.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 shadow-2xs transition-all cursor-pointer">
+              <option value="PUBLISHED">🟢 Buka / Aktif (Dapat diisi)</option>
+              <option value="CLOSED">🔴 Tutup (Tidak menerima respon)</option>
+              <option value="DRAFT">⚪ Draft (Hanya terlihat oleh Admin)</option>
+            </select>
+          </div>
+
+          <!-- Description -->
+          <div class="md:col-span-2">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+              Deskripsi / Petunjuk Pengisian (Opsional)
+            </label>
+            <textarea name="description" x-model="description" rows="2"
+              placeholder="Berikan petunjuk atau pengantar untuk responden yang akan mengisi formulir ini..."
+              class="w-full p-3.5 text-xs font-medium text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 shadow-2xs transition-all resize-none"></textarea>
+          </div>
+
+          <!-- Target Audience -->
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+              Target Pengisi *
+            </label>
+            <select name="targetAudience" x-model="targetAudience"
+              class="w-full h-11 px-3.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 shadow-2xs transition-all cursor-pointer">
+              <option value="PUBLIC">🌐 Terbuka untuk Umum (Siapa saja tanpa akun)</option>
+              <option value="PEGAWAI">👤 Khusus Pegawai (Auto-fill NIP & Nama dari database)</option>
+            </select>
+            <p class="text-[11px] text-slate-400 mt-1">Jika mode Khusus Pegawai dipilih, responden wajib memilih identitas dirinya dari daftar pegawai aktif Korwil.</p>
+          </div>
+
+          <!-- Multiple Submissions Checkbox -->
+          <div class="flex items-center pt-6">
+            <label class="flex items-center gap-3 cursor-pointer select-none">
+              <input type="checkbox" name="allowMultiple" value="true" x-model="allowMultiple"
+                class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300">
+              <span class="text-xs font-bold text-slate-700">
+                Izinkan 1 Pegawai Mengisi Lebih dari 1 Kali
+              </span>
+            </label>
+          </div>
+
+          <!-- Start Date & End Date -->
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+              Buka Otomatis Mulai Tanggal (Opsional)
+            </label>
+            <input type="date" name="startDate" x-model="startDate"
+              class="w-full h-11 px-3.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 shadow-2xs transition-all">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+              Batas Akhir / Deadline Ditutup (Opsional)
+            </label>
+            <input type="date" name="endDate" x-model="endDate"
+              class="w-full h-11 px-3.5 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 shadow-2xs transition-all">
+          </div>
+
+          <!-- Success Message -->
+          <div class="md:col-span-2">
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">
+              Pesan Setelah Berhasil Kirim (Success Message)
+            </label>
+            <input type="text" name="successMessage" x-model="successMessage"
+              placeholder="Terima kasih, data Anda telah berhasil dikirim."
+              class="w-full h-11 px-4 text-xs font-medium text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 shadow-2xs transition-all">
+          </div>
+        </div>
+      </div>
+
+      <!-- 2. QUESTIONS / FIELDS BUILDER -->
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <h2 class="text-base sm:text-lg font-extrabold text-slate-900">Daftar Pertanyaan & Kolom Input</h2>
+            <span class="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-xs font-bold" x-text="fields.length + ' item'"></span>
+          </div>
+        </div>
+
+        <!-- Dynamic Fields List -->
+        <div class="space-y-4">
+          <template x-for="(field, index) in fields" :key="field.id">
+            <div class="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-5 sm:p-6 space-y-4 transition-all hover:border-indigo-200">
+              
+              <!-- Field Top Header: Number, Type Badge, Controls -->
+              <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2.5">
+                  <span class="w-6 h-6 rounded-full bg-slate-900 text-white text-xs font-black flex items-center justify-center" x-text="index + 1"></span>
+                  <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold border border-indigo-100">
+                    <span x-text="getFieldTypeName(field.type)"></span>
+                  </span>
+                </div>
+
+                <div class="flex items-center gap-1">
+                  <!-- Move Up -->
+                  <button type="button" @click="moveUp(index)" :disabled="index === 0" title="Geser ke Atas"
+                    class="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed">
+                    <i data-lucide="chevron-up" class="w-4 h-4"></i>
+                  </button>
+                  <!-- Move Down -->
+                  <button type="button" @click="moveDown(index)" :disabled="index === fields.length - 1" title="Geser ke Bawah"
+                    class="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 disabled:opacity-30 disabled:cursor-not-allowed">
+                    <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                  </button>
+                  <!-- Delete Question -->
+                  <button type="button" @click="removeField(index)" title="Hapus Pertanyaan"
+                    class="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 ml-1">
+                    <i data-lucide="trash" class="w-4 h-4"></i>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Question Label & Required Toggle -->
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="md:col-span-3">
+                  <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                    Teks Pertanyaan / Label Kolom *
+                  </label>
+                  <input type="text" x-model="field.label" required
+                    placeholder="Tuliskan pertanyaan Anda di sini..."
+                    class="w-full h-10 px-3.5 text-xs font-bold text-slate-900 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 shadow-2xs">
+                </div>
+
+                <div>
+                  <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                    Kewajiban Pengisian
+                  </label>
+                  <label class="h-10 flex items-center gap-2 px-3 rounded-xl border border-slate-200 bg-slate-50/70 cursor-pointer select-none">
+                    <input type="checkbox" x-model="field.required"
+                      class="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300">
+                    <span class="text-xs font-bold text-slate-700">Wajib Diisi</span>
+                  </label>
+                </div>
+
+                <!-- Placeholder & Help Text -->
+                <div class="md:col-span-2" x-show="field.type === 'text' || field.type === 'textarea' || field.type === 'number'">
+                  <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                    Teks Placeholder (Bantuan dalam kotak)
+                  </label>
+                  <input type="text" x-model="field.placeholder"
+                    placeholder="Contoh teks petunjuk singkat..."
+                    class="w-full h-10 px-3.5 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 shadow-2xs">
+                </div>
+
+                <div :class="(field.type === 'text' || field.type === 'textarea' || field.type === 'number') ? 'md:col-span-2' : 'md:col-span-4'">
+                  <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                    Keterangan Tambahan / Bantuan di Bawah Pertanyaan (Opsional)
+                  </label>
+                  <input type="text" x-model="field.helpText"
+                    placeholder="Contoh: Lampirkan scan berkas asli dalam format PDF max 5MB"
+                    class="w-full h-10 px-3.5 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 shadow-2xs">
+                </div>
+
+                <!-- Info Banner for SIMPEG Unit Kerja -->
+                <div x-show="field.type === 'unit'" class="md:col-span-4 p-3.5 rounded-xl bg-violet-50 border border-violet-200/80 flex items-start gap-3">
+                  <div class="w-7 h-7 rounded-lg bg-violet-100 text-violet-700 flex items-center justify-center shrink-0">
+                    <i data-lucide="building-2" class="w-4 h-4"></i>
+                  </div>
+                  <div class="space-y-0.5">
+                    <p class="text-xs font-bold text-violet-900">Elemen Terhubung Database Unit Kerja (SIMPEG)</p>
+                    <p class="text-[11px] text-violet-700">Pilihan dropdown akan otomatis terisi seluruh daftar sekolah dan satuan pendidikan aktif di Cibitung tanpa perlu diketik manual.</p>
+                  </div>
+                </div>
+
+                <!-- Info Banner for SIMPEG Pegawai -->
+                <div x-show="field.type === 'employee'" class="md:col-span-4 p-3.5 rounded-xl bg-emerald-50 border border-emerald-200/80 flex items-start gap-3">
+                  <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                    <i data-lucide="user-check" class="w-4 h-4"></i>
+                  </div>
+                  <div class="space-y-0.5">
+                    <p class="text-xs font-bold text-emerald-900">Elemen Terhubung Database Pegawai & Guru (SIMPEG)</p>
+                    <p class="text-[11px] text-emerald-700">Responden dapat mencari dan memilih nama pegawai/guru aktif lengkap dengan NIP dan unit asal secara instan via pencarian cerdas.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Options Builder (For Radio, Checkbox, Select) -->
+              <template x-if="field.type === 'radio' || field.type === 'checkbox' || field.type === 'select'">
+                <div class="pt-3 border-t border-slate-100 space-y-2.5">
+                  <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                    Daftar Pilihan Jawaban
+                  </label>
+                  
+                  <div class="space-y-2">
+                    <template x-for="(opt, optIdx) in field.options" :key="optIdx">
+                      <div class="flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold flex items-center justify-center" x-text="optIdx + 1"></span>
+                        <input type="text" x-model="field.options[optIdx]" required
+                          class="flex-1 h-9 px-3 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500">
+                        <button type="button" @click="removeOption(index, optIdx)" title="Hapus Pilihan"
+                          class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50">
+                          <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                        </button>
+                      </div>
+                    </template>
+                  </div>
+
+                  <button type="button" @click="addOption(index)"
+                    class="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 pt-1 cursor-pointer">
+                    <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+                    <span>Tambah Opsi Pilihan</span>
+                  </button>
+                </div>
+              </template>
+
+              <!-- File Upload Settings (Format & Rename Pattern) -->
+              <template x-if="field.type === 'file'">
+                <div class="pt-4 border-t border-slate-100 space-y-4">
+                  <!-- Format / Ekstensi yang diizinkan -->
+                  <div class="space-y-2">
+                    <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                      Pilihan Format Berkas yang Boleh Diunggah
+                    </label>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <label class="flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer select-none text-xs font-semibold transition-all"
+                             :class="(field.fileType || 'all') === 'all' ? 'bg-indigo-50 border-indigo-300 text-indigo-900 shadow-2xs' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'">
+                        <input type="radio" :name="'ft_' + field.id" value="all" x-model="field.fileType" class="hidden">
+                        <i data-lucide="files" class="w-4 h-4 text-indigo-600"></i>
+                        <span>Semua Format</span>
+                      </label>
+                      <label class="flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer select-none text-xs font-semibold transition-all"
+                             :class="field.fileType === 'pdf' ? 'bg-indigo-50 border-indigo-300 text-indigo-900 shadow-2xs' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'">
+                        <input type="radio" :name="'ft_' + field.id" value="pdf" x-model="field.fileType" class="hidden">
+                        <i data-lucide="file-text" class="w-4 h-4 text-rose-600"></i>
+                        <span>Khusus PDF (.pdf)</span>
+                      </label>
+                      <label class="flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer select-none text-xs font-semibold transition-all"
+                             :class="field.fileType === 'image' ? 'bg-indigo-50 border-indigo-300 text-indigo-900 shadow-2xs' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'">
+                        <input type="radio" :name="'ft_' + field.id" value="image" x-model="field.fileType" class="hidden">
+                        <i data-lucide="image" class="w-4 h-4 text-emerald-600"></i>
+                        <span>Foto (.jpg, .png)</span>
+                      </label>
+                      <label class="flex items-center gap-2 p-2.5 rounded-xl border cursor-pointer select-none text-xs font-semibold transition-all"
+                             :class="field.fileType === 'office' ? 'bg-indigo-50 border-indigo-300 text-indigo-900 shadow-2xs' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'">
+                        <input type="radio" :name="'ft_' + field.id" value="office" x-model="field.fileType" class="hidden">
+                        <i data-lucide="file-spreadsheet" class="w-4 h-4 text-blue-600"></i>
+                        <span>Office (.docx, .xlsx)</span>
+                      </label>
+                    </div>
+
+                    <div x-show="field.fileType === 'custom'" class="pt-1.5">
+                      <label class="block text-[10.5px] font-semibold text-slate-500 mb-1">Ketik ekstensi kustom (pisahkan koma):</label>
+                      <input type="text" x-model="field.customExtensions" placeholder="Contoh: .pdf, .xlsx, .zip"
+                             class="w-full h-9 px-3 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 shadow-2xs">
+                    </div>
+                  </div>
+
+                  <!-- Pola Penamaan Berkas (Auto-Rename) -->
+                  <div class="space-y-1.5 pt-1">
+                    <div class="flex items-center justify-between">
+                      <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                        Pola Penamaan File Saat Disimpan / Diunduh
+                      </label>
+                      <span class="text-[10px] text-indigo-600 font-medium">Otomatis di-rename rapi</span>
+                    </div>
+                    <input type="text" x-model="field.renamePattern" placeholder="Contoh: {NIP}_{NAMA}_{NAMA_FILE}"
+                           class="w-full h-9 px-3 text-xs font-mono font-semibold text-slate-900 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 shadow-2xs">
+                    <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span class="text-[10.5px] text-slate-400">Tag bantuan:</span>
+                      <button type="button" @click="field.renamePattern = (field.renamePattern || '') + '{NIP}_'" class="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-indigo-100 text-slate-700 hover:text-indigo-800 text-[10.5px] font-mono font-bold cursor-pointer transition-colors">+ {NIP}</button>
+                      <button type="button" @click="field.renamePattern = (field.renamePattern || '') + '{NAMA}_'" class="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-indigo-100 text-slate-700 hover:text-indigo-800 text-[10.5px] font-mono font-bold cursor-pointer transition-colors">+ {NAMA}</button>
+                      <button type="button" @click="field.renamePattern = (field.renamePattern || '') + '{SEKOLAH}_'" class="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-indigo-100 text-slate-700 hover:text-indigo-800 text-[10.5px] font-mono font-bold cursor-pointer transition-colors">+ {SEKOLAH}</button>
+                      <button type="button" @click="field.renamePattern = (field.renamePattern || '') + '{NAMA_FILE}'" class="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-indigo-100 text-slate-700 hover:text-indigo-800 text-[10.5px] font-mono font-bold cursor-pointer transition-colors">+ {NAMA_FILE}</button>
+                      <button type="button" @click="field.renamePattern = (field.renamePattern || '') + '{TANGGAL}'" class="px-2 py-0.5 rounded-md bg-slate-100 hover:bg-indigo-100 text-slate-700 hover:text-indigo-800 text-[10.5px] font-mono font-bold cursor-pointer transition-colors">+ {TANGGAL}</button>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+            </div>
+          </template>
+        </div>
+
+        <!-- Add Field Toolbar -->
+        <div class="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-6 sm:p-7 space-y-5">
+          
+          <!-- Section 1: SIMPEG Database Integrated Fields -->
+          <div class="space-y-2.5 pb-5 border-b border-slate-100 text-center sm:text-left">
+            <div class="flex items-center justify-center sm:justify-start gap-2">
+              <span class="w-2 h-2 rounded-full bg-violet-600 animate-pulse"></span>
+              <span class="text-xs font-extrabold uppercase tracking-wider text-violet-900">
+                ⚡ Elemen Khusus Terintegrasi Database SIMPEG (Otomatis)
+              </span>
+            </div>
+            <p class="text-xs text-slate-500">
+              Elemen pintar yang otomatis mengambil data sekolah dan data pegawai tanpa perlu Anda ketik satu per satu.
+            </p>
+            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2.5 pt-1">
+              <button type="button" @click="addField('unit')"
+                class="px-4 py-2.5 rounded-xl bg-violet-50 hover:bg-violet-600 hover:text-white border border-violet-200 text-violet-900 text-xs font-bold shadow-2xs transition-all flex items-center gap-2 cursor-pointer group">
+                <i data-lucide="building-2" class="w-4 h-4 text-violet-600 group-hover:text-white transition-colors"></i>
+                <span>+ Unit Kerja / Sekolah Asal</span>
+              </button>
+              <button type="button" @click="addField('employee')"
+                class="px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-600 hover:text-white border border-emerald-200 text-emerald-900 text-xs font-bold shadow-2xs transition-all flex items-center gap-2 cursor-pointer group">
+                <i data-lucide="user-check" class="w-4 h-4 text-emerald-600 group-hover:text-white transition-colors"></i>
+                <span>+ Nama Pegawai / Guru</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Section 2: Standard Form Fields -->
+          <div class="space-y-2.5 text-center sm:text-left">
+            <span class="text-xs font-extrabold uppercase tracking-wider text-slate-600 block">
+              📝 Elemen Input Standar
+            </span>
+            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+              <button type="button" @click="addField('text')"
+                class="px-3 py-2 rounded-xl bg-white hover:bg-indigo-600 hover:text-white border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="type" class="w-3.5 h-3.5"></i>
+                <span>Teks Singkat</span>
+              </button>
+              <button type="button" @click="addField('textarea')"
+                class="px-3 py-2 rounded-xl bg-white hover:bg-indigo-600 hover:text-white border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="align-left" class="w-3.5 h-3.5"></i>
+                <span>Paragraf</span>
+              </button>
+              <button type="button" @click="addField('radio')"
+                class="px-3 py-2 rounded-xl bg-white hover:bg-indigo-600 hover:text-white border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+                <span>Pilihan Ganda</span>
+              </button>
+              <button type="button" @click="addField('checkbox')"
+                class="px-3 py-2 rounded-xl bg-white hover:bg-indigo-600 hover:text-white border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="check-square" class="w-3.5 h-3.5"></i>
+                <span>Kotak Centang</span>
+              </button>
+              <button type="button" @click="addField('select')"
+                class="px-3 py-2 rounded-xl bg-white hover:bg-indigo-600 hover:text-white border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="chevron-down-square" class="w-3.5 h-3.5"></i>
+                <span>Dropdown</span>
+              </button>
+              <button type="button" @click="addField('number')"
+                class="px-3 py-2 rounded-xl bg-white hover:bg-indigo-600 hover:text-white border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="hash" class="w-3.5 h-3.5"></i>
+                <span>Angka</span>
+              </button>
+              <button type="button" @click="addField('date')"
+                class="px-3 py-2 rounded-xl bg-white hover:bg-indigo-600 hover:text-white border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="calendar" class="w-3.5 h-3.5"></i>
+                <span>Tanggal</span>
+              </button>
+              <button type="button" @click="addField('file')"
+                class="px-3 py-2 rounded-xl bg-white hover:bg-indigo-600 hover:text-white border border-slate-200 text-slate-700 text-xs font-bold shadow-2xs transition-all flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="paperclip" class="w-3.5 h-3.5"></i>
+                <span>Upload Berkas (PDF/Foto)</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================================
+         TAB 2: LIVE PREVIEW MODE
+         ======================================================== -->
+    <div x-show="activeTab === 'preview'" class="max-w-2xl mx-auto space-y-6">
+      <div class="bg-indigo-600 text-white px-4 py-2.5 rounded-2xl text-xs font-bold flex items-center justify-between">
+        <span class="flex items-center gap-2">
+          <i data-lucide="eye" class="w-4 h-4"></i>
+          <span>Mode Pratinjau (Preview Tampilan Pengisi)</span>
+        </span>
+        <button type="button" @click="activeTab = 'editor'" class="underline hover:text-indigo-200">
+          Kembali ke Editor
+        </button>
+      </div>
+
+      <!-- Preview Card -->
+      <div class="bg-white rounded-3xl border border-slate-200/90 shadow-xl overflow-hidden space-y-6 p-6 sm:p-8">
+        <!-- Brand Header -->
+        <div class="flex items-center gap-3 pb-4 border-b border-slate-100">
+          <img src="/img/logo-emblem.png?v=4" alt="Logo" class="w-10 h-10 object-contain shrink-0">
+          <div>
+            <h3 class="font-bold text-xs uppercase tracking-wider text-indigo-700">KORWIL CIBITUNG</h3>
+            <p class="text-[11px] text-slate-400">Dinas Pendidikan Kab. Bekasi</p>
+          </div>
+        </div>
+
+        <div>
+          <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900" x-text="title || 'Judul Formulir'"></h1>
+          <p class="text-xs text-slate-500 mt-1 whitespace-pre-line" x-text="description || 'Deskripsi atau petunjuk pengisian akan tampil di sini.'"></p>
+        </div>
+
+        <template x-if="targetAudience === 'PEGAWAI'">
+          <div class="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-100 text-xs space-y-2">
+            <span class="font-bold text-indigo-900 flex items-center gap-1.5">
+              <i data-lucide="user-check" class="w-4 h-4 text-indigo-600"></i>
+              Identitas Pegawai Terdaftar
+            </span>
+            <p class="text-slate-600 text-[11px]">Responden akan diminta memilih nama atau memasukkan NIP untuk memvalidasi identitas ke database SIMPEG.</p>
+          </div>
+        </template>
+
+        <!-- Preview Fields -->
+        <div class="space-y-5 pt-2">
+          <template x-for="(field, fIdx) in fields" :key="field.id">
+            <div class="space-y-1.5 p-4 rounded-2xl bg-slate-50/60 border border-slate-100">
+              <label class="block text-xs font-bold text-slate-800">
+                <span x-text="field.label || 'Pertanyaan'"></span>
+                <span x-show="field.required" class="text-rose-500 font-bold ml-0.5">*</span>
+              </label>
+              <p x-show="field.helpText" class="text-[11px] text-slate-400" x-text="field.helpText"></p>
+
+              <!-- Text Input -->
+              <template x-if="field.type === 'text'">
+                <input type="text" disabled :placeholder="field.placeholder || 'Jawaban singkat...'"
+                  class="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-white">
+              </template>
+
+              <!-- Textarea -->
+              <template x-if="field.type === 'textarea'">
+                <textarea disabled rows="3" :placeholder="field.placeholder || 'Tuliskan jawaban Anda...'"
+                  class="w-full p-3 text-xs rounded-xl border border-slate-200 bg-white resize-none"></textarea>
+              </template>
+
+              <!-- Number -->
+              <template x-if="field.type === 'number'">
+                <input type="number" disabled :placeholder="field.placeholder || '0'"
+                  class="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-white">
+              </template>
+
+              <!-- Date -->
+              <template x-if="field.type === 'date'">
+                <input type="date" disabled
+                  class="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-white">
+              </template>
+
+              <!-- File Upload -->
+              <template x-if="field.type === 'file'">
+                <div class="border-2 border-dashed border-slate-200 rounded-2xl p-4 text-center bg-white space-y-1">
+                  <i data-lucide="upload-cloud" class="w-6 h-6 text-indigo-500 mx-auto"></i>
+                  <p class="text-xs font-semibold text-slate-700">Pilih berkas untuk diunggah</p>
+                  <p class="text-[10.5px] text-slate-500"
+                     x-text="field.fileType === 'pdf' ? 'Format diterima: Khusus PDF (.pdf)' : field.fileType === 'image' ? 'Format diterima: Foto/Gambar (.jpg, .png)' : field.fileType === 'office' ? 'Format diterima: Office (.docx, .xlsx, .pdf)' : (field.fileType === 'custom' && field.customExtensions ? 'Format: ' + field.customExtensions : 'Semua format berkas (Maks 10MB)')">
+                  </p>
+                  <template x-if="field.renamePattern">
+                    <p class="text-[10px] text-indigo-600 font-mono" x-text="'Pola rename: ' + field.renamePattern"></p>
+                  </template>
+                </div>
+              </template>
+
+              <!-- Radio -->
+              <template x-if="field.type === 'radio'">
+                <div class="space-y-1.5 pt-1">
+                  <template x-for="opt in field.options" :key="opt">
+                    <label class="flex items-center gap-2 text-xs font-semibold text-slate-700 p-2 rounded-xl hover:bg-white cursor-pointer">
+                      <input type="radio" disabled name="'prev_' + field.id" class="text-indigo-600">
+                      <span x-text="opt"></span>
+                    </label>
+                  </template>
+                </div>
+              </template>
+
+              <!-- Checkbox -->
+              <template x-if="field.type === 'checkbox'">
+                <div class="space-y-1.5 pt-1">
+                  <template x-for="opt in field.options" :key="opt">
+                    <label class="flex items-center gap-2 text-xs font-semibold text-slate-700 p-2 rounded-xl hover:bg-white cursor-pointer">
+                      <input type="checkbox" disabled class="rounded text-indigo-600">
+                      <span x-text="opt"></span>
+                    </label>
+                  </template>
+                </div>
+              </template>
+
+              <!-- Select Dropdown -->
+              <template x-if="field.type === 'select'">
+                <select disabled class="w-full h-10 px-3 text-xs rounded-xl border border-slate-200 bg-white font-semibold text-slate-700">
+                  <option>-- Pilih salah satu opsi --</option>
+                  <template x-for="opt in field.options" :key="opt">
+                    <option x-text="opt"></option>
+                  </template>
+                </select>
+              </template>
+
+              <!-- SIMPEG Unit Kerja Dropdown Preview -->
+              <template x-if="field.type === 'unit'">
+                <div class="space-y-1.5">
+                  <div class="relative">
+                    <select disabled class="w-full h-10 pl-3 pr-8 text-xs rounded-xl border border-violet-200 bg-violet-50/40 font-semibold text-violet-900">
+                      <option>-- Pilih Unit Kerja / Sekolah Asal (Database SIMPEG) --</option>
+                      <option>SDN Cibuntu 01</option>
+                      <option>SDN Cibuntu 02</option>
+                      <option>SMPN 1 Cibitung</option>
+                      <option>SMPN 2 Cibitung</option>
+                    </select>
+                  </div>
+                  <p class="text-[10.5px] text-violet-600 font-medium flex items-center gap-1">
+                    <i data-lucide="database" class="w-3 h-3"></i>
+                    <span>Otomatis memuat seluruh daftar unit sekolah dari database SIMPEG</span>
+                  </p>
+                </div>
+              </template>
+
+              <!-- SIMPEG Employee / Pegawai Picker Preview -->
+              <template x-if="field.type === 'employee'">
+                <div class="space-y-1.5">
+                  <div class="relative">
+                    <i data-lucide="search" class="w-4 h-4 text-emerald-500 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                    <input type="text" disabled placeholder="Cari Nama Pegawai / Guru / NIP (Database SIMPEG)..."
+                      class="w-full h-10 pl-9 pr-3 text-xs rounded-xl border border-emerald-200 bg-emerald-50/40 font-semibold text-emerald-900">
+                  </div>
+                  <p class="text-[10.5px] text-emerald-600 font-medium flex items-center gap-1">
+                    <i data-lucide="database" class="w-3 h-3"></i>
+                    <span>Pencarian cerdas terhubung langsung dengan ribuan data guru/pegawai SIMPEG</span>
+                  </p>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <button type="button" disabled class="btn-primary w-full py-3 text-xs opacity-60">
+          Kirim Formulir (Tombol Pengisi)
+        </button>
+      </div>
+    </div>
+
+  </form>
+
+</main>
+
+<%- include('../../partials/footer') %>

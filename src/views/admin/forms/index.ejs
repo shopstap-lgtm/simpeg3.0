@@ -1,0 +1,249 @@
+<%- include('../../partials/head') %>
+<%- include('../../partials/admin-nav') %>
+<%- include('../../partials/toast') %>
+
+<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-8"
+      x-data="{
+        search: '',
+        statusFilter: 'ALL',
+        deleteModal: false,
+        formToDelete: null,
+        confirmDelete(form) {
+          this.formToDelete = form;
+          this.deleteModal = true;
+        },
+        copyLink(slug) {
+          const url = window.location.origin + '/form/' + slug;
+          navigator.clipboard.writeText(url).then(() => {
+            alert('Link formulir berhasil disalin ke clipboard!\n' + url);
+          }).catch(() => {
+            prompt('Salin link formulir berikut:', url);
+          });
+        }
+      }">
+
+  <!-- Page Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+    <div>
+      <div class="flex items-center gap-2">
+        <span class="px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 text-xs font-bold uppercase tracking-wider border border-violet-100">
+          Formulir Dinamis
+        </span>
+        <span class="text-xs text-slate-400">Alternatif Google Forms Mandiri</span>
+      </div>
+      <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1">Kelola Formulir Dinamis</h1>
+      <p class="text-xs sm:text-sm text-slate-500 mt-0.5">
+        Buat dan kelola formulir pendataan kustom untuk guru, pegawai, atau publik. Bagikan link, pantau respon, dan ekspor data ke Excel.
+      </p>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <a href="/admin/forms/create" class="btn-primary py-2.5 px-4 text-xs sm:text-sm gap-2 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white shadow-lg shadow-indigo-600/20">
+        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+        <span>Buat Form Baru</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Filters & Search Bar -->
+  <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row items-center justify-between gap-4">
+    <div class="relative w-full md:w-96">
+      <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+      <input type="text" x-model="search" placeholder="Cari judul formulir atau slug URL..."
+        class="w-full h-10 pl-9 pr-4 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 shadow-2xs transition-all">
+    </div>
+
+    <div class="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+      <button type="button" @click="statusFilter = 'ALL'"
+        class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer"
+        :class="statusFilter === 'ALL' ? 'bg-indigo-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'">
+        Semua (<%= forms.length %>)
+      </button>
+      <button type="button" @click="statusFilter = 'PUBLISHED'"
+        class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer"
+        :class="statusFilter === 'PUBLISHED' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'">
+        Buka / Aktif
+      </button>
+      <button type="button" @click="statusFilter = 'CLOSED'"
+        class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer"
+        :class="statusFilter === 'CLOSED' ? 'bg-rose-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'">
+        Tutup
+      </button>
+      <button type="button" @click="statusFilter = 'DRAFT'"
+        class="px-3.5 py-2 rounded-xl text-xs font-bold transition-all shrink-0 cursor-pointer"
+        :class="statusFilter === 'DRAFT' ? 'bg-slate-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'">
+        Draft
+      </button>
+    </div>
+  </div>
+
+  <!-- Forms Cards Grid -->
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+    <% if (forms.length === 0) { %>
+      <div class="col-span-full py-16 text-center bg-white rounded-3xl border border-slate-200/80 shadow-2xs">
+        <div class="w-16 h-16 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center mx-auto mb-4">
+          <i data-lucide="form-input" class="w-8 h-8"></i>
+        </div>
+        <h3 class="text-base font-bold text-slate-900">Belum Ada Formulir</h3>
+        <p class="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-6">
+          Mulai buat formulir pertama Anda untuk mengumpulkan data dari pegawai atau publik secara mandiri.
+        </p>
+        <a href="/admin/forms/create" class="btn-primary py-2.5 px-5 text-xs gap-2 bg-violet-600 hover:bg-violet-700">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span>Buat Formulir Sekarang</span>
+        </a>
+      </div>
+    <% } %>
+
+    <% forms.forEach(form => { %>
+      <div class="bg-white rounded-3xl border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between overflow-hidden group"
+           x-show="(statusFilter === 'ALL' || statusFilter === '<%= form.status %>') && 
+                   (!search || '<%= form.title.toLowerCase().replace(/'/g, "\\'") %>'.includes(search.toLowerCase()) || '<%= form.slug.toLowerCase() %>'.includes(search.toLowerCase()))">
+        
+        <!-- Card Header & Badges -->
+        <div class="p-6 pb-4 space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <!-- Status Badge -->
+            <% if (form.status === 'PUBLISHED') { %>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 text-[11px] font-extrabold border border-emerald-200">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                Buka (Aktif)
+              </span>
+            <% } else if (form.status === 'CLOSED') { %>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 text-[11px] font-bold border border-rose-200">
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                Ditutup
+              </span>
+            <% } else { %>
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 text-[11px] font-bold border border-slate-200">
+                Draft
+              </span>
+            <% } %>
+
+            <!-- Audience Badge -->
+            <% if (form.targetAudience === 'PEGAWAI') { %>
+              <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[10.5px] font-bold border border-indigo-100">
+                <i data-lucide="user-check" class="w-3 h-3 inline mr-1"></i>Khusus Pegawai
+              </span>
+            <% } else { %>
+              <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10.5px] font-bold border border-slate-200">
+                <i data-lucide="globe" class="w-3 h-3 inline mr-1"></i>Publik
+              </span>
+            <% } %>
+          </div>
+
+          <!-- Title & Description -->
+          <div>
+            <h3 class="text-base font-bold text-slate-900 group-hover:text-indigo-600 transition-colors line-clamp-1">
+              <%= form.title %>
+            </h3>
+            <p class="text-xs text-slate-500 mt-1 line-clamp-2">
+              <%= form.description || 'Tidak ada deskripsi tambahan.' %>
+            </p>
+          </div>
+
+          <!-- Metadata & Response Count -->
+          <div class="grid grid-cols-2 gap-2 pt-2 border-t border-slate-100 text-xs">
+            <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+              <span class="text-[10.5px] text-slate-400 block font-semibold">Total Respon</span>
+              <span class="text-lg font-black text-slate-900 flex items-center gap-1">
+                <i data-lucide="message-square" class="w-4 h-4 text-indigo-500"></i>
+                <%= form._count.responses %>
+              </span>
+            </div>
+            <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+              <span class="text-[10.5px] text-slate-400 block font-semibold">Pertanyaan</span>
+              <span class="text-lg font-black text-slate-900 flex items-center gap-1">
+                <i data-lucide="help-circle" class="w-4 h-4 text-violet-500"></i>
+                <%= Array.isArray(form.fields) ? form.fields.length : 0 %>
+              </span>
+            </div>
+          </div>
+
+          <!-- URL Slug Box -->
+          <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono text-slate-700">
+            <span class="truncate">/form/<%= form.slug %></span>
+            <button type="button" @click="copyLink('<%= form.slug %>')" class="text-indigo-600 hover:text-indigo-800 font-bold shrink-0 ml-2 text-[11px] flex items-center gap-1">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span>Salin</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Card Footer Actions -->
+        <div class="p-4 bg-slate-50/70 border-t border-slate-100 flex items-center justify-between gap-2">
+          <div class="flex items-center gap-1">
+            <!-- View Public Form -->
+            <a href="/form/<%= form.slug %>" target="_blank" title="Buka Tampilan Form"
+               class="p-2 rounded-xl text-slate-600 hover:text-indigo-600 hover:bg-white border border-transparent hover:border-slate-200 transition-all">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
+            </a>
+
+            <!-- Toggle Status (Publish/Close) -->
+            <form action="/admin/forms/<%= form.id %>/toggle-status" method="POST" class="inline">
+              <button type="submit" title="<%= form.status === 'PUBLISHED' ? 'Tutup Formulir' : 'Buka Formulir' %>"
+                      class="p-2 rounded-xl <%= form.status === 'PUBLISHED' ? 'text-amber-600 hover:bg-amber-50' : 'text-emerald-600 hover:bg-emerald-50' %> border border-transparent hover:border-slate-200 transition-all">
+                <i data-lucide="<%= form.status === 'PUBLISHED' ? 'lock' : 'unlock' %>" class="w-4 h-4"></i>
+              </button>
+            </form>
+
+            <!-- Edit Form -->
+            <a href="/admin/forms/<%= form.id %>/edit" title="Edit Formulir"
+               class="p-2 rounded-xl text-slate-600 hover:text-indigo-600 hover:bg-white border border-transparent hover:border-slate-200 transition-all">
+              <i data-lucide="edit-3" class="w-4 h-4"></i>
+            </a>
+
+            <!-- Delete Form -->
+            <button type="button" @click="confirmDelete({ id: '<%= form.id %>', title: '<%= form.title.replace(/'/g, "\\'") %>' })" title="Hapus Formulir"
+                    class="p-2 rounded-xl text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-all">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+
+          <!-- View Responses Button -->
+          <a href="/admin/forms/<%= form.id %>/responses" 
+             class="btn-secondary py-1.5 px-3 text-xs font-bold gap-1.5 bg-white hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-200 text-slate-700 shadow-2xs">
+            <i data-lucide="table" class="w-3.5 h-3.5 text-indigo-600"></i>
+            <span>Respon (<%= form._count.responses %>)</span>
+          </a>
+        </div>
+
+      </div>
+    <% }) %>
+  </div>
+
+  <!-- Delete Modal Confirmation -->
+  <div x-show="deleteModal" x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    <div @click.away="deleteModal = false" class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+      <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+        <i data-lucide="alert-triangle" class="w-6 h-6"></i>
+      </div>
+      <div class="text-center">
+        <h3 class="text-base font-bold text-slate-900">Hapus Formulir Ini?</h3>
+        <p class="text-xs text-slate-500 mt-1">
+          Formulir <span class="font-bold text-slate-800" x-text="formToDelete ? formToDelete.title : ''"></span> beserta seluruh data respon yang ada di dalamnya akan dihapus secara permanen.
+        </p>
+      </div>
+      <div class="flex items-center justify-end gap-2.5 pt-2">
+        <button type="button" @click="deleteModal = false" class="btn-secondary py-2 px-4 text-xs">
+          Batal
+        </button>
+        <template x-if="formToDelete">
+          <form :action="'/admin/forms/' + formToDelete.id + '/delete'" method="POST">
+            <button type="submit" class="btn-primary py-2 px-4 text-xs bg-rose-600 hover:bg-rose-700 text-white">
+              Ya, Hapus Formulir
+            </button>
+          </form>
+        </template>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<%- include('../../partials/footer') %>

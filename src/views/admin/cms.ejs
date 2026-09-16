@@ -677,7 +677,7 @@
         <div class="w-8 h-8 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
           <i data-lucide="calendar-check" class="w-4 h-4"></i>
         </div>
-        <h2 class="text-sm font-bold text-slate-900">Kebijakan Klarifikasi Presensi (NL, TL & PC)</h2>
+        <h2 class="text-sm font-bold text-slate-900">Kebijakan Klarifikasi Presensi (Pra-Rekap, TL & PC)</h2>
       </div>
 
       <!-- Inline Month Selector in Header -->
@@ -710,17 +710,20 @@
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
-        <!-- KARTU 1: STATUS HADIR NORMAL (NL) -->
+        <!-- KARTU 1: KLARIFIKASI HARI KOSONG / PRA-REKAP -->
         <div class="p-4 rounded-2xl border transition-all space-y-3.5"
              :class="klarifikasiNlEnabled ? 'bg-emerald-50/30 border-emerald-300 shadow-2xs' : 'bg-slate-50/70 border-slate-200/80'">
           <!-- Header & Switch Toggle -->
           <div class="flex items-center justify-between gap-3 pb-3 border-b border-slate-200/70">
             <div class="flex items-center gap-2.5">
-              <span class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-mono font-bold text-xs shadow-2xs">NL</span>
+              <span class="px-2 py-1 rounded-lg bg-emerald-600 text-white font-mono font-extrabold text-xs shadow-2xs flex items-center gap-1">
+                <i data-lucide="calendar-plus" class="w-3.5 h-3.5"></i>
+                <span>PRA</span>
+              </span>
               <div>
-                <span class="text-xs font-bold text-slate-900 block">Status Hadir Normal</span>
+                <span class="text-xs font-bold text-slate-900 block">Klarifikasi Hari Kosong (Pra-Rekap)</span>
                 <span class="text-[11px] font-medium" :class="klarifikasiNlEnabled ? 'text-emerald-700' : 'text-slate-400'"
-                      x-text="klarifikasiNlEnabled ? 'Pengajuan Diizinkan (Buka)' : 'Pengajuan Dinonaktifkan (Tutup)'"></span>
+                      x-text="klarifikasiNlEnabled ? 'Pengajuan Pra-Rekap Dibuka' : 'Pengajuan Pra-Rekap Ditutup'"></span>
               </div>
             </div>
 
@@ -745,7 +748,7 @@
           <!-- Notice when disabled -->
           <div x-show="!klarifikasiNlEnabled" class="p-3 rounded-xl bg-slate-100/90 border border-slate-200 text-slate-500 text-xs flex items-center gap-2">
             <i data-lucide="lock" class="w-4 h-4 text-slate-400 shrink-0"></i>
-            <span>Klarifikasi status NL untuk bulan terpilih sedang <b>DITUTUP</b>. Aktifkan saklar <b>ON</b> di atas untuk membuka izin pengajuan.</span>
+            <span>Klarifikasi hari kosong (pra-rekap) untuk bulan terpilih sedang <b>DITUTUP</b>. Aktifkan saklar <b>ON</b> di atas untuk mengizinkan guru mengajukan DL/ST/Cuti sebelum admin upload rekap.</span>
           </div>
 
           <!-- Date Selection Options (Always rendered) -->

@@ -14,6 +14,7 @@ import { uploadAbsensiController } from '../controllers/admin/uploadAbsensiContr
 import { unitKerjaController } from '../controllers/admin/unitKerjaController';
 import { fileManagerController } from '../controllers/admin/fileManagerController';
 import { ncrAdminController } from '../controllers/admin/ncrAdminController';
+import { formController } from '../controllers/admin/formController';
 import { requireAdmin, requireSuperAdmin, requireSuperAdminOrDinas, requireNonDinas } from '../middleware/requireAdmin';
 
 const router = Router();
@@ -162,5 +163,17 @@ router.get('/ncr-gaji', requireNonDinas, ncrAdminController.show);
 router.post('/ncr-gaji/upload', requireNonDinas, ncrDiskUpload.single('file'), ncrAdminController.uploadMaster);
 router.get('/ncr-gaji/:id/detail', requireNonDinas, ncrAdminController.detail);
 router.post('/ncr-gaji/:id/delete', requireNonDinas, ncrAdminController.deletePeriod);
+
+// 9. Kelola Formulir Dinamis (Form Builder - Super Admin & Admin Korwil)
+router.get('/forms', requireNonDinas, formController.list);
+router.get('/forms/create', requireNonDinas, formController.renderCreate);
+router.post('/forms/create', requireNonDinas, formController.create);
+router.get('/forms/:id/edit', requireNonDinas, formController.renderEdit);
+router.post('/forms/:id/edit', requireNonDinas, formController.update);
+router.post('/forms/:id/toggle-status', requireNonDinas, formController.toggleStatus);
+router.post('/forms/:id/delete', requireNonDinas, formController.delete);
+router.get('/forms/:id/responses', requireNonDinas, formController.responses);
+router.post('/forms/:id/responses/:responseId/delete', requireNonDinas, formController.deleteResponse);
+router.get('/forms/:id/export-excel', requireNonDinas, formController.exportExcel);
 
 export default router;

@@ -602,6 +602,37 @@ export const absensiController = {
         }
       }
 
+      // Pembatasan publik: status absen TL dan PC hanya bisa diajukan klarifikasi ke DL saja
+      const sessionUser = (req as any).session?.user;
+      const isAdmin = !!sessionUser && (
+        sessionUser.role === 'SUPER_ADMIN' ||
+        sessionUser.role === 'ADMIN_KORWIL' ||
+        sessionUser.role === 'ADMIN_DINAS'
+      );
+      if (!isAdmin && (normStatusAwal === 'PC' || normStatusAwal === 'TL')) {
+        if (statusPengganti !== 'DL') {
+          if ((req as any).session) {
+            (req as any).session.toast = {
+              type: 'warning',
+              message: 'Pengajuan klarifikasi untuk status Terlambat (TL) dan Pulang Cepat (PC) hanya diperbolehkan ke status Dinas Luar (DL).'
+            };
+            return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
+          }
+          return res.redirect(buildAbsensiRedirectUrl(req));
+        }
+      } else if (!isAdmin && (normStatusAwal === 'EMPTY' || normStatusAwal === 'HADIR' || normStatusAwal === 'NL')) {
+        if (statusPengganti !== 'DL' && statusPengganti !== 'ST') {
+          if ((req as any).session) {
+            (req as any).session.toast = {
+              type: 'warning',
+              message: 'Pengajuan klarifikasi pra-rekap hanya diperbolehkan ke status Dinas Luar (DL) atau Surat Tugas (ST).'
+            };
+            return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
+          }
+          return res.redirect(buildAbsensiRedirectUrl(req));
+        }
+      }
+
       if (!file) {
         if ((req as any).session) {
           (req as any).session.toast = {

@@ -33,6 +33,7 @@ model Employee {
   clarifications     Clarification[]
   ekinerjaReports    EkinerjaReport[]
   ncrEmployeePages   NcrEmployeePage[]
+  formResponses      FormResponse[]
 
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
@@ -216,4 +217,50 @@ model NcrEmployeePage {
   @@index([nip])
   @@index([employeeId])
 }
+
+model CustomForm {
+  id             String         @id @default(cuid())
+  slug           String         @unique
+  title          String
+  description    String?
+  status         String         @default("PUBLISHED") // DRAFT | PUBLISHED | CLOSED
+  targetAudience String         @default("PUBLIC")    // PUBLIC | PEGAWAI
+  allowMultiple  Boolean        @default(false)
+  startDate      DateTime?
+  endDate        DateTime?
+  fields         Json           // [{ id, label, type, required, options, placeholder, helpText }]
+  successMessage String?        @default("Terima kasih, formulir Anda telah berhasil dikirim.")
+  createdBy      String?
+
+  responses      FormResponse[]
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([slug])
+  @@index([status])
+}
+
+model FormResponse {
+  id         String     @id @default(cuid())
+  formId     String
+  employeeId String?
+  nip        String?
+  nama       String?
+  unitNama   String?
+  answers    Json       // { [fieldId]: value }
+  ipAddress  String?
+  userAgent  String?
+
+  form       CustomForm @relation(fields: [formId], references: [id], onDelete: Cascade)
+  employee   Employee?  @relation(fields: [employeeId], references: [id], onDelete: SetNull)
+
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  @@index([formId])
+  @@index([employeeId])
+  @@index([nip])
+}
+
 

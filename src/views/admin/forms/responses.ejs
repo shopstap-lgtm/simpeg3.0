@@ -1,0 +1,242 @@
+<%- include('../../partials/head') %>
+<%- include('../../partials/admin-nav') %>
+<%- include('../../partials/toast') %>
+
+<% const fieldsList = (Array.isArray(form.fields) ? form.fields : []); %>
+
+<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-8"
+      x-data="{
+        search: '',
+        deleteModal: false,
+        respToDelete: null,
+        confirmDeleteResp(id, nama) {
+          this.respToDelete = { id, nama };
+          this.deleteModal = true;
+        }
+      }">
+
+  <!-- Top Header & Actions -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b border-slate-200">
+    <div class="flex items-center gap-3">
+      <a href="/admin/forms" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors">
+        <i data-lucide="arrow-left" class="w-5 h-5"></i>
+      </a>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider border border-indigo-100">
+            Hasil Respon Formulir
+          </span>
+          <span class="text-xs text-slate-400 font-mono">/form/<%= form.slug %></span>
+        </div>
+        <h1 class="text-xl sm:text-2xl font-extrabold text-slate-900 mt-0.5">
+          <%= form.title %>
+        </h1>
+      </div>
+    </div>
+
+    <!-- Actions: Export Excel & Edit -->
+    <div class="flex items-center gap-3">
+      <a href="/admin/forms/<%= form.id %>/export-excel" 
+         class="btn-primary py-2.5 px-4 text-xs sm:text-sm gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20">
+        <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+        <span>Export ke Excel (.xlsx)</span>
+      </a>
+
+      <a href="/admin/forms/<%= form.id %>/edit" 
+         class="btn-secondary py-2.5 px-3.5 text-xs sm:text-sm gap-1.5 bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 shadow-2xs">
+        <i data-lucide="settings" class="w-4 h-4 text-slate-500"></i>
+        <span>Edit Form</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Summary Stats Bar -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <div class="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs flex items-center gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+        <i data-lucide="users" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <span class="text-xs font-semibold text-slate-400 block">Total Respon Masuk</span>
+        <span class="text-2xl font-black text-slate-900"><%= responses.length %></span>
+      </div>
+    </div>
+
+    <div class="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs flex items-center gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0">
+        <i data-lucide="help-circle" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <span class="text-xs font-semibold text-slate-400 block">Jumlah Kolom Pertanyaan</span>
+        <span class="text-2xl font-black text-slate-900"><%= fieldsList.length %></span>
+      </div>
+    </div>
+
+    <div class="bg-white p-5 rounded-3xl border border-slate-200/80 shadow-2xs flex items-center gap-4">
+      <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+        <i data-lucide="activity" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <span class="text-xs font-semibold text-slate-400 block">Status Formulir</span>
+        <span class="text-base font-bold <%= form.status === 'PUBLISHED' ? 'text-emerald-700' : (form.status === 'CLOSED' ? 'text-rose-600' : 'text-slate-600') %>">
+          <%= form.status === 'PUBLISHED' ? 'Buka (Aktif)' : (form.status === 'CLOSED' ? 'Ditutup' : 'Draft') %>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search in Table -->
+  <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex items-center justify-between gap-4">
+    <div class="relative w-full max-w-md">
+      <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+      <input type="text" x-model="search" placeholder="Cari berdasarkan nama, NIP, atau jawaban..."
+        class="w-full h-10 pl-9 pr-4 text-xs font-semibold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:bg-white focus:border-indigo-500 shadow-2xs transition-all">
+    </div>
+    <span class="text-xs font-semibold text-slate-400">
+      Menampilkan <%= responses.length %> respon
+    </span>
+  </div>
+
+  <!-- Responses Table Card -->
+  <div class="bg-white rounded-3xl border border-slate-200/80 shadow-sm overflow-hidden">
+    <div class="overflow-x-auto custom-scrollbar">
+      <table class="w-full text-left border-collapse min-w-[800px]">
+        <thead>
+          <tr class="bg-slate-50/80 border-b border-slate-200/80 text-[11px] font-extrabold uppercase tracking-wider text-slate-500">
+            <th class="py-4 px-4 text-center w-12">No</th>
+            <th class="py-4 px-4 whitespace-nowrap">Waktu Kirim</th>
+            <th class="py-4 px-4 whitespace-nowrap">NIP / Identitas</th>
+            <th class="py-4 px-4 whitespace-nowrap">Nama Responden</th>
+            <th class="py-4 px-4 whitespace-nowrap">Unit Kerja</th>
+            
+            <!-- Dynamic Field Headers -->
+            <% fieldsList.forEach(field => { %>
+              <th class="py-4 px-4 whitespace-nowrap min-w-[150px]"><%= field.label || field.id %></th>
+            <% }) %>
+
+            <th class="py-4 px-4 text-center whitespace-nowrap w-16">Aksi</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 text-xs text-slate-800">
+          <% if (responses.length === 0) { %>
+            <tr>
+              <td colspan="<%= 6 + fieldsList.length %>" class="py-16 text-center text-slate-400">
+                <i data-lucide="inbox" class="w-10 h-10 mx-auto mb-2 text-slate-300"></i>
+                <p class="font-bold text-slate-700">Belum Ada Respon Masuk</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Bagikan link formulir ke responden untuk mulai mengumpulkan data.</p>
+              </td>
+            </tr>
+          <% } %>
+
+          <% responses.forEach((resp, idx) => { %>
+            <% 
+              const answers = (resp.answers || {}); 
+              const dateFormatted = new Date(resp.createdAt).toLocaleString('id-ID', {
+                timeZone: 'Asia/Jakarta',
+                dateStyle: 'medium',
+                timeStyle: 'short'
+              });
+              const searchContent = `${resp.nip || ''} ${resp.nama || ''} ${resp.unitNama || ''} ${JSON.stringify(answers)}`.toLowerCase().replace(/'/g, "\\'");
+            %>
+            <tr class="hover:bg-slate-50/80 transition-colors"
+                x-show="!search || '<%= searchContent %>'.includes(search.toLowerCase())">
+              
+              <!-- No -->
+              <td class="py-3 px-4 text-center font-bold text-slate-400"><%= idx + 1 %></td>
+
+              <!-- Waktu Kirim -->
+              <td class="py-3 px-4 whitespace-nowrap font-medium text-slate-600">
+                <%= dateFormatted %>
+              </td>
+
+              <!-- NIP -->
+              <td class="py-3 px-4 whitespace-nowrap font-mono font-semibold text-slate-800">
+                <%= resp.nip || '-' %>
+              </td>
+
+              <!-- Nama -->
+              <td class="py-3 px-4 whitespace-nowrap font-bold text-slate-900">
+                <%= resp.nama || '-' %>
+              </td>
+
+              <!-- Unit Kerja -->
+              <td class="py-3 px-4 whitespace-nowrap text-slate-600">
+                <%= resp.unitNama || '-' %>
+              </td>
+
+              <!-- Dynamic Field Answers -->
+              <% fieldsList.forEach(field => { %>
+                <% const val = answers[field.id]; %>
+                <td class="py-3 px-4 max-w-xs break-words">
+                  <% if (val === undefined || val === null || val === '') { %>
+                    <span class="text-slate-300 italic">-</span>
+                  <% } else if (field.type === 'file' && typeof val === 'object') { %>
+                    <a href="<%= val.url %>" target="_blank" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 font-semibold text-[11px] transition-colors border border-indigo-100">
+                      <i data-lucide="download" class="w-3.5 h-3.5 shrink-0"></i>
+                      <span class="truncate max-w-[120px]"><%= val.originalName || 'Download Berkas' %></span>
+                    </a>
+                  <% } else if (Array.isArray(val)) { %>
+                    <div class="flex flex-wrap gap-1">
+                      <% val.forEach(item => { %>
+                        <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[10.5px] font-semibold border border-slate-200">
+                          <%= item %>
+                        </span>
+                      <% }) %>
+                    </div>
+                  <% } else { %>
+                    <span class="font-medium text-slate-800"><%= String(val) %></span>
+                  <% } %>
+                </td>
+              <% }) %>
+
+              <!-- Aksi (Delete Response) -->
+              <td class="py-3 px-4 text-center whitespace-nowrap">
+                <button type="button" @click="confirmDeleteResp('<%= resp.id %>', '<%= (resp.nama || 'Respon ini').replace(/'/g, "\\'") %>')"
+                  title="Hapus Respon Ini"
+                  class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </td>
+
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Delete Single Response Modal -->
+  <div x-show="deleteModal" x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       class="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4"
+       style="display: none;">
+    <div @click.away="deleteModal = false" class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+      <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
+        <i data-lucide="trash-2" class="w-6 h-6"></i>
+      </div>
+      <div class="text-center">
+        <h3 class="text-base font-bold text-slate-900">Hapus Data Respon Ini?</h3>
+        <p class="text-xs text-slate-500 mt-1">
+          Respon dari <span class="font-bold text-slate-800" x-text="respToDelete ? respToDelete.nama : ''"></span> akan dihapus permanen dari rekap formulir.
+        </p>
+      </div>
+      <div class="flex items-center justify-end gap-2.5 pt-2">
+        <button type="button" @click="deleteModal = false" class="btn-secondary py-2 px-4 text-xs">
+          Batal
+        </button>
+        <template x-if="respToDelete">
+          <form :action="'/admin/forms/<%= form.id %>/responses/' + respToDelete.id + '/delete'" method="POST">
+            <button type="submit" class="btn-primary py-2 px-4 text-xs bg-rose-600 hover:bg-rose-700 text-white">
+              Hapus
+            </button>
+          </form>
+        </template>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<%- include('../../partials/footer') %>

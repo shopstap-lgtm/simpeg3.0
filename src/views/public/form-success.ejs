@@ -1,0 +1,47 @@
+<%- include('../partials/head') %>
+<%- include('../partials/public-nav') %>
+
+<div class="min-h-screen bg-slate-50/70 py-12 px-4 sm:px-6 lg:px-8 flex justify-center items-start font-sans">
+  <div class="w-full max-w-lg">
+
+    <div class="bg-white rounded-3xl border border-slate-200/90 shadow-xl p-8 sm:p-10 text-center space-y-6">
+      
+      <!-- Animated Check Icon -->
+      <div class="w-20 h-20 rounded-3xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto shadow-inner border border-emerald-100">
+        <i data-lucide="check-circle-2" class="w-10 h-10"></i>
+      </div>
+
+      <div class="space-y-2">
+        <span class="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-black uppercase tracking-wider border border-emerald-200">
+          Sukses Terkirim
+        </span>
+        <h1 class="text-2xl font-black text-slate-900 pt-1">
+          <%= form.title %>
+        </h1>
+        <p class="text-xs sm:text-sm text-slate-600 leading-relaxed max-w-md mx-auto pt-2">
+          <%= form.successMessage || 'Terima kasih, data Anda telah berhasil kami terima dan dicatat ke dalam sistem SIMPEG Korwil Cibitung.' %>
+        </p>
+      </div>
+
+      <div class="pt-6 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <% if (form.allowMultiple || form.targetAudience === 'PUBLIC') { %>
+          <a href="/form/<%= form.slug %>" 
+             class="btn-secondary w-full sm:w-auto py-2.5 px-5 text-xs gap-1.5 justify-center">
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            <span>Kirim Respon Baru</span>
+          </a>
+        <% } %>
+
+        <a href="/" 
+           class="btn-primary w-full sm:w-auto py-2.5 px-6 text-xs gap-1.5 justify-center bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20">
+          <i data-lucide="home" class="w-4 h-4"></i>
+          <span>Kembali ke Beranda</span>
+        </a>
+      </div>
+
+    </div>
+
+  </div>
+</div>
+
+<%- include('../partials/footer') %>

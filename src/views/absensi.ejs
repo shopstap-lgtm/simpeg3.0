@@ -19,8 +19,8 @@
           const activeMonth = this.klarifikasiConfig.month || <%= activeDefaultMonth %>;
           if (this.currentBulan !== activeMonth) return false;
 
-          // NL (HADIR / NL)
-          if (status === 'HADIR' || status === 'NL') {
+          // NL (HADIR / NL / EMPTY - Pra-Rekap Hari Kosong)
+          if (status === 'HADIR' || status === 'NL' || status === 'EMPTY') {
             if (!this.klarifikasiConfig.nlEnabled) return false;
             if (this.klarifikasiConfig.nlDates === 'ALL') return true;
             const allowed = this.klarifikasiConfig.nlDates.split(',').map(d => parseInt(d.trim())).filter(Boolean);
@@ -77,6 +77,109 @@
         pdfUrl: '',
         pdfTitle: '',
         pdfFileName: '',
+
+        init() {
+          this.$watch('currentStatus', (val) => {
+            if (!this.isAdmin && (val === 'TL' || val === 'PC')) {
+              this.selectedStatus = 'DL';
+            } else if (!this.isAdmin && (val === 'EMPTY' || val === 'HADIR' || val === 'NL')) {
+              if (this.selectedStatus !== 'DL' && this.selectedStatus !== 'ST') {
+                this.selectedStatus = 'DL';
+              }
+            }
+          });
+        },
+
+        getStatusLabel(code) {
+          const map = {
+            'HADIR': 'Hadir (H)',
+            'LIBUR': 'Libur / Akhir Pekan (L)',
+            'TK': 'Tanpa Keterangan (TK)',
+            'DL': 'Dinas Luar Sesuai (DL)',
+            'DL_KUNING': 'Dinas Luar Belum Sesuai (DL Kuning)',
+            'TL': 'Terlambat (TL)',
+            'PC': 'Pulang Cepat (PC)',
+            'ST': 'Surat Tugas (ST)',
+            'CT': 'Cuti (CT)',
+            'EMPTY': '🗑️ Kosongkan / Hapus Record'
+          };
+          return map[code] || code || 'Pilih Status...';
+        },
+
+        getStatusDot(code) {
+          const map = {
+            'HADIR': 'bg-emerald-500',
+            'LIBUR': 'bg-slate-400',
+            'TK': 'bg-rose-500',
+            'DL': 'bg-blue-500',
+            'DL_KUNING': 'bg-amber-500',
+            'TL': 'bg-orange-500',
+            'PC': 'bg-amber-600',
+            'ST': 'bg-purple-500',
+            'CT': 'bg-sky-500',
+            'EMPTY': 'bg-rose-600'
+          };
+          return map[code] || 'bg-slate-300';
+        },
+
+        directStatusOptions: [
+          { value: 'HADIR', label: 'Hadir (H)', dot: 'bg-emerald-500' },
+          { value: 'LIBUR', label: 'Libur / Akhir Pekan (L)', dot: 'bg-slate-400' },
+          { value: 'TK', label: 'Tanpa Keterangan (TK)', dot: 'bg-rose-500' },
+          { value: 'DL', label: 'Dinas Luar Sesuai (DL)', dot: 'bg-blue-500' },
+          { value: 'DL_KUNING', label: 'Dinas Luar Belum Sesuai (DL Kuning)', dot: 'bg-amber-500' },
+          { value: 'TL', label: 'Terlambat (TL)', dot: 'bg-orange-500' },
+          { value: 'PC', label: 'Pulang Cepat (PC)', dot: 'bg-amber-600' },
+          { value: 'ST', label: 'Surat Tugas (ST)', dot: 'bg-purple-500' },
+          { value: 'CT', label: 'Cuti (CT)', dot: 'bg-sky-500' },
+          { value: 'EMPTY', label: '🗑️ Kosongkan / Hapus Record (Status Kembali Kosong)', dot: 'bg-rose-600' }
+        ],
+
+        bulkStatusOptions: [
+          { value: 'HADIR', label: 'Hadir (H)', dot: 'bg-emerald-500' },
+          { value: 'LIBUR', label: 'Libur / Hari Libur Nasional (L)', dot: 'bg-slate-400' },
+          { value: 'TK', label: 'Tanpa Keterangan (TK)', dot: 'bg-rose-500' },
+          { value: 'DL', label: 'Dinas Luar Sesuai (DL)', dot: 'bg-blue-500' },
+          { value: 'DL_KUNING', label: 'Dinas Luar Belum Sesuai (DL Kuning)', dot: 'bg-amber-500' },
+          { value: 'TL', label: 'Terlambat (TL)', dot: 'bg-orange-500' },
+          { value: 'PC', label: 'Pulang Cepat (PC)', dot: 'bg-amber-600' },
+          { value: 'ST', label: 'Surat Tugas (ST)', dot: 'bg-purple-500' },
+          { value: 'CT', label: 'Cuti (CT)', dot: 'bg-sky-500' },
+          { value: 'EMPTY', label: '🗑️ Kosongkan / Hapus Record (Kembali Kosong)', dot: 'bg-rose-600' }
+        ],
+
+        adminClarificationOptions: [
+          { value: 'HADIR', label: 'Hadir (H)', dot: 'bg-emerald-500' },
+          { value: 'DL', label: 'Dinas Luar Sesuai (DL)', dot: 'bg-blue-500' },
+          { value: 'DL_KUNING', label: 'Dinas Luar Belum Sesuai (DL Kuning)', dot: 'bg-amber-500' },
+          { value: 'TL', label: 'Terlambat (TL)', dot: 'bg-orange-500' },
+          { value: 'PC', label: 'Pulang Cepat (PC)', dot: 'bg-amber-600' },
+          { value: 'ST', label: 'Surat Tugas (ST)', dot: 'bg-purple-500' },
+          { value: 'CT', label: 'Cuti (CT)', dot: 'bg-sky-500' },
+          { value: 'TK', label: 'Tanpa Keterangan (TK)', dot: 'bg-rose-500' }
+        ],
+
+        publicClarificationOptions: [
+          { value: 'HADIR', label: 'Hadir Normal / Penuh (H)', dot: 'bg-emerald-500' },
+          { value: 'DL', label: 'Dinas Luar Sesuai (DL)', dot: 'bg-blue-500' },
+          { value: 'ST', label: 'Surat Tugas (ST)', dot: 'bg-purple-500' },
+          { value: 'CT', label: 'Cuti (CT)', dot: 'bg-sky-500' }
+        ],
+
+        getPublicClarificationOptions(status) {
+          if (status === 'TL' || status === 'PC') {
+            return [
+              { value: 'DL', label: 'Dinas Luar Sesuai (DL)', dot: 'bg-blue-500' }
+            ];
+          }
+          if (status === 'EMPTY' || status === 'HADIR' || status === 'NL') {
+            return [
+              { value: 'DL', label: 'Dinas Luar Sesuai (DL)', dot: 'bg-blue-500' },
+              { value: 'ST', label: 'Surat Tugas (ST)', dot: 'bg-purple-500' }
+            ];
+          }
+          return this.publicClarificationOptions;
+        },
 
         // Modal visibility check helper
         get isAnyModalOpen() {
@@ -144,10 +247,10 @@
               const formattedDate = '<%= tahun %>-<%= String(bulan).padStart(2, '0') %>-' + String(dayObj.tanggal).padStart(2, '0');
               this.openKlarifikasiWithDays(emp, allDays, formattedDate, dayObj.status, false);
             } else if (dayObj.status === 'EMPTY') {
-              alert('Belum ada data presensi untuk tanggal ' + dayObj.tanggal + '.');
+              alert('Pengajuan klarifikasi pra-rekap untuk tanggal ' + dayObj.tanggal + ' belum dibuka oleh Admin Korwil.');
             } else {
               let msg = 'Hanya presensi berstatus Tanpa Keterangan (TK) dan DL Belum Sesuai (DL Kuning)';
-              if (this.klarifikasiConfig.nlEnabled) msg += ', serta Hadir Normal (NL) pada tanggal yang dibuka';
+              if (this.klarifikasiConfig.nlEnabled) msg += ', serta Tanggal Pra-Rekap / Hadir Normal pada tanggal yang dibuka';
               if (this.klarifikasiConfig.pcEnabled) msg += ', serta Terlambat (TL) & Pulang Cepat (PC) pada tanggal yang dibuka';
               alert(msg + ' yang dapat diajukan klarifikasi.');
             }
@@ -210,15 +313,49 @@
 
           const matchedDay = this.eligibleDays.find(d => d.dateStr === initialDate);
           this.currentStatus = matchedDay ? matchedDay.status : status;
-          this.selectedStatus = 'DL';
+          if (!this.isAdmin && (this.currentStatus === 'TL' || this.currentStatus === 'PC')) {
+            this.selectedStatus = 'DL';
+          } else if (!this.isAdmin && (this.currentStatus === 'EMPTY' || this.currentStatus === 'HADIR' || this.currentStatus === 'NL')) {
+            if (this.selectedStatus !== 'DL' && this.selectedStatus !== 'ST') {
+              this.selectedStatus = 'DL';
+            }
+          } else {
+            this.selectedStatus = 'DL';
+          }
           this.fileName = '';
           this.klarifikasiModal = true;
+          this.$nextTick(() => {
+            if (window.lucide) {
+              lucide.createIcons();
+            }
+          });
         },
 
         onDateSelected(dateStr) {
           const matched = this.eligibleDays.find(d => d.dateStr === dateStr);
           if (matched) {
             this.currentStatus = matched.status;
+            if (!this.isAdmin && (this.currentStatus === 'TL' || this.currentStatus === 'PC')) {
+              this.selectedStatus = 'DL';
+            } else if (!this.isAdmin && (this.currentStatus === 'EMPTY' || this.currentStatus === 'HADIR' || this.currentStatus === 'NL')) {
+              if (this.selectedStatus !== 'DL' && this.selectedStatus !== 'ST') {
+                this.selectedStatus = 'DL';
+              }
+            }
+          }
+        },
+
+        onRentangStartSelected(dateStr) {
+          const matched = this.eligibleDays.find(d => d.dateStr === dateStr);
+          if (matched) {
+            this.currentStatus = matched.status;
+            if (!this.isAdmin && (this.currentStatus === 'TL' || this.currentStatus === 'PC')) {
+              this.selectedStatus = 'DL';
+            } else if (!this.isAdmin && (this.currentStatus === 'EMPTY' || this.currentStatus === 'HADIR' || this.currentStatus === 'NL')) {
+              if (this.selectedStatus !== 'DL' && this.selectedStatus !== 'ST') {
+                this.selectedStatus = 'DL';
+              }
+            }
           }
         }
       }">
@@ -829,10 +966,20 @@
                                               class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] bg-transparent text-transparent border-0 hover:bg-slate-100 cursor-pointer transition-all"
                                               @click="handleCellClick(empInfo, empDays[<%= d.tanggal - 1 %>], empDays)">
                                             </button>
-                                            <% } else { %>
+                                          <% } else { %>
+                                            <template x-if="isStatusEligibleForKlarifikasi('EMPTY', <%= d.tanggal %>)">
+                                              <button type="button"
+                                                class="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] border-2 border-dashed border-slate-300 text-slate-400 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer hover:scale-110 active:scale-95 transition-all shadow-2xs font-bold leading-none"
+                                                title="Ajukan Klarifikasi Pra-Rekap (DL/ST) Tgl <%= d.tanggal %>"
+                                                @click="handleCellClick(empInfo, empDays[<%= d.tanggal - 1 %>], empDays)">
+                                                +
+                                              </button>
+                                            </template>
+                                            <template x-if="!isStatusEligibleForKlarifikasi('EMPTY', <%= d.tanggal %>)">
                                               <div class="w-7 h-7"></div>
-                                              <% } %>
-                                                <% } else { %>
+                                            </template>
+                                          <% } %>
+                                        <% } else { %>
                                                   <% 
                                                     let badgeTitle = '';
                                                     if (d.clarificationStatus === 'PENDING') {
@@ -1002,10 +1149,20 @@
                                                   class="inline-flex items-center justify-center w-5 h-5 rounded text-[8px] bg-transparent text-transparent hover:bg-slate-100/80 cursor-pointer transition-all"
                                                   @click="handleCellClick(empInfo, empDays[<%= d.tanggal - 1 %>], empDays)">
                                                 </button>
-                                                <% } else { %>
+                                              <% } else { %>
+                                                <template x-if="isStatusEligibleForKlarifikasi('EMPTY', <%= d.tanggal %>)">
+                                                  <button type="button"
+                                                    class="inline-flex items-center justify-center w-5 h-5 rounded text-[9px] border border-dashed border-slate-300 text-slate-400 hover:border-emerald-500 hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer hover:scale-120 active:scale-95 transition-all shadow-2xs font-bold leading-none"
+                                                    title="Ajukan Klarifikasi Pra-Rekap (DL/ST) Tgl <%= d.tanggal %>"
+                                                    @click="handleCellClick(empInfo, empDays[<%= d.tanggal - 1 %>], empDays)">
+                                                    +
+                                                  </button>
+                                                </template>
+                                                <template x-if="!isStatusEligibleForKlarifikasi('EMPTY', <%= d.tanggal %>)">
                                                   <span class="inline-block w-5 h-5"></span>
-                                                  <% } %>
-                                                    <% } else { %>
+                                                </template>
+                                              <% } %>
+                                            <% } else { %>
                                                       <% 
                                                         let badgeTitle = '';
                                                         if (d.clarificationStatus === 'PENDING') {
@@ -1137,16 +1294,17 @@
                                     </div>
 
                                     <!-- Mode Toggle Pills -->
+                                    <!-- Mode Toggle Pills -->
                                     <div
-                                      class="inline-flex p-0.5 rounded-xl bg-white border border-indigo-100 text-[10.5px] shrink-0 font-medium shadow-2xs">
+                                      class="inline-flex p-1 rounded-2xl bg-slate-100 border border-slate-200/80 text-[11px] shrink-0 font-medium shadow-2xs">
                                       <button type="button" @click="isRentang = false"
-                                        :class="!isRentang ? 'bg-indigo-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'"
-                                        class="px-2.5 py-1 rounded-lg transition-all">
+                                        :class="!isRentang ? 'bg-white text-indigo-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                        class="px-3 py-1.5 rounded-xl transition-all cursor-pointer">
                                         1 Tanggal
                                       </button>
                                       <button type="button" @click="isRentang = true"
-                                        :class="isRentang ? 'bg-indigo-600 text-white font-bold' : 'text-slate-600 hover:text-slate-900'"
-                                        class="px-2.5 py-1 rounded-lg transition-all">
+                                        :class="isRentang ? 'bg-white text-indigo-700 font-bold shadow-xs' : 'text-slate-600 hover:text-slate-900'"
+                                        class="px-3 py-1.5 rounded-xl transition-all cursor-pointer">
                                         Rentang
                                       </button>
                                     </div>
@@ -1154,53 +1312,143 @@
 
                                   <!-- Tanggal & Status Seharusnya (2 Kolom di Layar sm+) -->
                                   <template x-if="!isRentang">
-                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                      <div>
-                                        <label for="tanggalAbsenSelect"
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                      <!-- 1. Tanggal Presensi Dropdown -->
+                                      <div class="relative" x-data="{ openDate: false }" @click.away="openDate = false" :class="openDate ? 'z-30' : 'z-10'">
+                                        <label
                                           class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
                                           Pilih Tanggal Presensi *
                                         </label>
                                         <template x-if="!isAdmin">
-                                          <select name="tanggalAbsen" id="tanggalAbsenSelect" x-model="selectedDate"
-                                            @change="onDateSelected($event.target.value)" required
-                                            class="form-select text-xs font-semibold py-2">
-                                            <template x-for="item in eligibleDays" :key="item.dateStr">
-                                              <option :value="item.dateStr" x-text="item.label"></option>
-                                            </template>
-                                          </select>
+                                          <div>
+                                            <input type="hidden" name="tanggalAbsen" :value="selectedDate">
+                                            <button type="button" @click="openDate = !openDate"
+                                              class="w-full h-10 flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left cursor-pointer">
+                                              <div class="flex items-center gap-2 truncate">
+                                                <i data-lucide="calendar" class="w-3.5 h-3.5 text-indigo-500 shrink-0"></i>
+                                                <span class="truncate" x-text="eligibleDays.find(d => d.dateStr === selectedDate)?.label || selectedDate || 'Pilih Tanggal...'"></span>
+                                              </div>
+                                              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200"
+                                                :class="openDate ? 'rotate-180 text-indigo-600' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                              </svg>
+                                            </button>
+
+                                            <div x-show="openDate"
+                                              x-transition:enter="transition ease-out duration-150"
+                                              x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+                                              x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                              x-transition:leave="transition ease-in duration-100"
+                                              x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                              x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+                                              class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 space-y-1 max-h-56 overflow-y-auto custom-scrollbar"
+                                              style="display: none;" @click.stop>
+                                              <template x-for="item in eligibleDays" :key="item.dateStr">
+                                                <button type="button" @click="selectedDate = item.dateStr; onDateSelected(item.dateStr); openDate = false;"
+                                                  class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors text-left cursor-pointer"
+                                                  :class="selectedDate === item.dateStr ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                                                  <span class="truncate" x-text="item.label"></span>
+                                                  <svg x-show="selectedDate === item.dateStr" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-indigo-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                  </svg>
+                                                </button>
+                                              </template>
+                                            </div>
+                                          </div>
                                         </template>
                                         <template x-if="isAdmin">
                                           <input type="date" name="tanggalAbsen" id="tanggalAbsenAdmin"
-                                            x-model="selectedDate" required class="form-input text-xs py-2">
+                                            x-model="selectedDate" required
+                                            class="w-full h-10 px-3.5 py-2 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-2xs transition-all hover:border-slate-300">
                                         </template>
                                       </div>
 
-                                      <div>
-                                        <label for="statusPengganti"
+                                      <!-- 2. Status Seharusnya Dropdown -->
+                                      <div class="relative" x-data="{ openTargetStatus: false }" @click.away="openTargetStatus = false" :class="openTargetStatus ? 'z-30' : 'z-10'">
+                                        <label
                                           class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
                                           Status Seharusnya *
                                         </label>
                                         <template x-if="!isAdmin">
-                                          <select name="statusPengganti" id="statusPenggantiPublik"
-                                            x-model="selectedStatus" class="form-select text-xs font-semibold py-2">
-                                            <option value="HADIR">Hadir Normal / Penuh (H)</option>
-                                            <option value="DL">Dinas Luar Sesuai (DL)</option>
-                                            <option value="ST">Sakit (ST)</option>
-                                            <option value="CT">Cuti (CT)</option>
-                                          </select>
+                                          <div>
+                                            <input type="hidden" name="statusPengganti" :value="selectedStatus">
+                                            <button type="button" @click="openTargetStatus = !openTargetStatus"
+                                              class="w-full h-10 flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left cursor-pointer">
+                                              <div class="flex items-center gap-2 truncate">
+                                                <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="getStatusDot(selectedStatus)"></span>
+                                                <span class="truncate font-bold" x-text="getStatusLabel(selectedStatus)"></span>
+                                              </div>
+                                              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200"
+                                                :class="openTargetStatus ? 'rotate-180 text-indigo-600' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                              </svg>
+                                            </button>
+
+                                            <div x-show="openTargetStatus"
+                                              x-transition:enter="transition ease-out duration-150"
+                                              x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+                                              x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                              x-transition:leave="transition ease-in duration-100"
+                                              x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                              x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+                                              class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 space-y-1 max-h-56 overflow-y-auto custom-scrollbar"
+                                              style="display: none;" @click.stop>
+                                              <template x-for="item in getPublicClarificationOptions(currentStatus)" :key="item.value">
+                                                <button type="button" @click="selectedStatus = item.value; openTargetStatus = false;"
+                                                  class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors text-left cursor-pointer"
+                                                  :class="selectedStatus === item.value ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                                                  <div class="flex items-center gap-2 truncate">
+                                                    <span class="w-2 h-2 rounded-full shrink-0" :class="item.dot"></span>
+                                                    <span class="truncate" x-text="item.label"></span>
+                                                  </div>
+                                                  <svg x-show="selectedStatus === item.value" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-indigo-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                  </svg>
+                                                </button>
+                                              </template>
+                                            </div>
+                                          </div>
                                         </template>
+
                                         <template x-if="isAdmin">
-                                          <select name="statusPengganti" id="statusPenggantiAdmin"
-                                            x-model="selectedStatus" class="form-select text-xs font-semibold py-2">
-                                            <option value="HADIR">Hadir (H)</option>
-                                            <option value="DL">Dinas Luar Sesuai (DL)</option>
-                                            <option value="DL_KUNING">Dinas Luar Belum Sesuai (DL Kuning)</option>
-                                            <option value="TL">Terlambat (TL)</option>
-                                            <option value="PC">Pulang Cepat (PC)</option>
-                                            <option value="ST">Sakit (ST)</option>
-                                            <option value="CT">Cuti (CT)</option>
-                                            <option value="TK">Tanpa Keterangan (TK)</option>
-                                          </select>
+                                          <div>
+                                            <input type="hidden" name="statusPengganti" :value="selectedStatus">
+                                            <button type="button" @click="openTargetStatus = !openTargetStatus"
+                                              class="w-full h-10 flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left cursor-pointer">
+                                              <div class="flex items-center gap-2 truncate">
+                                                <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="getStatusDot(selectedStatus)"></span>
+                                                <span class="truncate font-bold" x-text="getStatusLabel(selectedStatus)"></span>
+                                              </div>
+                                              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200"
+                                                :class="openTargetStatus ? 'rotate-180 text-indigo-600' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                              </svg>
+                                            </button>
+
+                                            <div x-show="openTargetStatus"
+                                              x-transition:enter="transition ease-out duration-150"
+                                              x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+                                              x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                              x-transition:leave="transition ease-in duration-100"
+                                              x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                              x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+                                              class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 space-y-1 max-h-56 overflow-y-auto custom-scrollbar"
+                                              style="display: none;" @click.stop>
+                                              <template x-for="item in adminClarificationOptions" :key="item.value">
+                                                <button type="button" @click="selectedStatus = item.value; openTargetStatus = false;"
+                                                  class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors text-left cursor-pointer"
+                                                  :class="selectedStatus === item.value ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                                                  <div class="flex items-center gap-2 truncate">
+                                                    <span class="w-2 h-2 rounded-full shrink-0" :class="item.dot"></span>
+                                                    <span class="truncate" x-text="item.label"></span>
+                                                  </div>
+                                                  <svg x-show="selectedStatus === item.value" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-indigo-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                  </svg>
+                                                </button>
+                                              </template>
+                                            </div>
+                                          </div>
                                         </template>
                                       </div>
                                     </div>
@@ -1208,72 +1456,191 @@
 
                                   <!-- If Rentang: Tanggal Mulai & Tanggal Selesai -->
                                   <template x-if="isRentang">
-                                    <div class="space-y-3">
-                                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        <div>
-                                          <label for="tanggalMulaiSelect"
+                                    <div class="space-y-3.5">
+                                      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                                        <!-- 1. Tanggal Mulai Dropdown -->
+                                        <div class="relative" x-data="{ openStartDate: false }" @click.away="openStartDate = false" :class="openStartDate ? 'z-30' : 'z-10'">
+                                          <label
                                             class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">Tanggal
                                             Mulai *</label>
                                           <template x-if="!isAdmin">
-                                            <select name="tanggalMulai" id="tanggalMulaiSelect" x-model="tanggalMulai"
-                                              required class="form-select text-xs font-semibold py-2">
-                                              <template x-for="item in eligibleDays" :key="'start-' + item.dateStr">
-                                                <option :value="item.dateStr" x-text="item.label"></option>
-                                              </template>
-                                            </select>
+                                            <div>
+                                              <input type="hidden" name="tanggalMulai" :value="tanggalMulai">
+                                              <button type="button" @click="openStartDate = !openStartDate"
+                                                class="w-full h-10 flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left cursor-pointer">
+                                                <div class="flex items-center gap-2 truncate">
+                                                  <i data-lucide="calendar" class="w-3.5 h-3.5 text-indigo-500 shrink-0"></i>
+                                                  <span class="truncate" x-text="eligibleDays.find(d => d.dateStr === tanggalMulai)?.label || tanggalMulai || 'Pilih Tanggal Mulai...'"></span>
+                                                </div>
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200"
+                                                  :class="openStartDate ? 'rotate-180 text-indigo-600' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                  <polyline points="6 9 12 15 18 9"></polyline>
+                                                </svg>
+                                              </button>
+                                              <div x-show="openStartDate"
+                                                x-transition:enter="transition ease-out duration-150"
+                                                x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+                                                x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                                x-transition:leave="transition ease-in duration-100"
+                                                x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                                x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+                                                class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 space-y-1 max-h-56 overflow-y-auto custom-scrollbar"
+                                                style="display: none;" @click.stop>
+                                                <template x-for="item in eligibleDays" :key="'start-' + item.dateStr">
+                                                  <button type="button" @click="tanggalMulai = item.dateStr; onRentangStartSelected(item.dateStr); openStartDate = false;"
+                                                    class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors text-left cursor-pointer"
+                                                    :class="tanggalMulai === item.dateStr ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                                                    <span class="truncate" x-text="item.label"></span>
+                                                    <svg x-show="tanggalMulai === item.dateStr" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-indigo-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                      <polyline points="20 6 9 17 4 12"></polyline>
+                                                    </svg>
+                                                  </button>
+                                                </template>
+                                              </div>
+                                            </div>
                                           </template>
                                           <template x-if="isAdmin">
                                             <input type="date" name="tanggalMulai" id="tanggalMulaiAdmin"
-                                              x-model="tanggalMulai" required class="form-input text-xs py-2">
+                                              x-model="tanggalMulai" required
+                                              class="w-full h-10 px-3.5 py-2 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-2xs transition-all hover:border-slate-300">
                                           </template>
                                         </div>
 
-                                        <div>
-                                          <label for="tanggalSelesaiSelect"
+                                        <!-- 2. Tanggal Selesai Dropdown -->
+                                        <div class="relative" x-data="{ openEndDate: false }" @click.away="openEndDate = false" :class="openEndDate ? 'z-30' : 'z-10'">
+                                          <label
                                             class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">Tanggal
                                             Selesai *</label>
                                           <template x-if="!isAdmin">
-                                            <select name="tanggalSelesai" id="tanggalSelesaiSelect"
-                                              x-model="tanggalSelesai" required
-                                              class="form-select text-xs font-semibold py-2">
-                                              <template x-for="item in eligibleDays" :key="'end-' + item.dateStr">
-                                                <option :value="item.dateStr" x-text="item.label"></option>
-                                              </template>
-                                            </select>
+                                            <div>
+                                              <input type="hidden" name="tanggalSelesai" :value="tanggalSelesai">
+                                              <button type="button" @click="openEndDate = !openEndDate"
+                                                class="w-full h-10 flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left cursor-pointer">
+                                                <div class="flex items-center gap-2 truncate">
+                                                  <i data-lucide="calendar" class="w-3.5 h-3.5 text-indigo-500 shrink-0"></i>
+                                                  <span class="truncate" x-text="eligibleDays.find(d => d.dateStr === tanggalSelesai)?.label || tanggalSelesai || 'Pilih Tanggal Selesai...'"></span>
+                                                </div>
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200"
+                                                  :class="openEndDate ? 'rotate-180 text-indigo-600' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                  <polyline points="6 9 12 15 18 9"></polyline>
+                                                </svg>
+                                              </button>
+                                              <div x-show="openEndDate"
+                                                x-transition:enter="transition ease-out duration-150"
+                                                x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+                                                x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                                x-transition:leave="transition ease-in duration-100"
+                                                x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                                x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+                                                class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 space-y-1 max-h-56 overflow-y-auto custom-scrollbar"
+                                                style="display: none;" @click.stop>
+                                                <template x-for="item in eligibleDays" :key="'end-' + item.dateStr">
+                                                  <button type="button" @click="tanggalSelesai = item.dateStr; openEndDate = false;"
+                                                    class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors text-left cursor-pointer"
+                                                    :class="tanggalSelesai === item.dateStr ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                                                    <span class="truncate" x-text="item.label"></span>
+                                                    <svg x-show="tanggalSelesai === item.dateStr" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-indigo-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                      <polyline points="20 6 9 17 4 12"></polyline>
+                                                    </svg>
+                                                  </button>
+                                                </template>
+                                              </div>
+                                            </div>
                                           </template>
                                           <template x-if="isAdmin">
                                             <input type="date" name="tanggalSelesai" id="tanggalSelesaiAdmin"
-                                              x-model="tanggalSelesai" required class="form-input text-xs py-2">
+                                              x-model="tanggalSelesai" required
+                                              class="w-full h-10 px-3.5 py-2 text-xs font-semibold text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-2xs transition-all hover:border-slate-300">
                                           </template>
                                         </div>
                                       </div>
 
-                                      <div>
-                                        <label for="statusPenggantiRentang"
+                                      <!-- 3. Status Seharusnya (Seluruh Rentang) Dropdown -->
+                                      <div class="relative" x-data="{ openRentangStatus: false }" @click.away="openRentangStatus = false" :class="openRentangStatus ? 'z-30' : 'z-10'">
+                                        <label
                                           class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
                                           Status Seharusnya (Seluruh Rentang) *
                                         </label>
                                         <template x-if="!isAdmin">
-                                          <select name="statusPengganti" id="statusPenggantiRentang"
-                                            x-model="selectedStatus" class="form-select text-xs font-semibold py-2">
-                                            <option value="HADIR">Hadir Normal / Penuh (H)</option>
-                                            <option value="DL">Dinas Luar Sesuai (DL)</option>
-                                            <option value="ST">Sakit (ST)</option>
-                                            <option value="CT">Cuti (CT)</option>
-                                          </select>
+                                          <div>
+                                            <input type="hidden" name="statusPengganti" :value="selectedStatus">
+                                            <button type="button" @click="openRentangStatus = !openRentangStatus"
+                                              class="w-full h-10 flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left cursor-pointer">
+                                              <div class="flex items-center gap-2 truncate">
+                                                <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="getStatusDot(selectedStatus)"></span>
+                                                <span class="truncate font-bold" x-text="getStatusLabel(selectedStatus)"></span>
+                                              </div>
+                                              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200"
+                                                :class="openRentangStatus ? 'rotate-180 text-indigo-600' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                              </svg>
+                                            </button>
+
+                                            <div x-show="openRentangStatus"
+                                              x-transition:enter="transition ease-out duration-150"
+                                              x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+                                              x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                              x-transition:leave="transition ease-in duration-100"
+                                              x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                              x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+                                              class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 space-y-1 max-h-56 overflow-y-auto custom-scrollbar"
+                                              style="display: none;" @click.stop>
+                                              <template x-for="item in getPublicClarificationOptions(currentStatus)" :key="item.value">
+                                                <button type="button" @click="selectedStatus = item.value; openRentangStatus = false;"
+                                                  class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors text-left cursor-pointer"
+                                                  :class="selectedStatus === item.value ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                                                  <div class="flex items-center gap-2 truncate">
+                                                    <span class="w-2 h-2 rounded-full shrink-0" :class="item.dot"></span>
+                                                    <span class="truncate" x-text="item.label"></span>
+                                                  </div>
+                                                  <svg x-show="selectedStatus === item.value" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-indigo-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                  </svg>
+                                                </button>
+                                              </template>
+                                            </div>
+                                          </div>
                                         </template>
+
                                         <template x-if="isAdmin">
-                                          <select name="statusPengganti" id="statusPenggantiRentangAdmin"
-                                            x-model="selectedStatus" class="form-select text-xs font-semibold py-2">
-                                            <option value="HADIR">Hadir (H)</option>
-                                            <option value="DL">Dinas Luar Sesuai (DL)</option>
-                                            <option value="DL_KUNING">Dinas Luar Belum Sesuai (DL Kuning)</option>
-                                            <option value="TL">Terlambat (TL)</option>
-                                            <option value="PC">Pulang Cepat (PC)</option>
-                                            <option value="ST">Sakit (ST)</option>
-                                            <option value="CT">Cuti (CT)</option>
-                                            <option value="TK">Tanpa Keterangan (TK)</option>
-                                          </select>
+                                          <div>
+                                            <input type="hidden" name="statusPengganti" :value="selectedStatus">
+                                            <button type="button" @click="openRentangStatus = !openRentangStatus"
+                                              class="w-full h-10 flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left cursor-pointer">
+                                              <div class="flex items-center gap-2 truncate">
+                                                <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="getStatusDot(selectedStatus)"></span>
+                                                <span class="truncate font-bold" x-text="getStatusLabel(selectedStatus)"></span>
+                                              </div>
+                                              <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200"
+                                                :class="openRentangStatus ? 'rotate-180 text-indigo-600' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                              </svg>
+                                            </button>
+
+                                            <div x-show="openRentangStatus"
+                                              x-transition:enter="transition ease-out duration-150"
+                                              x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+                                              x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                              x-transition:leave="transition ease-in duration-100"
+                                              x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                              x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+                                              class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 space-y-1 max-h-56 overflow-y-auto custom-scrollbar"
+                                              style="display: none;" @click.stop>
+                                              <template x-for="item in adminClarificationOptions" :key="item.value">
+                                                <button type="button" @click="selectedStatus = item.value; openRentangStatus = false;"
+                                                  class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors text-left cursor-pointer"
+                                                  :class="selectedStatus === item.value ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                                                  <div class="flex items-center gap-2 truncate">
+                                                    <span class="w-2 h-2 rounded-full shrink-0" :class="item.dot"></span>
+                                                    <span class="truncate" x-text="item.label"></span>
+                                                  </div>
+                                                  <svg x-show="selectedStatus === item.value" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-indigo-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                                    <polyline points="20 6 9 17 4 12"></polyline>
+                                                  </svg>
+                                                </button>
+                                              </template>
+                                            </div>
+                                          </div>
                                         </template>
                                       </div>
                                     </div>
@@ -1286,7 +1653,7 @@
                                       Klarifikasi *</label>
                                     <textarea name="alasan" id="alasan" rows="2" required
                                       placeholder="Contoh: Mengikuti dinas luar / Surat tugas nomor 800/123/Disdik..."
-                                      class="form-input text-xs py-2"></textarea>
+                                      class="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-xs font-medium text-slate-800 bg-white placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-2xs transition-all resize-none"></textarea>
                                   </div>
 
                                   <!-- Upload PDF File Proof (Compact Bar) -->
@@ -1405,23 +1772,48 @@
                                   </p>
                                 </div>
 
-                                <div>
+                                <div class="relative" x-data="{ openStatus: false }" @click.away="openStatus = false" :class="openStatus ? 'z-30' : 'z-10'">
                                   <label
                                     class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">Pilih
                                     Status Baru *</label>
-                                  <select name="status" x-model="directTargetStatus"
-                                    class="form-select text-xs font-bold py-2">
-                                    <option value="HADIR">Hadir (H)</option>
-                                    <option value="LIBUR">Libur / Akhir Pekan (L)</option>
-                                    <option value="TK">Tanpa Keterangan (TK)</option>
-                                    <option value="DL">Dinas Luar Sesuai (DL)</option>
-                                    <option value="DL_KUNING">Dinas Luar Belum Sesuai (DL Kuning)</option>
-                                    <option value="TL">Terlambat (TL)</option>
-                                    <option value="PC">Pulang Cepat (PC)</option>
-                                    <option value="ST">Sakit (ST)</option>
-                                    <option value="CT">Cuti (CT)</option>
-                                    <option value="EMPTY">🗑️ Kosongkan / Hapus Record (Status Kembali Kosong)</option>
-                                  </select>
+                                  <input type="hidden" name="status" :value="directTargetStatus">
+
+                                  <button type="button" @click="openStatus = !openStatus"
+                                    class="w-full h-10 flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left cursor-pointer">
+                                    <div class="flex items-center gap-2 truncate">
+                                      <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="getStatusDot(directTargetStatus)"></span>
+                                      <span class="truncate font-bold" x-text="getStatusLabel(directTargetStatus)"></span>
+                                    </div>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200"
+                                      :class="openStatus ? 'rotate-180 text-indigo-600' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                      <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                  </button>
+
+                                  <!-- Dropdown Popover (Rounded-2xl, smooth shadows, rounded-xl items) -->
+                                  <div x-show="openStatus"
+                                    x-transition:enter="transition ease-out duration-150"
+                                    x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+                                    x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                    x-transition:leave="transition ease-in duration-100"
+                                    x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                    x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+                                    class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 space-y-1 max-h-60 overflow-y-auto custom-scrollbar"
+                                    style="display: none;" @click.stop>
+                                    <template x-for="item in directStatusOptions" :key="item.value">
+                                      <button type="button" @click="directTargetStatus = item.value; openStatus = false;"
+                                        class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors text-left cursor-pointer"
+                                        :class="directTargetStatus === item.value ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                                        <div class="flex items-center gap-2 truncate">
+                                          <span class="w-2 h-2 rounded-full shrink-0" :class="item.dot"></span>
+                                          <span class="truncate" x-text="item.label"></span>
+                                        </div>
+                                        <svg x-show="directTargetStatus === item.value" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-indigo-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                          <polyline points="20 6 9 17 4 12"></polyline>
+                                        </svg>
+                                      </button>
+                                    </template>
+                                  </div>
                                 </div>
 
                                 <div>
@@ -1429,7 +1821,8 @@
                                     class="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">Keterangan
                                     Tambahan</label>
                                   <input type="text" name="keterangan" x-model="directKeterangan"
-                                    placeholder="Contoh: Izin lisan / Penugasan khusus" class="form-input text-xs py-2">
+                                    placeholder="Contoh: Izin lisan / Penugasan khusus"
+                                    class="w-full h-10 px-3.5 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-2xs transition-all hover:border-slate-300 placeholder:text-slate-400">
                                 </div>
 
                                 <div class="pt-2 border-t border-slate-100 flex items-center justify-end gap-2.5">
@@ -1500,23 +1893,48 @@
                                 </p>
                               </div>
 
-                              <div>
-                                <label
-                                  class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Pilih
-                                  Status Baru *</label>
-                                <select name="status" x-model="bulkTargetStatus" class="form-select text-xs font-bold">
-                                  <option value="HADIR">Hadir (H)</option>
-                                  <option value="LIBUR">Libur / Hari Libur Nasional (L)</option>
-                                  <option value="TK">Tanpa Keterangan (TK)</option>
-                                  <option value="DL">Dinas Luar Sesuai (DL)</option>
-                                  <option value="DL_KUNING">Dinas Luar Belum Sesuai (DL Kuning)</option>
-                                  <option value="TL">Terlambat (TL)</option>
-                                  <option value="PC">Pulang Cepat (PC)</option>
-                                  <option value="ST">Sakit (ST)</option>
-                                  <option value="CT">Cuti (CT)</option>
-                                  <option value="EMPTY">🗑️ Kosongkan / Hapus Record (Kembali Kosong)</option>
-                                </select>
-                              </div>
+                                <div class="relative" x-data="{ openBulkStatus: false }" @click.away="openBulkStatus = false" :class="openBulkStatus ? 'z-30' : 'z-10'">
+                                  <label
+                                    class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Pilih
+                                    Status Baru *</label>
+                                  <input type="hidden" name="status" :value="bulkTargetStatus">
+
+                                  <button type="button" @click="openBulkStatus = !openBulkStatus"
+                                    class="w-full h-10 flex items-center justify-between px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left cursor-pointer">
+                                    <div class="flex items-center gap-2 truncate">
+                                      <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="getStatusDot(bulkTargetStatus)"></span>
+                                      <span class="truncate font-bold" x-text="getStatusLabel(bulkTargetStatus)"></span>
+                                    </div>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200"
+                                      :class="openBulkStatus ? 'rotate-180 text-indigo-600' : ''" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                      <polyline points="6 9 12 15 18 9"></polyline>
+                                    </svg>
+                                  </button>
+
+                                  <div x-show="openBulkStatus"
+                                    x-transition:enter="transition ease-out duration-150"
+                                    x-transition:enter-start="opacity-0 translate-y-1 scale-98"
+                                    x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                                    x-transition:leave="transition ease-in duration-100"
+                                    x-transition:leave-start="opacity-100 translate-y-0 scale-100"
+                                    x-transition:leave-end="opacity-0 translate-y-1 scale-98"
+                                    class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-1.5 space-y-1 max-h-60 overflow-y-auto custom-scrollbar"
+                                    style="display: none;" @click.stop>
+                                    <template x-for="item in bulkStatusOptions" :key="item.value">
+                                      <button type="button" @click="bulkTargetStatus = item.value; openBulkStatus = false;"
+                                        class="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-colors text-left cursor-pointer"
+                                        :class="bulkTargetStatus === item.value ? 'bg-indigo-50 text-indigo-700 font-bold shadow-2xs' : 'text-slate-700 hover:bg-slate-50 font-medium'">
+                                        <div class="flex items-center gap-2 truncate">
+                                          <span class="w-2 h-2 rounded-full shrink-0" :class="item.dot"></span>
+                                          <span class="truncate" x-text="item.label"></span>
+                                        </div>
+                                        <svg x-show="bulkTargetStatus === item.value" xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 text-indigo-600 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                          <polyline points="20 6 9 17 4 12"></polyline>
+                                        </svg>
+                                      </button>
+                                    </template>
+                                  </div>
+                                </div>
 
                               <div>
                                 <label
@@ -1524,7 +1942,7 @@
                                   Tambahan</label>
                                 <input type="text" name="keterangan" x-model="bulkKeterangan"
                                   placeholder="Contoh: Libur Nasional / Upacara Bendera / Penugasan Wilayah"
-                                  class="form-input text-xs">
+                                  class="w-full h-10 px-3.5 py-2 text-xs font-medium text-slate-800 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-2xs transition-all hover:border-slate-300 placeholder:text-slate-400">
                               </div>
 
                               <div
