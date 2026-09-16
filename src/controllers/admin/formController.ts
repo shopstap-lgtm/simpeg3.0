@@ -396,7 +396,7 @@ export const formController = {
 
       const rows: any[][] = [];
 
-      form.responses.forEach((resp, index) => {
+      form.responses.forEach((resp: any, index: number) => {
         const answers = (resp.answers || {}) as Record<string, any>;
         const dateStr = new Date(resp.createdAt).toLocaleString('id-ID', {
           timeZone: 'Asia/Jakarta'
