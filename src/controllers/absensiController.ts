@@ -4,11 +4,15 @@ import prisma from '../lib/prisma';
 import { holidayService } from '../services/holidayService';
 
 const BULAN_NAMES = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-const resolveStatusCondition = (statusFilter: string) => {
-  if (statusFilter === 'ALL_DL') return { in: ['DL', 'DL_KUNING'] };
-  if (statusFilter === 'TL_PC') return { in: ['TL', 'PC'] };
-  if (statusFilter === 'MASALAH') return { in: ['TK', 'TL', 'PC'] };
-  return statusFilter;
+
+const parseStatusFilter = (rawStatus: any): string[] => {
+  let list: string[] = [];
+  if (Array.isArray(rawStatus)) {
+    list = rawStatus.map(s => String(s).trim()).filter(Boolean);
+  } else if (typeof rawStatus === 'string' && rawStatus.trim() !== '' && rawStatus.trim() !== 'all') {
+    list = rawStatus.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  return list.filter(s => s !== 'all');
 };
 
 const buildAbsensiRedirectUrl = (req: Request, fallbackBulan?: number, fallbackTahun?: number) => {
@@ -18,14 +22,15 @@ const buildAbsensiRedirectUrl = (req: Request, fallbackBulan?: number, fallbackT
   const search = (req.body?.filterSearch || req.query?.search || '') as string;
   const page = (req.body?.filterPage || req.query?.page || '') as string;
   const nip = (req.body?.filterNip || req.body?.nip || req.query?.nip || '') as string;
-  const statusFilter = (req.body?.filterStatus || req.body?.statusFilter || req.query?.statusFilter || '') as string;
+  const rawStatus = req.body?.filterStatus || req.body?.statusFilter || req.query?.statusFilter || '';
+  const statusList = parseStatusFilter(rawStatus);
 
   const params = new URLSearchParams();
   if (nip && nip.trim()) params.set('nip', nip.trim());
   if (unit && unit !== 'unit-all') params.set('unit', unit);
   if (bulan) params.set('bulan', String(bulan));
   if (tahun) params.set('tahun', String(tahun));
-  if (statusFilter && statusFilter !== 'all') params.set('statusFilter', statusFilter);
+  if (statusList.length > 0) params.set('statusFilter', statusList.join(','));
   if (search && search.trim()) params.set('search', search.trim());
   if (page && String(page) !== '1') params.set('page', String(page));
 
@@ -57,7 +62,8 @@ export const absensiController = {
       const rawNip = (req.query.nip as string) || '';
       const nipQuery = rawNip.replace(/\s+/g, '').trim();
       const isCekMandiri = req.query.cekMandiri === '1';
-      const statusFilter = (isAdmin && req.query.statusFilter ? String(req.query.statusFilter).trim() : 'all');
+      const selectedStatuses = isAdmin ? parseStatusFilter(req.query.statusFilter || req.query['statusFilter[]'] || req.query.status) : [];
+      const statusFilter = selectedStatuses.join(',');
 
       // Pagination setup (default 25 rows)
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -118,13 +124,12 @@ export const absensiController = {
         totalFilteredEmployees = 0;
       } else {
         // ADMIN / SUPER ADMIN tanpa filter NIP khusus: Tampilkan seluruh pegawai dengan paginasi
-        if (statusFilter && statusFilter !== 'all') {
+        if (selectedStatuses.length > 0) {
           if (period) {
-            const statusCondition = resolveStatusCondition(statusFilter);
             const matchingEmpDays = await prisma.attendanceDay.findMany({
               where: {
                 periodId: period.id,
-                status: statusCondition
+                status: { in: selectedStatuses }
               },
               distinct: ['employeeId'],
               select: { employeeId: true }
@@ -352,6 +357,7 @@ export const absensiController = {
         allActiveEmployees,
         selectedUnit,
         statusFilter,
+        selectedStatuses,
         bulan,
         tahun,
         activeDefaultMonth,
@@ -799,13 +805,14 @@ export const absensiController = {
         })
       ]);
 
-      if (statusFilter && statusFilter !== 'all') {
+      const selectedStatuses = parseStatusFilter(req.query.statusFilter || req.query['statusFilter[]'] || req.query.status);
+
+      if (selectedStatuses.length > 0) {
         if (period) {
-          const statusCondition = resolveStatusCondition(statusFilter);
           const matchingEmpDays = await prisma.attendanceDay.findMany({
             where: {
               periodId: period.id,
-              status: statusCondition
+              status: { in: selectedStatuses }
             },
             distinct: ['employeeId'],
             select: { employeeId: true }
@@ -1010,13 +1017,14 @@ export const absensiController = {
         })
       ]);
 
-      if (statusFilter && statusFilter !== 'all') {
+      const selectedStatuses = parseStatusFilter(req.query.statusFilter || req.query['statusFilter[]'] || req.query.status);
+
+      if (selectedStatuses.length > 0) {
         if (period) {
-          const statusCondition = resolveStatusCondition(statusFilter);
           const matchingEmpDays = await prisma.attendanceDay.findMany({
             where: {
               periodId: period.id,
-              status: statusCondition
+              status: { in: selectedStatuses }
             },
             distinct: ['employeeId'],
             select: { employeeId: true }

@@ -803,30 +803,46 @@
                           </div>
                         </div>
 
-                        <!-- 4. Status Absen Filter (Khusus Admin) -->
+                        <!-- 4. Status Absen Filter (Multi-Select Checkbox Khusus Admin) -->
                         <div class="relative" x-data="{
                 open: false,
-                selectedVal: '<%= typeof statusFilter !== 'undefined' ? statusFilter : 'all' %>',
+                selected: <%= JSON.stringify(typeof selectedStatuses !== 'undefined' ? selectedStatuses : []) %>,
                 options: [
-                  { value: 'all', label: 'Semua Status', dot: 'bg-slate-300' },
-                  { value: 'DL_KUNING', label: 'Dinas Luar (DL Kuning)', dot: 'bg-amber-400' },
-                  { value: 'DL', label: 'Dinas Luar (DL Biru)', dot: 'bg-blue-500' },
-                  { value: 'ALL_DL', label: 'Semua Dinas Luar (DL)', dot: 'bg-indigo-500' },
-                  { value: 'CT', label: 'Cuti (CT)', dot: 'bg-sky-500' },
+                  { value: 'HADIR', label: 'Hadir Normal (H)', dot: 'bg-emerald-500' },
                   { value: 'TK', label: 'Tanpa Ket. (TK)', dot: 'bg-rose-500' },
+                  { value: 'DL', label: 'Dinas Luar Biru (DL)', dot: 'bg-blue-500' },
+                  { value: 'DL_KUNING', label: 'Dinas Luar Kuning (DLK)', dot: 'bg-amber-400' },
                   { value: 'TL', label: 'Terlambat (TL)', dot: 'bg-orange-500' },
                   { value: 'PC', label: 'Pulang Cepat (PC)', dot: 'bg-amber-600' },
-                  { value: 'TL_PC', label: 'TL / PC', dot: 'bg-orange-600' },
                   { value: 'ST', label: 'Sakit (ST)', dot: 'bg-purple-500' },
-                  { value: 'MASALAH', label: 'Perlu Perhatian (TK/TL/PC)', dot: 'bg-rose-600' }
+                  { value: 'CT', label: 'Cuti (CT)', dot: 'bg-sky-500' }
                 ],
-                get selectedOption() {
-                  return this.options.find(o => o.value === this.selectedVal) || this.options[0];
+                get displayLabel() {
+                  if (this.selected.length === 0 || this.selected.length === this.options.length) {
+                    return 'Semua Status';
+                  }
+                  if (this.selected.length === 1) {
+                    const opt = this.options.find(o => o.value === this.selected[0]);
+                    return opt ? opt.label : this.selected[0];
+                  }
+                  return `${this.selected.length} Status Terpilih`;
                 },
-                selectOption(val) {
-                  this.selectedVal = val;
+                toggle(val) {
+                  if (this.selected.includes(val)) {
+                    this.selected = this.selected.filter(s => s !== val);
+                  } else {
+                    this.selected.push(val);
+                  }
+                },
+                selectAll() {
+                  this.selected = this.options.map(o => o.value);
+                },
+                resetAll() {
+                  this.selected = [];
+                },
+                applyFilter() {
                   this.open = false;
-                  $refs.statusFilterInput.value = val;
+                  $refs.statusFilterInput.value = this.selected.join(',');
                   $nextTick(() => { $refs.statusFilterInput.closest('form').submit(); });
                 }
               }" @click.away="open = false">
@@ -834,40 +850,71 @@
                           <label class="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1.5">
                             Status Absen
                           </label>
-                          <input type="hidden" name="statusFilter" x-ref="statusFilterInput" :value="selectedVal">
+                          <input type="hidden" name="statusFilter" x-ref="statusFilterInput" :value="selected.join(',')">
 
                           <button type="button" @click="open = !open"
                             class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 hover:border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 text-xs font-semibold text-slate-800 shadow-2xs transition-all text-left">
                             <div class="flex items-center gap-2 truncate pr-2">
-                              <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="selectedOption.dot"></span>
-                              <span class="truncate" x-text="selectedOption.label"></span>
+                              <span class="w-2.5 h-2.5 rounded-full shrink-0"
+                                :class="selected.length === 0 || selected.length === options.length ? 'bg-slate-300' : 'bg-indigo-600'"></span>
+                              <span class="truncate" x-text="displayLabel"></span>
                             </div>
-                            <i data-lucide="chevron-down"
-                              class="w-4 h-4 text-slate-400 shrink-0 transition-transform duration-200"
-                              :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+                            <div class="flex items-center gap-1.5 shrink-0">
+                              <template x-if="selected.length > 0 && selected.length < options.length">
+                                <span class="px-1.5 py-0.2 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-bold" x-text="selected.length"></span>
+                              </template>
+                              <i data-lucide="chevron-down"
+                                class="w-4 h-4 text-slate-400 transition-transform duration-200"
+                                :class="open ? 'rotate-180 text-indigo-600' : ''"></i>
+                            </div>
                           </button>
 
-                          <!-- Dropdown Popover (Max items with scroll) -->
+                          <!-- Dropdown Popover Checkbox (Modern Clean UI) -->
                           <div x-show="open" x-transition:enter="transition ease-out duration-150"
                             x-transition:enter-start="opacity-0 translate-y-1 scale-98"
                             x-transition:enter-end="opacity-100 translate-y-0 scale-100"
                             x-transition:leave="transition ease-in duration-100"
                             x-transition:leave-start="opacity-100 translate-y-0 scale-100"
                             x-transition:leave-end="opacity-0 translate-y-1 scale-98"
-                            class="absolute left-0 right-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1 min-w-[210px] max-h-[250px] overflow-y-auto custom-scrollbar"
+                            class="absolute left-0 mt-1.5 z-50 bg-white rounded-2xl border border-slate-200 shadow-2xl p-2.5 min-w-[240px] max-w-[280px] space-y-2"
                             style="display: none;" @click.stop>
-                            <template x-for="item in options" :key="item.value">
-                              <button type="button" @click="selectOption(item.value)"
-                                class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors text-left"
-                                :class="selectedVal === item.value ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-50 font-medium'">
-                                <div class="flex items-center gap-2 truncate">
-                                  <span class="w-2 h-2 rounded-full shrink-0" :class="item.dot"></span>
-                                  <span class="truncate" x-text="item.label"></span>
-                                </div>
-                                <i data-lucide="check" x-show="selectedVal === item.value"
-                                  class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+                            
+                            <!-- Quick Action Header -->
+                            <div class="flex items-center justify-between pb-1.5 border-b border-slate-100 px-1 text-[11px]">
+                              <button type="button" @click="selectAll()" class="font-bold text-indigo-600 hover:text-indigo-800 transition-colors">
+                                Pilih Semua
                               </button>
-                            </template>
+                              <button type="button" @click="resetAll()" class="font-medium text-slate-400 hover:text-rose-600 transition-colors">
+                                Reset
+                              </button>
+                            </div>
+
+                            <!-- List Checkbox Status -->
+                            <div class="space-y-0.5 max-h-[200px] overflow-y-auto custom-scrollbar pr-1">
+                              <template x-for="item in options" :key="item.value">
+                                <label
+                                  class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs transition-colors cursor-pointer hover:bg-slate-50 select-none"
+                                  :class="selected.includes(item.value) ? 'bg-indigo-50/70 text-indigo-900 font-bold' : 'text-slate-700 font-medium'">
+                                  <div class="flex items-center gap-2 truncate">
+                                    <span class="w-2 h-2 rounded-full shrink-0" :class="item.dot"></span>
+                                    <span class="truncate" x-text="item.label"></span>
+                                  </div>
+                                  <input type="checkbox"
+                                    class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 border-slate-300"
+                                    :checked="selected.includes(item.value)"
+                                    @change="toggle(item.value)">
+                                </label>
+                              </template>
+                            </div>
+
+                            <!-- Apply Button -->
+                            <div class="pt-1.5 border-t border-slate-100">
+                              <button type="button" @click="applyFilter()"
+                                class="w-full py-1.5 px-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-98 text-white font-bold text-xs shadow-xs transition-all flex items-center justify-center gap-1.5">
+                                <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                                <span>Terapkan Filter</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
 
@@ -904,7 +951,7 @@
 
                       </form>
 
-                      <% const hasStatusFilter = typeof statusFilter !== 'undefined' && statusFilter && statusFilter !== 'all'; %>
+                      <% const hasStatusFilter = typeof selectedStatuses !== 'undefined' && selectedStatuses.length > 0 && selectedStatuses.length < 8; %>
                       <% if ((selectedUnit && selectedUnit !=='unit-all' ) || search || !isDefaultPeriod || hasStatusFilter) { %>
                         <div
                           class="mt-3 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
@@ -924,23 +971,10 @@
                                     class="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 font-semibold border border-amber-100">Bulan
                                     <%= bulan %>/<%= tahun %></span>
                                   <% } %>
-                                    <% if (hasStatusFilter) { 
-                                      const statusLabels = {
-                                        'DL_KUNING': 'DL Kuning',
-                                        'DL': 'DL Biru',
-                                        'ALL_DL': 'Semua DL',
-                                        'CT': 'Cuti (CT)',
-                                        'TK': 'Tanpa Ket. (TK)',
-                                        'TL': 'Terlambat (TL)',
-                                        'PC': 'Pulang Cepat (PC)',
-                                        'TL_PC': 'TL / PC',
-                                        'ST': 'Sakit (ST)',
-                                        'MASALAH': 'Perlu Perhatian (TK/TL/PC)'
-                                      };
-                                    %>
+                                    <% if (hasStatusFilter) { %>
                                       <span
                                         class="px-2 py-0.5 rounded-md bg-violet-50 text-violet-700 font-semibold border border-violet-200">
-                                        Status: <%= statusLabels[statusFilter] || statusFilter %>
+                                        Status: <%= selectedStatuses.join(', ') %>
                                       </span>
                                     <% } %>
                                     <% if (search) { %>
