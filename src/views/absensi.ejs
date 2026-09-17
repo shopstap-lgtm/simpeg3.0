@@ -1217,22 +1217,28 @@
                                         </td>
 
                                         <!-- 31 Days Columns (Ultra-compact 21.5px with 20px button) -->
-                                        <% item.days.forEach(function(d) { let bgCol='' ; let char='' ; let
-                                          isWithoutBadge=(d.status==='EMPTY' && !d.clarificationStatus); if
-                                          (d.clarificationStatus==='PENDING' ) { bgCol='cell-day-pending' ; char='⏳' ; }
-                                          else if (d.status==='HADIR' ) { bgCol='cell-day-hadir' ;
-                                          char='H' ; } else if (d.status==='TK' ) { bgCol='cell-day-tk' ; char='TK' ; }
-                                          else if (d.status==='DL' ) { bgCol='cell-day-dl' ; char='DL' ; } else if
-                                          (d.status==='DL_KUNING' ) { bgCol='cell-day-dl-kuning' ; char='DL' ; } else if
-                                          (d.status==='TL' ) { bgCol='cell-day-tl' ; char='TL' ; } else if
-                                          (d.status==='PC' ) { bgCol='cell-day-pc' ; char='PC' ; } else if
-                                          (d.status==='ST' ) { bgCol='cell-day-st' ; char='ST' ; } else if
-                                          (d.status==='CT' ) { bgCol='cell-day-ct' ; char='CT' ; } else if
-                                          (d.status==='LIBUR' ) { bgCol='cell-day-weekend' ; char='L' ; } else if
-                                          (d.status==='EMPTY' ) { bgCol='bg-transparent text-transparent border-0' ;
-                                          char='' ; } %>
+                                        <% item.days.forEach(function(d) { 
+                                          let bgCol='' ; let char='' ; 
+                                          let isWithoutBadge=(d.status==='EMPTY' && !d.clarificationStatus); 
+                                          const holiName = typeof holidays !== 'undefined' && holidays[d.tanggal] ? holidays[d.tanggal] : null;
+                                          const dDate = new Date(tahun, bulan - 1, d.tanggal);
+                                          const isWknd = (dDate.getDay() === 0 || dDate.getDay() === 6);
+                                          const isHolidayOrWeekend = (isWknd || !!holiName || d.status === 'LIBUR');
+
+                                          if (d.clarificationStatus==='PENDING' ) { bgCol='cell-day-pending' ; char='⏳' ; }
+                                          else if (d.status==='HADIR' ) { bgCol='cell-day-hadir' ; char='H' ; } 
+                                          else if (d.status==='TK' ) { bgCol='cell-day-tk' ; char='TK' ; }
+                                          else if (d.status==='DL' ) { bgCol='cell-day-dl' ; char='DL' ; } 
+                                          else if (d.status==='DL_KUNING' ) { bgCol='cell-day-dl-kuning' ; char='DL' ; } 
+                                          else if (d.status==='TL' ) { bgCol='cell-day-tl' ; char='TL' ; } 
+                                          else if (d.status==='PC' ) { bgCol='cell-day-pc' ; char='PC' ; } 
+                                          else if (d.status==='ST' ) { bgCol='cell-day-st' ; char='ST' ; } 
+                                          else if (d.status==='CT' ) { bgCol='cell-day-ct' ; char='CT' ; } 
+                                          else if (d.status==='LIBUR' ) { bgCol='cell-day-weekend' ; char='L' ; } 
+                                          else if (d.status==='EMPTY' ) { bgCol='bg-transparent text-transparent border-0' ; char='' ; } 
+                                        %>
                                           <td
-                                            class="p-0 text-center border-r border-slate-100/50 min-w-[21px] max-w-[22px] w-[21.5px] align-middle">
+                                            class="p-0 text-center border-r border-slate-100/50 min-w-[21px] max-w-[22px] w-[21.5px] align-middle <%= isHolidayOrWeekend ? 'bg-rose-50/40' : '' %>">
                                             <% if (isWithoutBadge) { %>
                                               <% if (isAdmin) { %>
                                                 <button type="button"
