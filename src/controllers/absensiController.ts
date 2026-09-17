@@ -219,11 +219,17 @@ export const absensiController = {
           const day = meta.day;
           let status = 'EMPTY';
           let keterangan: string | null = null;
+          const isHolidayOrWeekend = meta.isWeekend || meta.nationalHoliday !== null;
 
           if (empDaysMap && empDaysMap.has(day)) {
             const existing = empDaysMap.get(day);
-            status = existing.status;
-            keterangan = existing.keterangan;
+            if (isHolidayOrWeekend && existing.keterangan?.startsWith('Klarifikasi Disetujui')) {
+              status = 'LIBUR';
+              keterangan = meta.nationalHoliday ? `Libur Nasional: ${meta.nationalHoliday.name}` : 'Akhir Pekan';
+            } else {
+              status = existing.status;
+              keterangan = existing.keterangan;
+            }
           } else if (meta.nationalHoliday) {
             status = 'LIBUR';
             keterangan = `Libur Nasional: ${meta.nationalHoliday.name}`;
@@ -235,29 +241,30 @@ export const absensiController = {
             keterangan = 'Belum Ada Data Presensi';
           }
 
-          // Find clarification status for this date
+          // Find clarification status for this date (hanya untuk hari kerja, libur/weekend tetap aman)
           const dateStr = `${tahun}-${String(bulan).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
           let clarificationStatus: string | null = null;
           let clarificationNote: string | null = null;
 
-          for (const c of empClarifications) {
-            if (c.statusVerifikasi === 'PENDING' || c.statusVerifikasi === 'REJECTED') {
-              if (c.tanggalAbsen.includes(' s/d ')) {
-                const [startStr, endStr] = c.tanggalAbsen.split(' s/d ').map((s: string) => s.trim());
-                if (dateStr >= startStr && dateStr <= endStr) {
+          if (!isHolidayOrWeekend) {
+            for (const c of empClarifications) {
+              if (c.statusVerifikasi === 'PENDING' || c.statusVerifikasi === 'REJECTED') {
+                if (c.tanggalAbsen.includes(' s/d ')) {
+                  const [startStr, endStr] = c.tanggalAbsen.split(' s/d ').map((s: string) => s.trim());
+                  if (dateStr >= startStr && dateStr <= endStr) {
+                    clarificationStatus = c.statusVerifikasi;
+                    clarificationNote = c.catatanAdmin || (c.statusVerifikasi === 'PENDING' ? 'Sedang dalam review verifikasi' : 'Ditolak');
+                    break;
+                  }
+                } else if (c.tanggalAbsen === dateStr) {
                   clarificationStatus = c.statusVerifikasi;
                   clarificationNote = c.catatanAdmin || (c.statusVerifikasi === 'PENDING' ? 'Sedang dalam review verifikasi' : 'Ditolak');
                   break;
                 }
-              } else if (c.tanggalAbsen === dateStr) {
-                clarificationStatus = c.statusVerifikasi;
-                clarificationNote = c.catatanAdmin || (c.statusVerifikasi === 'PENDING' ? 'Sedang dalam review verifikasi' : 'Ditolak');
-                break;
               }
             }
           }
 
-          const isHolidayOrWeekend = meta.isWeekend || meta.nationalHoliday !== null;
           if (!isHolidayOrWeekend && status !== 'EMPTY') {
             totalEfektif++;
             if (status === 'HADIR') hadirCount++;
@@ -868,16 +875,20 @@ export const absensiController = {
         for (const meta of daysMeta) {
           const day = meta.day;
           let status = 'EMPTY';
+          const isHolidayOrWeekend = meta.isWeekend || meta.nationalHoliday !== null;
 
           if (empDaysMap && empDaysMap.has(day)) {
-            status = empDaysMap.get(day).status;
+            const existing = empDaysMap.get(day);
+            if (isHolidayOrWeekend && existing.keterangan?.startsWith('Klarifikasi Disetujui')) {
+              status = 'LIBUR';
+            } else {
+              status = existing.status;
+            }
           } else if (meta.nationalHoliday || meta.isWeekend) {
             status = 'LIBUR';
           } else {
             status = 'EMPTY';
           }
-
-          const isHolidayOrWeekend = meta.isWeekend || meta.nationalHoliday !== null;
           if (!isHolidayOrWeekend && status !== 'EMPTY') {
             totalEfektif++;
             if (status === 'HADIR') hadirCount++;
@@ -1181,18 +1192,21 @@ export const absensiController = {
       let stCount = 0;
       let ctCount = 0;
       let totalEfektif = 0;
-
       const dayCells = daysMeta.map(meta => {
         const day = meta.day;
         let status = 'EMPTY';
+        const isHolidayOrWeekend = meta.isWeekend || meta.nationalHoliday !== null;
 
         if (empDaysMap && empDaysMap.has(day)) {
-          status = empDaysMap.get(day).status;
+          const existing = empDaysMap.get(day);
+          if (isHolidayOrWeekend && existing.keterangan?.startsWith('Klarifikasi Disetujui')) {
+            status = 'LIBUR';
+          } else {
+            status = existing.status;
+          }
         } else if (meta.nationalHoliday || meta.isWeekend) {
           status = 'LIBUR';
         }
-
-        const isHolidayOrWeekend = meta.isWeekend || meta.nationalHoliday !== null;
         if (!isHolidayOrWeekend && status !== 'EMPTY') {
           totalEfektif++;
           if (status === 'HADIR') hadirCount++;

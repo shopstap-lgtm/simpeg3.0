@@ -1140,11 +1140,14 @@
                                   Unit Kerja
                                 </th>
                                 <!-- Days 1 to daysInMonth (Ultra-compact 21.5px per column with National Holiday Indicator) -->
-                                <% for(let d=1; d <=daysInMonth; d++) { const holiName=typeof holidays !=='undefined' &&
-                                  holidays[d] ? holidays[d] : null; const dDate=new Date(tahun, bulan - 1, d); const
-                                  isWknd=(dDate.getDay()===0 || dDate.getDay()===6); %>
+                                <% for(let d=1; d <=daysInMonth; d++) { 
+                                  const holiName=typeof holidays !=='undefined' && holidays[d] ? holidays[d] : null; 
+                                  const dDate=new Date(tahun, bulan - 1, d); 
+                                  const isWknd=(dDate.getDay()===0 || dDate.getDay()===6); 
+                                  const isHolidayOrWeekend=(isWknd || !!holiName);
+                                %>
                                   <th
-                                    class="p-0 text-center min-w-[21px] max-w-[22px] w-[21.5px] border-r border-slate-200/60 font-bold text-[9.5px] align-middle <%= holiName ? 'bg-rose-100 text-rose-700 font-extrabold' : (isWknd ? 'bg-slate-200/70 text-slate-500' : 'text-slate-600') %> <%= isSuperAdminOrDinas ? 'cursor-pointer hover:bg-violet-100 hover:text-violet-800 transition-colors group' : '' %>"
+                                    class="p-0 text-center min-w-[21px] max-w-[22px] w-[21.5px] border-r border-slate-200/60 font-bold text-[9.5px] align-middle <%= isHolidayOrWeekend ? 'bg-rose-50/70 text-rose-700 font-extrabold' : 'text-slate-600' %> <%= isSuperAdminOrDinas ? 'cursor-pointer hover:bg-violet-100 hover:text-violet-800 transition-colors group' : '' %>"
                                     title="<%= holiName ? 'Tanggal ' + d + ' • Libur Nasional: ' + holiName : (isWknd ? 'Tanggal ' + d + ' (Akhir Pekan)' : 'Tanggal ' + d) %>"
                                     <% if (isSuperAdminOrDinas) { %>
                                     @click="openBulkDateModal(<%= d %>)"

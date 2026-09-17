@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../../lib/prisma';
 import * as XLSX from 'xlsx';
 import { deleteFileFromStorage } from '../../lib/supabase';
+import { holidayService } from '../../services/holidayService';
 
 const BULAN_NAMES = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -233,12 +234,28 @@ export const klarifikasiController = {
           const endDate = new Date(endStr);
 
           for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-            await updateDay(d.getFullYear(), d.getMonth() + 1, d.getDate());
+            const yr = d.getFullYear();
+            const mo = d.getMonth() + 1;
+            const dt = d.getDate();
+            const dayOfWeek = d.getDay();
+            // Skip akhir pekan (Sabtu & Minggu) dan Hari Libur Nasional
+            if (dayOfWeek === 0 || dayOfWeek === 6 || holidayService.isHoliday(yr, mo, dt)) {
+              continue;
+            }
+            await updateDay(yr, mo, dt);
           }
         } else {
           const parts = item.tanggalAbsen.split('-');
           if (parts.length === 3) {
-            await updateDay(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]));
+            const yr = parseInt(parts[0]);
+            const mo = parseInt(parts[1]);
+            const dt = parseInt(parts[2]);
+            const checkDate = new Date(yr, mo - 1, dt);
+            const dayOfWeek = checkDate.getDay();
+            // Skip akhir pekan dan Hari Libur Nasional jika ada pengajuan pada hari libur
+            if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidayService.isHoliday(yr, mo, dt)) {
+              await updateDay(yr, mo, dt);
+            }
           }
         }
 
