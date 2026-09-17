@@ -301,7 +301,8 @@ export const absensiController = {
           },
           days,
           summary: {
-            hadir: hadirCount,
+            hadir: totalPresent, // Menghitung total kehadiran: Hadir Normal + DL + DLK + TL + PC + ST + CT (seluruhnya kecuali TK)
+            hadirNormal: hadirCount,
             tk: tkCount,
             dl: dlCount,
             dlKuning: dlKuningCount,

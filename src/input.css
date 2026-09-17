@@ -105,7 +105,7 @@
     @apply bg-rose-600 text-white font-extrabold ring-1 ring-rose-300 ring-inset;
   }
   .cell-day-weekend {
-    @apply bg-slate-100 text-slate-400 border border-slate-200/80;
+    @apply bg-rose-100 text-rose-700 border border-rose-200 font-bold;
   }
   .cell-day-empty {
     @apply bg-transparent text-transparent border-0 shadow-none;

@@ -1159,7 +1159,7 @@
                                     <!-- Summary Columns (H, TK, %) -->
                                     <th
                                       class="px-1.5 py-2 text-center text-emerald-700 bg-emerald-50/70 border-l border-slate-200 w-7 min-w-[28px] text-[10px] align-middle"
-                                      title="Total Hadir">H</th>
+                                      title="Total Hadir (H, DL, DLK, TL, PC, ST, CT)">H</th>
                                     <th
                                       class="px-1.5 py-2 text-center text-rose-700 bg-rose-50/70 w-7 min-w-[28px] text-[10px] align-middle"
                                       title="Tanpa Keterangan">TK</th>
@@ -1232,7 +1232,7 @@
                                           else if (d.status==='PC' ) { bgCol='cell-day-pc' ; char='PC' ; } 
                                           else if (d.status==='ST' ) { bgCol='cell-day-st' ; char='ST' ; } 
                                           else if (d.status==='CT' ) { bgCol='cell-day-ct' ; char='CT' ; } 
-                                          else if (d.status==='LIBUR' ) { bgCol='cell-day-weekend' ; char='L' ; } 
+                                          else if (d.status==='LIBUR' ) { bgCol='cell-day-weekend bg-rose-100 text-rose-700 border border-rose-200 font-bold' ; char='L' ; } 
                                           else if (d.status==='EMPTY' ) { bgCol='bg-transparent text-transparent border-0' ; char='' ; } 
                                         %>
                                           <td
@@ -1283,7 +1283,8 @@
 
                                             <!-- Summary Cells (ONLY H, TK, %) -->
                                             <td
-                                              class="px-1 py-1.5 text-center font-bold text-emerald-700 bg-emerald-50/40 border-l border-slate-100 text-[11px] w-7 min-w-[28px] align-middle">
+                                              class="px-1 py-1.5 text-center font-bold text-emerald-700 bg-emerald-50/40 border-l border-slate-100 text-[11px] w-7 min-w-[28px] align-middle"
+                                              title="Total Kehadiran: <%= item.summary.hadir %> Hari (Termasuk DL, TL, PC, ST, CT)">
                                               <%= item.summary.hadir %>
                                             </td>
                                             <td
