@@ -272,7 +272,7 @@ export const fileManagerController = {
       let tabDescription = 'Kelola seluruh dokumen PDF laporan kinerja pegawai (Harian & Bulanan) yang telah diajukan.';
       if (activeTab === 'klarifikasi') {
         tabTitle = 'Berkas Bukti Klarifikasi Absensi';
-        tabDescription = 'Kelola dokumen surat keterangan, surat tugas, atau cuti yang diajukan untuk perbaikan presensi.';
+        tabDescription = 'Kelola dokumen surat keterangan, surat sakit, atau cuti yang diajukan untuk perbaikan presensi.';
       } else if (activeTab === 'absensi') {
         tabTitle = 'Berkas Rekap Absensi (Excel / CSV)';
         tabDescription = 'Kelola berkas spreadsheet rekap absensi mesin dan template impor master data.';
