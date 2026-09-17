@@ -174,6 +174,9 @@ export const cmsController = {
     try {
       const {
         klarifikasiMonth,
+        klarifikasiPraRekapEnabled,
+        klarifikasiPraRekapMode,
+        klarifikasiPraRekapDates,
         klarifikasiNlEnabled,
         klarifikasiNlMode,
         klarifikasiNlDates,
@@ -183,6 +186,17 @@ export const cmsController = {
       } = req.body;
 
       const parsedMonth = parseInt(klarifikasiMonth) || 7;
+
+      const isPraRekapEnabled = klarifikasiPraRekapEnabled === 'true' || klarifikasiPraRekapEnabled === 'on' || klarifikasiPraRekapEnabled === true;
+      let finalPraRekapDates = 'ALL';
+      if (klarifikasiPraRekapMode === 'CUSTOM') {
+        if (Array.isArray(klarifikasiPraRekapDates)) {
+          finalPraRekapDates = klarifikasiPraRekapDates.join(',');
+        } else if (typeof klarifikasiPraRekapDates === 'string') {
+          finalPraRekapDates = klarifikasiPraRekapDates.trim() || 'ALL';
+        }
+      }
+
       const isNlEnabled = klarifikasiNlEnabled === 'true' || klarifikasiNlEnabled === 'on' || klarifikasiNlEnabled === true;
       let finalNlDates = 'ALL';
       if (klarifikasiNlMode === 'CUSTOM') {
@@ -207,6 +221,8 @@ export const cmsController = {
         where: { id: 'cms-main' },
         update: {
           klarifikasiMonth: parsedMonth,
+          klarifikasiPraRekapEnabled: isPraRekapEnabled,
+          klarifikasiPraRekapDates: finalPraRekapDates,
           klarifikasiNlEnabled: isNlEnabled,
           klarifikasiNlDates: finalNlDates,
           klarifikasiPcEnabled: isPcEnabled,
@@ -215,6 +231,8 @@ export const cmsController = {
         create: {
           id: 'cms-main',
           klarifikasiMonth: parsedMonth,
+          klarifikasiPraRekapEnabled: isPraRekapEnabled,
+          klarifikasiPraRekapDates: finalPraRekapDates,
           klarifikasiNlEnabled: isNlEnabled,
           klarifikasiNlDates: finalNlDates,
           klarifikasiPcEnabled: isPcEnabled,
@@ -225,7 +243,7 @@ export const cmsController = {
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'success',
-          message: 'Kebijakan buka/tutup klarifikasi absensi (Bulan, NL & PC) berhasil diperbarui.'
+          message: 'Kebijakan buka/tutup klarifikasi absensi (Pra-Rekap, Hadir Normal & TL/PC) berhasil diperbarui.'
         };
       }
 

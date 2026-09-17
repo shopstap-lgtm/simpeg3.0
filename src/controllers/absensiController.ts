@@ -360,6 +360,8 @@ export const absensiController = {
         isSuperAdminOrDinas: isAdmin && (sessionUser?.role === 'SUPER_ADMIN' || sessionUser?.role === 'ADMIN_DINAS'),
         klarifikasiConfig: {
           month: (cms as any)?.klarifikasiMonth || cms?.selectedMonth || 7,
+          praRekapEnabled: (cms as any)?.klarifikasiPraRekapEnabled || false,
+          praRekapDates: (cms as any)?.klarifikasiPraRekapDates || 'ALL',
           nlEnabled: cms?.klarifikasiNlEnabled || false,
           nlDates: cms?.klarifikasiNlDates || 'ALL',
           pcEnabled: cms?.klarifikasiPcEnabled || false,
@@ -605,7 +607,19 @@ export const absensiController = {
         return arr.includes(day);
       };
 
-      if (normStatusAwal === 'HADIR' || normStatusAwal === 'NL') {
+      if (normStatusAwal === 'EMPTY') {
+        const isMonthMatch = !monthNum || monthNum === activeKlarifikasiMonth;
+        if (!cms?.klarifikasiPraRekapEnabled || !isMonthMatch || !isDatePermitted(cms?.klarifikasiPraRekapDates || 'ALL', dayNum)) {
+          if ((req as any).session) {
+            (req as any).session.toast = {
+              type: 'warning',
+              message: 'Pengajuan klarifikasi untuk status Pra-Rekap (Hari Kosong) pada bulan / tanggal tersebut sedang ditutup oleh Admin.'
+            };
+            return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
+          }
+          return res.redirect(buildAbsensiRedirectUrl(req));
+        }
+      } else if (normStatusAwal === 'HADIR' || normStatusAwal === 'NL') {
         const isMonthMatch = !monthNum || monthNum === activeKlarifikasiMonth;
         if (!cms?.klarifikasiNlEnabled || !isMonthMatch || !isDatePermitted(cms?.klarifikasiNlDates || 'ALL', dayNum)) {
           if ((req as any).session) {
@@ -638,14 +652,14 @@ export const absensiController = {
         sessionUser.role === 'ADMIN_DINAS'
       );
 
-      // Pembatasan publik: status absen TK, PC, TL, dan Pra-rekap/Hadir hanya bisa diajukan klarifikasi ke status DL, ST, CT
+      // Pembatasan publik: status absen TK, PC, TL, Pra-rekap (EMPTY), dan Hadir Normal (NL) dapat diajukan klarifikasi ke status HADIR, DL, ST, CT
       if (!isAdmin) {
-        const allowedTargets = ['DL', 'ST', 'CT'];
+        const allowedTargets = ['HADIR', 'DL', 'ST', 'CT'];
         if (!allowedTargets.includes(statusPengganti)) {
           if ((req as any).session) {
             (req as any).session.toast = {
               type: 'warning',
-              message: 'Pengajuan klarifikasi hanya diperbolehkan ke status Dinas Luar (DL), Sakit (ST), atau Cuti (CT).'
+              message: 'Pengajuan klarifikasi hanya diperbolehkan ke status Hadir Normal (HADIR), Dinas Luar (DL), Sakit (ST), atau Cuti (CT).'
             };
             return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
           }
