@@ -4,6 +4,13 @@ import prisma from '../lib/prisma';
 import { holidayService } from '../services/holidayService';
 
 const BULAN_NAMES = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+const resolveStatusCondition = (statusFilter: string) => {
+  if (statusFilter === 'ALL_DL') return { in: ['DL', 'DL_KUNING'] };
+  if (statusFilter === 'TL_PC') return { in: ['TL', 'PC'] };
+  if (statusFilter === 'MASALAH') return { in: ['TK', 'TL', 'PC'] };
+  return statusFilter;
+};
+
 const buildAbsensiRedirectUrl = (req: Request, fallbackBulan?: number, fallbackTahun?: number) => {
   const unit = (req.body?.filterUnit || req.query?.unit || '') as string;
   const bulan = req.body?.filterBulan || req.body?.bulan || req.query?.bulan || fallbackBulan || '';
@@ -11,12 +18,14 @@ const buildAbsensiRedirectUrl = (req: Request, fallbackBulan?: number, fallbackT
   const search = (req.body?.filterSearch || req.query?.search || '') as string;
   const page = (req.body?.filterPage || req.query?.page || '') as string;
   const nip = (req.body?.filterNip || req.body?.nip || req.query?.nip || '') as string;
+  const statusFilter = (req.body?.filterStatus || req.body?.statusFilter || req.query?.statusFilter || '') as string;
 
   const params = new URLSearchParams();
   if (nip && nip.trim()) params.set('nip', nip.trim());
   if (unit && unit !== 'unit-all') params.set('unit', unit);
   if (bulan) params.set('bulan', String(bulan));
   if (tahun) params.set('tahun', String(tahun));
+  if (statusFilter && statusFilter !== 'all') params.set('statusFilter', statusFilter);
   if (search && search.trim()) params.set('search', search.trim());
   if (page && String(page) !== '1') params.set('page', String(page));
 
@@ -48,6 +57,7 @@ export const absensiController = {
       const rawNip = (req.query.nip as string) || '';
       const nipQuery = rawNip.replace(/\s+/g, '').trim();
       const isCekMandiri = req.query.cekMandiri === '1';
+      const statusFilter = (isAdmin && req.query.statusFilter ? String(req.query.statusFilter).trim() : 'all');
 
       // Pagination setup (default 25 rows)
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
@@ -108,6 +118,24 @@ export const absensiController = {
         totalFilteredEmployees = 0;
       } else {
         // ADMIN / SUPER ADMIN tanpa filter NIP khusus: Tampilkan seluruh pegawai dengan paginasi
+        if (statusFilter && statusFilter !== 'all') {
+          if (period) {
+            const statusCondition = resolveStatusCondition(statusFilter);
+            const matchingEmpDays = await prisma.attendanceDay.findMany({
+              where: {
+                periodId: period.id,
+                status: statusCondition
+              },
+              distinct: ['employeeId'],
+              select: { employeeId: true }
+            });
+            const matchingEmpIds = matchingEmpDays.map(d => d.employeeId);
+            whereEmp.id = { in: matchingEmpIds };
+          } else {
+            whereEmp.id = { in: [] };
+          }
+        }
+
         const [empCount, empList] = await Promise.all([
           prisma.employee.count({ where: whereEmp }),
           prisma.employee.findMany({
@@ -315,6 +343,7 @@ export const absensiController = {
         units,
         allActiveEmployees,
         selectedUnit,
+        statusFilter,
         bulan,
         tahun,
         activeDefaultMonth,
@@ -736,6 +765,7 @@ export const absensiController = {
       const tahun = parseInt(req.query.tahun as string) || activeDefaultYear;
       const selectedUnit = (req.query.unit as string) || 'unit-all';
       const search = ((req.query.search as string) || '').trim();
+      const statusFilter = ((req.query.statusFilter as string) || 'all').trim();
 
       const whereEmp: any = { aktif: true };
       if (selectedUnit && selectedUnit !== 'unit-all') {
@@ -748,21 +778,40 @@ export const absensiController = {
         ];
       }
 
-      const [employees, allUnits, period] = await Promise.all([
-        prisma.employee.findMany({
-          where: whereEmp,
-          include: { unit: true },
-          orderBy: [
-            { unit: { namaUnit: 'asc' } },
-            { nama: 'asc' }
-          ]
-        }),
+      const [allUnits, period] = await Promise.all([
         prisma.unit.findMany({ orderBy: { namaUnit: 'asc' } }),
         prisma.attendancePeriod.findUnique({
           where: { bulan_tahun: { bulan, tahun } },
           include: { attendanceDays: true }
         })
       ]);
+
+      if (statusFilter && statusFilter !== 'all') {
+        if (period) {
+          const statusCondition = resolveStatusCondition(statusFilter);
+          const matchingEmpDays = await prisma.attendanceDay.findMany({
+            where: {
+              periodId: period.id,
+              status: statusCondition
+            },
+            distinct: ['employeeId'],
+            select: { employeeId: true }
+          });
+          const matchingEmpIds = matchingEmpDays.map(d => d.employeeId);
+          whereEmp.id = { in: matchingEmpIds };
+        } else {
+          whereEmp.id = { in: [] };
+        }
+      }
+
+      const employees = await prisma.employee.findMany({
+        where: whereEmp,
+        include: { unit: true },
+        orderBy: [
+          { unit: { namaUnit: 'asc' } },
+          { nama: 'asc' }
+        ]
+      });
 
       const daysInMonth = new Date(tahun, bulan, 0).getDate();
 
@@ -923,6 +972,7 @@ export const absensiController = {
       const tahun = parseInt(req.query.tahun as string) || activeDefaultYear;
       const selectedUnit = (req.query.unit as string) || 'unit-all';
       const search = ((req.query.search as string) || '').trim();
+      const statusFilter = ((req.query.statusFilter as string) || 'all').trim();
 
       const whereEmp: any = { aktif: true };
       if (selectedUnit && selectedUnit !== 'unit-all') {
@@ -935,21 +985,40 @@ export const absensiController = {
         ];
       }
 
-      const [employees, allUnits, period] = await Promise.all([
-        prisma.employee.findMany({
-          where: whereEmp,
-          include: { unit: true },
-          orderBy: [
-            { unit: { namaUnit: 'asc' } },
-            { nama: 'asc' }
-          ]
-        }),
+      const [allUnits, period] = await Promise.all([
         prisma.unit.findMany({ orderBy: { namaUnit: 'asc' } }),
         prisma.attendancePeriod.findUnique({
           where: { bulan_tahun: { bulan, tahun } },
           include: { attendanceDays: true }
         })
       ]);
+
+      if (statusFilter && statusFilter !== 'all') {
+        if (period) {
+          const statusCondition = resolveStatusCondition(statusFilter);
+          const matchingEmpDays = await prisma.attendanceDay.findMany({
+            where: {
+              periodId: period.id,
+              status: statusCondition
+            },
+            distinct: ['employeeId'],
+            select: { employeeId: true }
+          });
+          const matchingEmpIds = matchingEmpDays.map(d => d.employeeId);
+          whereEmp.id = { in: matchingEmpIds };
+        } else {
+          whereEmp.id = { in: [] };
+        }
+      }
+
+      const employees = await prisma.employee.findMany({
+        where: whereEmp,
+        include: { unit: true },
+        orderBy: [
+          { unit: { namaUnit: 'asc' } },
+          { nama: 'asc' }
+        ]
+      });
 
       const daysInMonth = new Date(tahun, bulan, 0).getDate();
 
