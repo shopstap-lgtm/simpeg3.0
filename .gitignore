@@ -22,10 +22,9 @@ prisma/*.db-journal
 *.sqlite
 *.sqlite3
 
-# Uploaded files (keep .gitkeep and demo pdfs)
+# Uploaded files (keep .gitkeep only)
 public/uploads/*
 !public/uploads/.gitkeep
-!public/uploads/*.pdf
 
 # Logs & Debugging
 npm-debug.log*

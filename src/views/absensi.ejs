@@ -1370,6 +1370,7 @@
                             <!-- Modal Form (Scrollable body) -->
                             <template x-if="selectedEmployee">
                               <form action="/absensi/klarifikasi" method="POST" enctype="multipart/form-data"
+                                x-data="{ isSubmittingKlarifikasi: false }" @submit="isSubmittingKlarifikasi = true"
                                 class="flex flex-col flex-1 min-h-0 overflow-hidden">
                                 <input type="hidden" name="employeeId" :value="selectedEmployee.id">
                                 <input type="hidden" name="statusAwal" :value="currentStatus">
@@ -1796,13 +1797,28 @@
                                 <!-- Modal Actions (Fixed bottom) -->
                                 <div
                                   class="px-5 py-3 sm:px-6 sm:py-3.5 border-t border-slate-100 bg-slate-50/60 flex items-center justify-end gap-2.5 shrink-0">
-                                  <button type="button" @click="klarifikasiModal = false"
+                                  <button type="button" @click="klarifikasiModal = false" :disabled="isSubmittingKlarifikasi"
                                     class="btn-secondary py-2 px-4 text-xs">
                                     Batal
                                   </button>
-                                  <button type="submit" class="btn-primary py-2 px-5 text-xs gap-2">
-                                    <i data-lucide="send" class="w-4 h-4"></i>
-                                    <span>Kirim Klarifikasi</span>
+                                  <button type="submit" :disabled="isSubmittingKlarifikasi"
+                                    class="btn-primary py-2 px-5 text-xs gap-2"
+                                    :class="isSubmittingKlarifikasi ? 'opacity-75 cursor-not-allowed' : ''">
+                                    <template x-if="!isSubmittingKlarifikasi">
+                                      <span class="inline-flex items-center gap-1.5">
+                                        <i data-lucide="send" class="w-4 h-4"></i>
+                                        <span>Kirim Klarifikasi</span>
+                                      </span>
+                                    </template>
+                                    <template x-if="isSubmittingKlarifikasi">
+                                      <span class="inline-flex items-center gap-1.5">
+                                        <svg class="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                        </svg>
+                                        <span>Mengunggah Berkas...</span>
+                                      </span>
+                                    </template>
                                   </button>
                                 </div>
 

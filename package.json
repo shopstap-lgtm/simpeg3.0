@@ -50,7 +50,6 @@
     "@types/express-session": "^1.18.2",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.13.4",
-    "@vercel/node": "^3.0.0",
     "autoprefixer": "^10.4.20",
     "postcss": "^8.5.2",
     "prisma": "^5.22.0",
