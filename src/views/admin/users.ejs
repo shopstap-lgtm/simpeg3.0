@@ -258,6 +258,187 @@
 
   </div>
 
+  <% const isSuperAdmin = (locals.currentAdmin && locals.currentAdmin.role === 'SUPER_ADMIN') || (locals.user && locals.user.role === 'SUPER_ADMIN'); %>
+  <% if (isSuperAdmin) { %>
+  <!-- Role Menu Visibility Configuration Card (Khusus Super Admin) -->
+  <div class="custom-card p-5 sm:p-6 bg-white shadow-xs space-y-6"
+       x-data="{
+         toggleAll(role, state) {
+           const checkboxes = document.querySelectorAll('input[data-role=\'' + role + '\']');
+           checkboxes.forEach(cb => {
+             if (!cb.disabled) {
+               cb.checked = state;
+             }
+           });
+         }
+       }">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center shrink-0">
+          <i data-lucide="sliders" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h2 class="text-base sm:text-lg font-bold text-slate-900">Pengaturan Tampilan Menu Admin per Role</h2>
+          <p class="text-xs text-slate-500">Centang atau hilangkan centang menu yang ingin dimunculkan di sidebar navigasi masing-masing peran</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+          <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+          Khusus Super Admin
+        </span>
+      </div>
+    </div>
+
+    <!-- Info Banner -->
+    <div class="p-3.5 rounded-xl bg-blue-50/70 border border-blue-200/70 text-blue-900 flex items-start gap-3 text-xs leading-relaxed">
+      <i data-lucide="info" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
+      <div>
+        <span class="font-bold">Info Hak Akses:</span> Menu yang tidak dicentang otomatis disembunyikan dari sidebar navigasi dan diblokir dari akses rute langsung. Menu <span class="font-semibold text-slate-900">Kelola Admin</span> untuk peran <span class="font-semibold text-amber-700">Super Admin</span> dikunci permanen agar Super Admin tidak kehilangan kontrol sistem.
+      </div>
+    </div>
+
+    <form action="/admin/users/menu-permissions" method="POST" class="space-y-6">
+      <div class="overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
+            <tr>
+              <th class="px-5 py-3.5 min-w-[240px]">Menu Navigasi Sidebar</th>
+              
+              <!-- Super Admin Column -->
+              <th class="px-4 py-3.5 text-center min-w-[170px]">
+                <div class="flex flex-col items-center gap-1">
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-amber-100 text-amber-800 border-amber-200">
+                    Super Admin
+                  </span>
+                  <div class="flex items-center gap-1.5 text-[10px] font-normal text-slate-500 lowercase">
+                    <button type="button" @click="toggleAll('SUPER_ADMIN', true)" class="hover:text-indigo-600 underline">semua</button>
+                    <span>/</span>
+                    <button type="button" @click="toggleAll('SUPER_ADMIN', false)" class="hover:text-rose-600 underline">batal</button>
+                  </div>
+                </div>
+              </th>
+
+              <!-- Admin Korwil Column -->
+              <th class="px-4 py-3.5 text-center min-w-[170px]">
+                <div class="flex flex-col items-center gap-1">
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-blue-100 text-blue-800 border-blue-200">
+                    Admin Korwil
+                  </span>
+                  <div class="flex items-center gap-1.5 text-[10px] font-normal text-slate-500 lowercase">
+                    <button type="button" @click="toggleAll('ADMIN_KORWIL', true)" class="hover:text-indigo-600 underline">semua</button>
+                    <span>/</span>
+                    <button type="button" @click="toggleAll('ADMIN_KORWIL', false)" class="hover:text-rose-600 underline">batal</button>
+                  </div>
+                </div>
+              </th>
+
+              <!-- Admin Dinas Column -->
+              <th class="px-4 py-3.5 text-center min-w-[170px]">
+                <div class="flex flex-col items-center gap-1">
+                  <span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold border bg-purple-100 text-purple-800 border-purple-200">
+                    Admin Dinas
+                  </span>
+                  <div class="flex items-center gap-1.5 text-[10px] font-normal text-slate-500 lowercase">
+                    <button type="button" @click="toggleAll('ADMIN_DINAS', true)" class="hover:text-indigo-600 underline">semua</button>
+                    <span>/</span>
+                    <button type="button" @click="toggleAll('ADMIN_DINAS', false)" class="hover:text-rose-600 underline">batal</button>
+                  </div>
+                </div>
+              </th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <% (menuConfig || []).forEach(function(item) { %>
+              <tr class="hover:bg-slate-50/80 transition-colors">
+                <!-- Menu Info -->
+                <td class="px-5 py-3.5">
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center shrink-0">
+                      <i data-lucide="<%= item.icon %>" class="w-4 h-4"></i>
+                    </div>
+                    <div>
+                      <div class="font-bold text-slate-900 text-xs flex items-center gap-1.5">
+                        <%= item.label %>
+                        <span class="text-[10px] font-mono text-slate-400 font-normal"><%= item.path %></span>
+                      </div>
+                      <div class="text-[11px] text-slate-500"><%= item.description %></div>
+                    </div>
+                  </div>
+                </td>
+
+                <!-- Super Admin Checkbox -->
+                <td class="px-4 py-3.5 text-center">
+                  <% if (item.id === 'users') { %>
+                    <div class="inline-flex flex-col items-center gap-0.5">
+                      <input type="checkbox" checked disabled class="w-4 h-4 rounded text-indigo-600 border-slate-300 opacity-75 cursor-not-allowed">
+                      <input type="hidden" name="perm_SUPER_ADMIN_users" value="on">
+                      <span class="text-[9px] font-semibold text-slate-400">Terkunci</span>
+                    </div>
+                  <% } else { %>
+                    <% const isCheckedSuper = (menuPermissions['SUPER_ADMIN'] || []).includes(item.id); %>
+                    <label class="inline-flex items-center justify-center p-2 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors">
+                      <input type="checkbox" 
+                             data-role="SUPER_ADMIN" 
+                             name="perm_SUPER_ADMIN_<%= item.id %>" 
+                             class="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                             <%= isCheckedSuper ? 'checked' : '' %>>
+                    </label>
+                  <% } %>
+                </td>
+
+                <!-- Admin Korwil Checkbox -->
+                <td class="px-4 py-3.5 text-center">
+                  <% const isCheckedKorwil = (menuPermissions['ADMIN_KORWIL'] || []).includes(item.id); %>
+                  <label class="inline-flex items-center justify-center p-2 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors">
+                    <input type="checkbox" 
+                           data-role="ADMIN_KORWIL" 
+                           name="perm_ADMIN_KORWIL_<%= item.id %>" 
+                           class="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                           <%= isCheckedKorwil ? 'checked' : '' %>>
+                  </label>
+                </td>
+
+                <!-- Admin Dinas Checkbox -->
+                <td class="px-4 py-3.5 text-center">
+                  <% const isCheckedDinas = (menuPermissions['ADMIN_DINAS'] || []).includes(item.id); %>
+                  <label class="inline-flex items-center justify-center p-2 rounded-lg hover:bg-slate-100 cursor-pointer transition-colors">
+                    <input type="checkbox" 
+                           data-role="ADMIN_DINAS" 
+                           name="perm_ADMIN_DINAS_<%= item.id %>" 
+                           class="w-4 h-4 rounded text-indigo-600 border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                           <%= isCheckedDinas ? 'checked' : '' %>>
+                  </label>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-100">
+        <button type="button" 
+                @click="if (confirm('Kembalikan hak akses semua menu ke pengaturan default sistem?')) { $refs.resetPermissionsForm.submit(); }"
+                class="btn-secondary text-rose-600 hover:bg-rose-50 border-rose-200 text-xs py-2 px-4 gap-1.5 w-full sm:w-auto justify-center">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          <span>Kembalikan ke Default</span>
+        </button>
+
+        <div class="flex items-center gap-2.5 w-full sm:w-auto">
+          <button type="submit" class="btn-primary py-2 px-5 text-xs gap-2 shadow-indigo-100 w-full sm:w-auto justify-center">
+            <i data-lucide="save" class="w-4 h-4"></i>
+            <span>Simpan Hak Akses Menu</span>
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Hidden form for reset -->
+    <form x-ref="resetPermissionsForm" action="/admin/users/menu-permissions/reset" method="POST" class="hidden"></form>
+  </div>
+  <% } %>
+
   <!-- ALPINE.JS MODAL 1: TAMBAH ADMIN BARU (3 ROLES) -->
   <template x-teleport="body">
     <div x-show="addUserModal" 

@@ -124,6 +124,8 @@ router.post('/employees/import', memoryUpload.single('employeeFile'), employeeCo
 // Master Data Pegawai CRUD
 router.get('/pegawai', requireSuperAdmin, pegawaiAdminController.show);
 router.post('/pegawai/create', requireSuperAdmin, pegawaiAdminController.create);
+router.post('/pegawai/bulk-status', requireSuperAdmin, pegawaiAdminController.bulkStatus);
+router.post('/pegawai/bulk-delete', requireSuperAdmin, pegawaiAdminController.bulkDelete);
 router.post('/pegawai/:id/update', requireSuperAdmin, pegawaiAdminController.update);
 router.post('/pegawai/:id/toggle', requireSuperAdmin, pegawaiAdminController.toggleActive);
 router.post('/pegawai/:id/delete', requireSuperAdmin, pegawaiAdminController.delete);
@@ -137,6 +139,8 @@ router.post('/cms/klarifikasi-policy', requireSuperAdmin, cmsController.updateKl
 // User Management
 router.get('/users', requireSuperAdmin, usersController.show);
 router.post('/users/create', requireSuperAdmin, usersController.create);
+router.post('/users/menu-permissions', requireSuperAdmin, usersController.updateMenuPermissions);
+router.post('/users/menu-permissions/reset', requireSuperAdmin, usersController.resetMenuPermissions);
 router.post('/users/:id/update', requireSuperAdmin, usersController.updateUser);
 router.post('/users/:id/toggle', requireSuperAdmin, usersController.toggleActive);
 router.post('/users/:id/delete', requireSuperAdmin, usersController.deleteUser);
@@ -144,6 +148,8 @@ router.post('/users/:id/delete', requireSuperAdmin, usersController.deleteUser);
 // Data Unit Kerja / Sekolah (SUPER_ADMIN only)
 router.get('/unit-kerja', requireSuperAdmin, unitKerjaController.show);
 router.post('/unit-kerja/create', requireSuperAdmin, unitKerjaController.create);
+router.post('/unit-kerja/bulk-delete', requireSuperAdmin, unitKerjaController.bulkDelete);
+router.post('/unit-kerja/bulk-kategori', requireSuperAdmin, unitKerjaController.bulkKategori);
 router.post('/unit-kerja/:id/update', requireSuperAdmin, unitKerjaController.update);
 router.post('/unit-kerja/:id/delete', requireSuperAdmin, unitKerjaController.delete);
 

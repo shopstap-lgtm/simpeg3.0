@@ -9,19 +9,29 @@ generator client {
 }
 
 model Unit {
-  id             String     @id @default(cuid())
-  namaUnit       String
-  kepalaSekolah  String?
-  employees      Employee[]
+  id                  String     @id @default(cuid())
+  namaUnit            String
+  kategori            String     @default("NEGERI") // "NEGERI" | "SWASTA"
+  jenjang             String     @default("SD") // "PAUD/TK" | "SD" | "SMP" | "SMA" | "SMK" | "SLB" | "PKBM" | "LAINNYA"
+  kepalaSekolah       String?
+  kontakKepalaSekolah String?
+  operatorSekolah     String?
+  kontakOperator      String?
+  employees           Employee[]
 
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
+
+  @@index([kategori])
+  @@index([jenjang])
 }
 
 model Employee {
   id                 String           @id @default(cuid())
   nip                String           @unique
   nama               String
+  nik                String?
+  noHp               String?
   jabatan            String?          @default("Guru")
   statusKepegawaian  String           @default("PNS") // PNS | PPPK | PPPK_PW | OUTSOURCING
   unitId             String
@@ -41,6 +51,7 @@ model Employee {
   @@index([unitId])
   @@index([statusKepegawaian])
   @@index([aktif])
+  @@index([nik])
 }
 
 model AttendancePeriod {
@@ -156,6 +167,9 @@ model CmsConfig {
   klarifikasiPraRekapDates  String   @default("ALL") // "ALL" or comma-separated days "1,2,5,15"
   klarifikasiPcEnabled      Boolean  @default(false)
   klarifikasiPcDates        String   @default("ALL") // "ALL" or comma-separated days "10,11,12"
+
+  // Hak Akses Menu Dinamis per Peran (Role)
+  roleMenuPermissions       String?  @default("{}")
 
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt

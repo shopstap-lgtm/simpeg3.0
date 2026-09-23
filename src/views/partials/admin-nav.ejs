@@ -1,3 +1,37 @@
+<%
+  const checkAccess = (typeof canAccessMenu === 'function') 
+    ? canAccessMenu 
+    : ((menuId) => {
+        if (typeof user === 'undefined' || user?.role === 'SUPER_ADMIN') return true;
+        if (user?.role === 'ADMIN_DINAS') return ['klarifikasi', 'upload_absensi'].includes(menuId);
+        return ['klarifikasi', 'ekinerja', 'ncr_gaji', 'forms'].includes(menuId);
+      });
+
+  const showOperasionalGroup = checkAccess('klarifikasi') || checkAccess('ekinerja') || checkAccess('upload_absensi') || checkAccess('ncr_gaji') || checkAccess('forms');
+  const showMasterGroup = checkAccess('pegawai') || checkAccess('unit_kerja') || checkAccess('cms') || checkAccess('users') || checkAccess('files');
+%>
+
+<style>
+  /* Sleek modern dark scrollbar for admin sidebar */
+  aside .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  aside .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  aside .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.25);
+    border-radius: 9999px;
+  }
+  aside .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.45);
+  }
+  aside .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(148, 163, 184, 0.25) transparent;
+  }
+</style>
+
 <div x-data="{
        sidebarCollapsed: localStorage.getItem('simpeg_sidebar_collapsed') === 'true',
        mobileSidebarOpen: false,
@@ -33,9 +67,9 @@
          class="fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 text-slate-100 p-5 flex flex-col justify-between shadow-2xl border-r border-slate-800 lg:hidden"
          style="display: none;">
     
-    <div class="space-y-6">
+    <div class="flex flex-col flex-1 min-h-0 overflow-hidden space-y-4">
       <!-- Mobile Header Brand -->
-      <div class="flex items-center justify-between pb-4 border-b border-slate-800/80">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800/80 shrink-0">
         <div class="flex items-center gap-3">
           <img src="/img/logo-emblem.png?v=4" alt="Logo" class="w-9 h-9 object-contain shrink-0">
           <div>
@@ -48,94 +82,112 @@
         </button>
       </div>
 
-      <!-- Mobile Navigation Links -->
-      <nav class="space-y-1 text-xs font-semibold">
-        <div class="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider px-3 mb-2">Operasional</div>
-        
-        <a href="/admin/klarifikasi" 
-           class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-klarifikasi') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
-          <i data-lucide="check-square" class="w-4 h-4 text-indigo-400"></i>
-          <span>Klarifikasi Absensi</span>
-          <% if (typeof pendingClarificationsCount !== 'undefined' && pendingClarificationsCount > 0) { %>
-            <span class="ml-auto px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-amber-500 text-slate-900 shadow-xs">
-              <%= pendingClarificationsCount %>
-            </span>
-          <% } %>
-        </a>
-
-        <% if (typeof user === 'undefined' || user?.role !== 'ADMIN_DINAS') { %>
-          <a href="/admin/ekinerja-review" 
-             class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-ekinerja') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
-            <i data-lucide="file-check-2" class="w-4 h-4 text-emerald-400"></i>
-            <span>Review E-Kinerja</span>
-            <% if (typeof pendingEkinerjaCount !== 'undefined' && pendingEkinerjaCount > 0) { %>
-              <span class="ml-auto px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-emerald-500 text-slate-900 shadow-xs">
-                <%= pendingEkinerjaCount %>
-              </span>
+      <!-- Mobile Navigation Links (Scrollable) -->
+      <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pr-1">
+        <nav class="space-y-1 text-xs font-semibold">
+          <% if (showOperasionalGroup) { %>
+            <div class="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider px-3 mb-2">Operasional</div>
+            
+            <% if (checkAccess('klarifikasi')) { %>
+              <a href="/admin/klarifikasi" 
+                 class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-klarifikasi') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
+                <i data-lucide="check-square" class="w-4 h-4 text-indigo-400"></i>
+                <span>Klarifikasi Absensi</span>
+                <% if (typeof pendingClarificationsCount !== 'undefined' && pendingClarificationsCount > 0) { %>
+                  <span class="ml-auto px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-amber-500 text-slate-900 shadow-xs">
+                    <%= pendingClarificationsCount %>
+                  </span>
+                <% } %>
+              </a>
             <% } %>
-          </a>
-        <% } %>
 
-        <% if (typeof user === 'undefined' || user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN_DINAS') { %>
-          <a href="/admin/upload-absensi" 
-             class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-upload-absensi') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
-            <i data-lucide="file-spreadsheet" class="w-4 h-4 text-teal-400"></i>
-            <span>Upload Rekap Absensi</span>
-          </a>
-        <% } %>
+            <% if (checkAccess('ekinerja')) { %>
+              <a href="/admin/ekinerja-review" 
+                 class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-ekinerja') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
+                <i data-lucide="file-check-2" class="w-4 h-4 text-emerald-400"></i>
+                <span>Review E-Kinerja</span>
+                <% if (typeof pendingEkinerjaCount !== 'undefined' && pendingEkinerjaCount > 0) { %>
+                  <span class="ml-auto px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-emerald-500 text-slate-900 shadow-xs">
+                    <%= pendingEkinerjaCount %>
+                  </span>
+                <% } %>
+              </a>
+            <% } %>
 
-        <% if (typeof user === 'undefined' || user?.role !== 'ADMIN_DINAS') { %>
-          <a href="/admin/ncr-gaji" 
-             class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-ncr') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
-            <i data-lucide="banknote" class="w-4 h-4 text-amber-400"></i>
-            <span>Kelola NCR Gaji</span>
-          </a>
+            <% if (checkAccess('upload_absensi')) { %>
+              <a href="/admin/upload-absensi" 
+                 class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-upload-absensi') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
+                <i data-lucide="file-spreadsheet" class="w-4 h-4 text-teal-400"></i>
+                <span>Upload Rekap Absensi</span>
+              </a>
+            <% } %>
 
-          <a href="/admin/forms" 
-             class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-forms') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
-            <i data-lucide="form-input" class="w-4 h-4 text-violet-400"></i>
-            <span>Form Builder</span>
-          </a>
-        <% } %>
+            <% if (checkAccess('ncr_gaji')) { %>
+              <a href="/admin/ncr-gaji" 
+                 class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-ncr') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
+                <i data-lucide="banknote" class="w-4 h-4 text-amber-400"></i>
+                <span>Kelola NCR Gaji</span>
+              </a>
+            <% } %>
 
-        <% if (typeof user === 'undefined' || user?.role === 'SUPER_ADMIN') { %>
-          <div class="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider px-3 mt-5 mb-2">Master Data & CMS</div>
+            <% if (checkAccess('forms')) { %>
+              <a href="/admin/forms" 
+                 class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-forms') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
+                <i data-lucide="form-input" class="w-4 h-4 text-violet-400"></i>
+                <span>Form Builder</span>
+              </a>
+            <% } %>
+          <% } %>
 
-          <a href="/admin/pegawai" 
-             class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-pegawai') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
-            <i data-lucide="contact" class="w-4 h-4 text-amber-400"></i>
-            <span>Data Pegawai</span>
-          </a>
+          <% if (showMasterGroup) { %>
+            <div class="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider px-3 mt-4 mb-2">Master Data & CMS</div>
 
-          <a href="/admin/unit-kerja" 
-             class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-unit-kerja') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
-            <i data-lucide="building-2" class="w-4 h-4 text-amber-400"></i>
-            <span>Data Unit Kerja</span>
-          </a>
+            <% if (checkAccess('pegawai')) { %>
+              <a href="/admin/pegawai" 
+                 class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-pegawai') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
+                <i data-lucide="contact" class="w-4 h-4 text-amber-400"></i>
+                <span>Data Pegawai</span>
+              </a>
+            <% } %>
 
-          <a href="/admin/cms" 
-             class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-cms') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
-            <i data-lucide="sliders" class="w-4 h-4 text-purple-400"></i>
-            <span>CMS Dashboard</span>
-          </a>
+            <% if (checkAccess('unit_kerja')) { %>
+              <a href="/admin/unit-kerja" 
+                 class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-unit-kerja') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
+                <i data-lucide="building-2" class="w-4 h-4 text-amber-400"></i>
+                <span>Data Unit Kerja</span>
+              </a>
+            <% } %>
 
-          <a href="/admin/users" 
-             class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-users') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
-            <i data-lucide="users" class="w-4 h-4 text-cyan-400"></i>
-            <span>Kelola Admin</span>
-          </a>
+            <% if (checkAccess('cms')) { %>
+              <a href="/admin/cms" 
+                 class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-cms') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
+                <i data-lucide="sliders" class="w-4 h-4 text-purple-400"></i>
+                <span>CMS Dashboard</span>
+              </a>
+            <% } %>
 
-          <a href="/admin/files" 
-             class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-files') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
-            <i data-lucide="folder-archive" class="w-4 h-4 text-rose-400"></i>
-            <span>Manajemen Berkas</span>
-          </a>
-        <% } %>
-      </nav>
+            <% if (checkAccess('users')) { %>
+              <a href="/admin/users" 
+                 class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-users') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
+                <i data-lucide="users" class="w-4 h-4 text-cyan-400"></i>
+                <span>Kelola Admin</span>
+              </a>
+            <% } %>
+
+            <% if (checkAccess('files')) { %>
+              <a href="/admin/files" 
+                 class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-files') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
+                <i data-lucide="folder-archive" class="w-4 h-4 text-rose-400"></i>
+                <span>Manajemen Berkas</span>
+              </a>
+            <% } %>
+          <% } %>
+        </nav>
+      </div>
     </div>
 
     <!-- Mobile Bottom Links -->
-    <div class="pt-4 border-t border-slate-800 space-y-2">
+    <div class="pt-4 border-t border-slate-800 space-y-2 shrink-0">
       <a href="/" target="_blank" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800">
         <i data-lucide="globe" class="w-4 h-4 text-slate-400"></i>
         <span>Lihat Web Publik</span>
@@ -154,7 +206,7 @@
          class="hidden lg:flex flex-col h-full shrink-0 bg-slate-900 text-slate-200 border-r border-slate-800/80 transition-[width] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)] select-none shadow-xl justify-between overflow-hidden">
     
     <!-- Top Part (Header + Menus) -->
-    <div class="flex flex-col min-h-0">
+    <div class="flex flex-col flex-1 min-h-0 overflow-hidden">
       
       <!-- Sidebar Header with extra comfortable padding -->
       <div class="h-16 flex items-center border-b border-slate-800/80 shrink-0 transition-all duration-300 ease-in-out"
@@ -188,191 +240,197 @@
         </button>
       </div>
 
-      <!-- Navigation Menu Items (No scrollbar, clean spacing) -->
-      <div class="pt-6 pb-5 px-3.5 space-y-5 overflow-hidden">
+      <!-- Navigation Menu Items (Scrollable with custom scrollbar) -->
+      <div class="flex-1 min-h-0 overflow-y-auto custom-scrollbar pt-5 pb-5 px-3.5 space-y-5">
         
         <!-- Group 1: Operasional -->
-        <div class="space-y-1.5">
-          <div x-show="!sidebarCollapsed" 
-               x-transition:enter="transition-all ease-out duration-300"
-               x-transition:enter-start="opacity-0 -translate-x-2"
-               x-transition:enter-end="opacity-100 translate-x-0"
-               x-transition:leave="transition-all ease-in duration-100"
-               x-transition:leave-start="opacity-100 translate-x-0"
-               x-transition:leave-end="opacity-0 -translate-x-2"
-               class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider px-3.5 mb-2 whitespace-nowrap overflow-hidden">
-            Operasional
-          </div>
-
-          <!-- Klarifikasi Absensi -->
-          <a href="/admin/klarifikasi" 
-             class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-klarifikasi') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
-             :class="sidebarCollapsed ? 'justify-center px-0' : ''">
-            
-            <div class="relative w-5 h-5 flex items-center justify-center shrink-0">
-              <i data-lucide="check-square" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-klarifikasi') ? 'text-white' : 'text-indigo-400 group-hover:text-indigo-300' %>"></i>
-              <% if (typeof pendingClarificationsCount !== 'undefined' && pendingClarificationsCount > 0) { %>
-                <span x-show="sidebarCollapsed" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full ring-2 ring-slate-900 animate-pulse"></span>
-              <% } %>
+        <% if (showOperasionalGroup) { %>
+          <div class="space-y-1.5">
+            <div x-show="!sidebarCollapsed" 
+                 x-transition:enter="transition-all ease-out duration-300"
+                 x-transition:enter-start="opacity-0 -translate-x-2"
+                 x-transition:enter-end="opacity-100 translate-x-0"
+                 x-transition:leave="transition-all ease-in duration-100"
+                 x-transition:leave-start="opacity-100 translate-x-0"
+                 x-transition:leave-end="opacity-0 -translate-x-2"
+                 class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider px-3.5 mb-2 whitespace-nowrap overflow-hidden">
+              Operasional
             </div>
-            
-            <span x-show="!sidebarCollapsed" 
-                  x-transition:enter="transition-all ease-out duration-300"
-                  x-transition:enter-start="opacity-0 -translate-x-2"
-                  x-transition:enter-end="opacity-100 translate-x-0"
-                  x-transition:leave="transition-all ease-in duration-150"
-                  x-transition:leave-start="opacity-100 translate-x-0"
-                  x-transition:leave-end="opacity-0 -translate-x-2"
-                  class="truncate whitespace-nowrap overflow-hidden">
-              Klarifikasi Absensi
-            </span>
 
-            <% if (typeof pendingClarificationsCount !== 'undefined' && pendingClarificationsCount > 0) { %>
-              <span x-show="!sidebarCollapsed"
-                    class="ml-auto px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-amber-500 text-slate-900 shadow-xs shrink-0">
-                <%= pendingClarificationsCount %>
-              </span>
+            <% if (checkAccess('klarifikasi')) { %>
+              <!-- Klarifikasi Absensi -->
+              <a href="/admin/klarifikasi" 
+                 class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-klarifikasi') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
+                 :class="sidebarCollapsed ? 'justify-center px-0' : ''">
+                
+                <div class="relative w-5 h-5 flex items-center justify-center shrink-0">
+                  <i data-lucide="check-square" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-klarifikasi') ? 'text-white' : 'text-indigo-400 group-hover:text-indigo-300' %>"></i>
+                  <% if (typeof pendingClarificationsCount !== 'undefined' && pendingClarificationsCount > 0) { %>
+                    <span x-show="sidebarCollapsed" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-amber-400 rounded-full ring-2 ring-slate-900 animate-pulse"></span>
+                  <% } %>
+                </div>
+                
+                <span x-show="!sidebarCollapsed" 
+                      x-transition:enter="transition-all ease-out duration-300"
+                      x-transition:enter-start="opacity-0 -translate-x-2"
+                      x-transition:enter-end="opacity-100 translate-x-0"
+                      x-transition:leave="transition-all ease-in duration-150"
+                      x-transition:leave-start="opacity-100 translate-x-0"
+                      x-transition:leave-end="opacity-0 -translate-x-2"
+                      class="truncate whitespace-nowrap overflow-hidden">
+                  Klarifikasi Absensi
+                </span>
+
+                <% if (typeof pendingClarificationsCount !== 'undefined' && pendingClarificationsCount > 0) { %>
+                  <span x-show="!sidebarCollapsed"
+                        class="ml-auto px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-amber-500 text-slate-900 shadow-xs shrink-0">
+                    <%= pendingClarificationsCount %>
+                  </span>
+                <% } %>
+
+                <!-- Tooltip on Collapsed Hover -->
+                <div x-show="sidebarCollapsed" 
+                     class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
+                     style="display: none;">
+                  Klarifikasi Absensi <% if (typeof pendingClarificationsCount !== 'undefined' && pendingClarificationsCount > 0) { %>(<%= pendingClarificationsCount %> antrean)<% } %>
+                </div>
+              </a>
             <% } %>
 
-            <!-- Tooltip on Collapsed Hover -->
-            <div x-show="sidebarCollapsed" 
-                 class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
-                 style="display: none;">
-              Klarifikasi Absensi <% if (typeof pendingClarificationsCount !== 'undefined' && pendingClarificationsCount > 0) { %>(<%= pendingClarificationsCount %> antrean)<% } %>
-            </div>
-          </a>
-
-          <% if (typeof user === 'undefined' || user?.role !== 'ADMIN_DINAS') { %>
-            <!-- Review E-Kinerja -->
-            <a href="/admin/ekinerja-review" 
-               class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-ekinerja') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
-               :class="sidebarCollapsed ? 'justify-center px-0' : ''">
-              
-              <div class="relative w-5 h-5 flex items-center justify-center shrink-0">
-                <i data-lucide="file-check-2" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-ekinerja') ? 'text-white' : 'text-emerald-400 group-hover:text-emerald-300' %>"></i>
-                <% if (typeof pendingEkinerjaCount !== 'undefined' && pendingEkinerjaCount > 0) { %>
-                  <span x-show="sidebarCollapsed" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-slate-900 animate-pulse"></span>
-                <% } %>
-              </div>
-              
-              <span x-show="!sidebarCollapsed" 
-                    x-transition:enter="transition-all ease-out duration-300"
-                    x-transition:enter-start="opacity-0 -translate-x-2"
-                    x-transition:enter-end="opacity-100 translate-x-0"
-                    x-transition:leave="transition-all ease-in duration-150"
-                    x-transition:leave-start="opacity-100 translate-x-0"
-                    x-transition:leave-end="opacity-0 -translate-x-2"
-                    class="truncate whitespace-nowrap overflow-hidden">
-                Review E-Kinerja
-              </span>
-
-              <% if (typeof pendingEkinerjaCount !== 'undefined' && pendingEkinerjaCount > 0) { %>
-                <span x-show="!sidebarCollapsed"
-                      class="ml-auto px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-emerald-500 text-slate-900 shadow-xs shrink-0">
-                  <%= pendingEkinerjaCount %>
+            <% if (checkAccess('ekinerja')) { %>
+              <!-- Review E-Kinerja -->
+              <a href="/admin/ekinerja-review" 
+                 class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-ekinerja') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
+                 :class="sidebarCollapsed ? 'justify-center px-0' : ''">
+                
+                <div class="relative w-5 h-5 flex items-center justify-center shrink-0">
+                  <i data-lucide="file-check-2" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-ekinerja') ? 'text-white' : 'text-emerald-400 group-hover:text-emerald-300' %>"></i>
+                  <% if (typeof pendingEkinerjaCount !== 'undefined' && pendingEkinerjaCount > 0) { %>
+                    <span x-show="sidebarCollapsed" class="absolute -top-1 -right-1 w-2.5 h-2.5 bg-emerald-400 rounded-full ring-2 ring-slate-900 animate-pulse"></span>
+                  <% } %>
+                </div>
+                
+                <span x-show="!sidebarCollapsed" 
+                      x-transition:enter="transition-all ease-out duration-300"
+                      x-transition:enter-start="opacity-0 -translate-x-2"
+                      x-transition:enter-end="opacity-100 translate-x-0"
+                      x-transition:leave="transition-all ease-in duration-150"
+                      x-transition:leave-start="opacity-100 translate-x-0"
+                      x-transition:leave-end="opacity-0 -translate-x-2"
+                      class="truncate whitespace-nowrap overflow-hidden">
+                  Review E-Kinerja
                 </span>
-              <% } %>
 
-              <!-- Tooltip on Collapsed Hover -->
-              <div x-show="sidebarCollapsed" 
-                   class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
-                   style="display: none;">
-                Review E-Kinerja <% if (typeof pendingEkinerjaCount !== 'undefined' && pendingEkinerjaCount > 0) { %>(<%= pendingEkinerjaCount %> antrean)<% } %>
-              </div>
-            </a>
-          <% } %>
+                <% if (typeof pendingEkinerjaCount !== 'undefined' && pendingEkinerjaCount > 0) { %>
+                  <span x-show="!sidebarCollapsed"
+                        class="ml-auto px-2 py-0.5 text-[10px] font-extrabold rounded-full bg-emerald-500 text-slate-900 shadow-xs shrink-0">
+                    <%= pendingEkinerjaCount %>
+                  </span>
+                <% } %>
 
-          <% if (typeof user === 'undefined' || user?.role === 'SUPER_ADMIN' || user?.role === 'ADMIN_DINAS') { %>
-            <!-- Upload Rekap Absensi (SUPER_ADMIN & ADMIN_DINAS Only) -->
-            <a href="/admin/upload-absensi" 
-               class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-upload-absensi') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
-               :class="sidebarCollapsed ? 'justify-center px-0' : ''">
-              
-              <div class="w-5 h-5 flex items-center justify-center shrink-0">
-                <i data-lucide="file-spreadsheet" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-upload-absensi') ? 'text-white' : 'text-teal-400 group-hover:text-teal-300' %>"></i>
-              </div>
-              
-              <span x-show="!sidebarCollapsed" 
-                    x-transition:enter="transition-all ease-out duration-300"
-                    x-transition:enter-start="opacity-0 -translate-x-2"
-                    x-transition:enter-end="opacity-100 translate-x-0"
-                    x-transition:leave="transition-all ease-in duration-150"
-                    x-transition:leave-start="opacity-100 translate-x-0"
-                    x-transition:leave-end="opacity-0 -translate-x-2"
-                    class="truncate whitespace-nowrap overflow-hidden">
-                Upload Rekap Absensi
-              </span>
+                <!-- Tooltip on Collapsed Hover -->
+                <div x-show="sidebarCollapsed" 
+                     class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
+                     style="display: none;">
+                  Review E-Kinerja <% if (typeof pendingEkinerjaCount !== 'undefined' && pendingEkinerjaCount > 0) { %>(<%= pendingEkinerjaCount %> antrean)<% } %>
+                </div>
+              </a>
+            <% } %>
 
-              <!-- Tooltip on Collapsed Hover -->
-              <div x-show="sidebarCollapsed" 
-                   class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
-                   style="display: none;">
-                Upload Rekap Absensi
-              </div>
-            </a>
-          <% } %>
+            <% if (checkAccess('upload_absensi')) { %>
+              <!-- Upload Rekap Absensi -->
+              <a href="/admin/upload-absensi" 
+                 class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-upload-absensi') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
+                 :class="sidebarCollapsed ? 'justify-center px-0' : ''">
+                
+                <div class="w-5 h-5 flex items-center justify-center shrink-0">
+                  <i data-lucide="file-spreadsheet" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-upload-absensi') ? 'text-white' : 'text-teal-400 group-hover:text-teal-300' %>"></i>
+                </div>
+                
+                <span x-show="!sidebarCollapsed" 
+                      x-transition:enter="transition-all ease-out duration-300"
+                      x-transition:enter-start="opacity-0 -translate-x-2"
+                      x-transition:enter-end="opacity-100 translate-x-0"
+                      x-transition:leave="transition-all ease-in duration-150"
+                      x-transition:leave-start="opacity-100 translate-x-0"
+                      x-transition:leave-end="opacity-0 -translate-x-2"
+                      class="truncate whitespace-nowrap overflow-hidden">
+                  Upload Rekap Absensi
+                </span>
 
-          <% if (typeof user === 'undefined' || user?.role !== 'ADMIN_DINAS') { %>
-            <!-- Kelola NCR Gaji -->
-            <a href="/admin/ncr-gaji" 
-               class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-ncr') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
-               :class="sidebarCollapsed ? 'justify-center px-0' : ''">
-              
-              <div class="w-5 h-5 flex items-center justify-center shrink-0">
-                <i data-lucide="banknote" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-ncr') ? 'text-white' : 'text-amber-400 group-hover:text-amber-300' %>"></i>
-              </div>
-              
-              <span x-show="!sidebarCollapsed" 
-                    x-transition:enter="transition-all ease-out duration-300"
-                    x-transition:enter-start="opacity-0 -translate-x-2"
-                    x-transition:enter-end="opacity-100 translate-x-0"
-                    x-transition:leave="transition-all ease-in duration-150"
-                    x-transition:leave-start="opacity-100 translate-x-0"
-                    x-transition:leave-end="opacity-0 -translate-x-2"
-                    class="truncate whitespace-nowrap overflow-hidden">
-                Kelola NCR Gaji
-              </span>
+                <!-- Tooltip on Collapsed Hover -->
+                <div x-show="sidebarCollapsed" 
+                     class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
+                     style="display: none;">
+                  Upload Rekap Absensi
+                </div>
+              </a>
+            <% } %>
 
-              <!-- Tooltip on Collapsed Hover -->
-              <div x-show="sidebarCollapsed" 
-                   class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
-                   style="display: none;">
-                Kelola NCR Gaji
-              </div>
-            </a>
+            <% if (checkAccess('ncr_gaji')) { %>
+              <!-- Kelola NCR Gaji -->
+              <a href="/admin/ncr-gaji" 
+                 class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-ncr') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
+                 :class="sidebarCollapsed ? 'justify-center px-0' : ''">
+                
+                <div class="w-5 h-5 flex items-center justify-center shrink-0">
+                  <i data-lucide="banknote" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-ncr') ? 'text-white' : 'text-amber-400 group-hover:text-amber-300' %>"></i>
+                </div>
+                
+                <span x-show="!sidebarCollapsed" 
+                      x-transition:enter="transition-all ease-out duration-300"
+                      x-transition:enter-start="opacity-0 -translate-x-2"
+                      x-transition:enter-end="opacity-100 translate-x-0"
+                      x-transition:leave="transition-all ease-in duration-150"
+                      x-transition:leave-start="opacity-100 translate-x-0"
+                      x-transition:leave-end="opacity-0 -translate-x-2"
+                      class="truncate whitespace-nowrap overflow-hidden">
+                  Kelola NCR Gaji
+                </span>
 
-            <!-- Form Builder -->
-            <a href="/admin/forms" 
-               class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-forms') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
-               :class="sidebarCollapsed ? 'justify-center px-0' : ''">
-              
-              <div class="w-5 h-5 flex items-center justify-center shrink-0">
-                <i data-lucide="form-input" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-forms') ? 'text-white' : 'text-violet-400 group-hover:text-violet-300' %>"></i>
-              </div>
-              
-              <span x-show="!sidebarCollapsed" 
-                    x-transition:enter="transition-all ease-out duration-300"
-                    x-transition:enter-start="opacity-0 -translate-x-2"
-                    x-transition:enter-end="opacity-100 translate-x-0"
-                    x-transition:leave="transition-all ease-in duration-150"
-                    x-transition:leave-start="opacity-100 translate-x-0"
-                    x-transition:leave-end="opacity-0 -translate-x-2"
-                    class="truncate whitespace-nowrap overflow-hidden">
-                Form Builder
-              </span>
+                <!-- Tooltip on Collapsed Hover -->
+                <div x-show="sidebarCollapsed" 
+                     class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
+                     style="display: none;">
+                  Kelola NCR Gaji
+                </div>
+              </a>
+            <% } %>
 
-              <!-- Tooltip on Collapsed Hover -->
-              <div x-show="sidebarCollapsed" 
-                   class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
-                   style="display: none;">
-                Form Builder (Dinamis)
-              </div>
-            </a>
-          <% } %>
-        </div>
+            <% if (checkAccess('forms')) { %>
+              <!-- Form Builder -->
+              <a href="/admin/forms" 
+                 class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-forms') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
+                 :class="sidebarCollapsed ? 'justify-center px-0' : ''">
+                
+                <div class="w-5 h-5 flex items-center justify-center shrink-0">
+                  <i data-lucide="form-input" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-forms') ? 'text-white' : 'text-violet-400 group-hover:text-violet-300' %>"></i>
+                </div>
+                
+                <span x-show="!sidebarCollapsed" 
+                      x-transition:enter="transition-all ease-out duration-300"
+                      x-transition:enter-start="opacity-0 -translate-x-2"
+                      x-transition:enter-end="opacity-100 translate-x-0"
+                      x-transition:leave="transition-all ease-in duration-150"
+                      x-transition:leave-start="opacity-100 translate-x-0"
+                      x-transition:leave-end="opacity-0 -translate-x-2"
+                      class="truncate whitespace-nowrap overflow-hidden">
+                  Form Builder
+                </span>
 
-        <!-- Group 2: Super Admin Master Data -->
-        <% if (typeof user === 'undefined' || user?.role === 'SUPER_ADMIN') { %>
+                <!-- Tooltip on Collapsed Hover -->
+                <div x-show="sidebarCollapsed" 
+                     class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
+                     style="display: none;">
+                  Form Builder (Dinamis)
+                </div>
+              </a>
+            <% } %>
+          </div>
+        <% } %>
+
+        <!-- Group 2: Master Data & CMS -->
+        <% if (showMasterGroup) { %>
           <div class="space-y-1">
             <div x-show="!sidebarCollapsed" 
                  x-transition:enter="transition-all ease-out duration-300"
@@ -385,146 +443,155 @@
               Master Data & CMS
             </div>
 
-            <!-- Data Pegawai -->
-            <a href="/admin/pegawai" 
-               class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-pegawai') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
-               :class="sidebarCollapsed ? 'justify-center px-0' : ''">
-              
-              <div class="w-5 h-5 flex items-center justify-center shrink-0">
-                <i data-lucide="contact" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-pegawai') ? 'text-white' : 'text-amber-400 group-hover:text-amber-300' %>"></i>
-              </div>
-              
-              <span x-show="!sidebarCollapsed" 
-                    x-transition:enter="transition-all ease-out duration-300"
-                    x-transition:enter-start="opacity-0 -translate-x-2"
-                    x-transition:enter-end="opacity-100 translate-x-0"
-                    x-transition:leave="transition-all ease-in duration-150"
-                    x-transition:leave-start="opacity-100 translate-x-0"
-                    x-transition:leave-end="opacity-0 -translate-x-2"
-                    class="truncate whitespace-nowrap overflow-hidden">
-                Data Pegawai
-              </span>
+            <% if (checkAccess('pegawai')) { %>
+              <!-- Data Pegawai -->
+              <a href="/admin/pegawai" 
+                 class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-pegawai') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
+                 :class="sidebarCollapsed ? 'justify-center px-0' : ''">
+                
+                <div class="w-5 h-5 flex items-center justify-center shrink-0">
+                  <i data-lucide="contact" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-pegawai') ? 'text-white' : 'text-amber-400 group-hover:text-amber-300' %>"></i>
+                </div>
+                
+                <span x-show="!sidebarCollapsed" 
+                      x-transition:enter="transition-all ease-out duration-300"
+                      x-transition:enter-start="opacity-0 -translate-x-2"
+                      x-transition:enter-end="opacity-100 translate-x-0"
+                      x-transition:leave="transition-all ease-in duration-150"
+                      x-transition:leave-start="opacity-100 translate-x-0"
+                      x-transition:leave-end="opacity-0 -translate-x-2"
+                      class="truncate whitespace-nowrap overflow-hidden">
+                  Data Pegawai
+                </span>
 
-              <!-- Tooltip on Collapsed Hover -->
-              <div x-show="sidebarCollapsed" 
-                   class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
-                   style="display: none;">
-                Data Pegawai
-              </div>
-            </a>
+                <!-- Tooltip on Collapsed Hover -->
+                <div x-show="sidebarCollapsed" 
+                     class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
+                     style="display: none;">
+                  Data Pegawai
+                </div>
+              </a>
+            <% } %>
 
-            <!-- Data Unit Kerja -->
-            <a href="/admin/unit-kerja" 
-               class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-unit-kerja') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
-               :class="sidebarCollapsed ? 'justify-center px-0' : ''">
-              
-              <div class="w-5 h-5 flex items-center justify-center shrink-0">
-                <i data-lucide="building-2" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-unit-kerja') ? 'text-white' : 'text-amber-400 group-hover:text-amber-300' %>"></i>
-              </div>
-              
-              <span x-show="!sidebarCollapsed" 
-                    x-transition:enter="transition-all ease-out duration-300"
-                    x-transition:enter-start="opacity-0 -translate-x-2"
-                    x-transition:enter-end="opacity-100 translate-x-0"
-                    x-transition:leave="transition-all ease-in duration-150"
-                    x-transition:leave-start="opacity-100 translate-x-0"
-                    x-transition:leave-end="opacity-0 -translate-x-2"
-                    class="truncate whitespace-nowrap overflow-hidden">
-                Data Unit Kerja
-              </span>
+            <% if (checkAccess('unit_kerja')) { %>
+              <!-- Data Unit Kerja -->
+              <a href="/admin/unit-kerja" 
+                 class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-unit-kerja') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
+                 :class="sidebarCollapsed ? 'justify-center px-0' : ''">
+                
+                <div class="w-5 h-5 flex items-center justify-center shrink-0">
+                  <i data-lucide="building-2" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-unit-kerja') ? 'text-white' : 'text-amber-400 group-hover:text-amber-300' %>"></i>
+                </div>
+                
+                <span x-show="!sidebarCollapsed" 
+                      x-transition:enter="transition-all ease-out duration-300"
+                      x-transition:enter-start="opacity-0 -translate-x-2"
+                      x-transition:enter-end="opacity-100 translate-x-0"
+                      x-transition:leave="transition-all ease-in duration-150"
+                      x-transition:leave-start="opacity-100 translate-x-0"
+                      x-transition:leave-end="opacity-0 -translate-x-2"
+                      class="truncate whitespace-nowrap overflow-hidden">
+                  Data Unit Kerja
+                </span>
 
-              <!-- Tooltip on Collapsed Hover -->
-              <div x-show="sidebarCollapsed" 
-                   class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
-                   style="display: none;">
-                Data Unit Kerja
-              </div>
-            </a>
+                <!-- Tooltip on Collapsed Hover -->
+                <div x-show="sidebarCollapsed" 
+                     class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
+                     style="display: none;">
+                  Data Unit Kerja
+                </div>
+              </a>
+            <% } %>
 
-            <!-- CMS Dashboard -->
+            <% if (checkAccess('cms')) { %>
+              <!-- CMS Dashboard -->
+              <a href="/admin/cms" 
+                 class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-cms') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
+                 :class="sidebarCollapsed ? 'justify-center px-0' : ''">
+                
+                <div class="w-5 h-5 flex items-center justify-center shrink-0">
+                  <i data-lucide="sliders" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-cms') ? 'text-white' : 'text-purple-400 group-hover:text-purple-300' %>"></i>
+                </div>
+                
+                <span x-show="!sidebarCollapsed" 
+                      x-transition:enter="transition-all ease-out duration-300"
+                      x-transition:enter-start="opacity-0 -translate-x-2"
+                      x-transition:enter-end="opacity-100 translate-x-0"
+                      x-transition:leave="transition-all ease-in duration-150"
+                      x-transition:leave-start="opacity-100 translate-x-0"
+                      x-transition:leave-end="opacity-0 -translate-x-2"
+                      class="truncate whitespace-nowrap overflow-hidden">
+                  CMS Dashboard
+                </span>
 
-            <a href="/admin/cms" 
-               class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-cms') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
-               :class="sidebarCollapsed ? 'justify-center px-0' : ''">
-              
-              <div class="w-5 h-5 flex items-center justify-center shrink-0">
-                <i data-lucide="sliders" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-cms') ? 'text-white' : 'text-purple-400 group-hover:text-purple-300' %>"></i>
-              </div>
-              
-              <span x-show="!sidebarCollapsed" 
-                    x-transition:enter="transition-all ease-out duration-300"
-                    x-transition:enter-start="opacity-0 -translate-x-2"
-                    x-transition:enter-end="opacity-100 translate-x-0"
-                    x-transition:leave="transition-all ease-in duration-150"
-                    x-transition:leave-start="opacity-100 translate-x-0"
-                    x-transition:leave-end="opacity-0 -translate-x-2"
-                    class="truncate whitespace-nowrap overflow-hidden">
-                CMS Dashboard
-              </span>
+                <!-- Tooltip on Collapsed Hover -->
+                <div x-show="sidebarCollapsed" 
+                     class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
+                     style="display: none;">
+                  CMS Dashboard
+                </div>
+              </a>
+            <% } %>
 
-              <!-- Tooltip on Collapsed Hover -->
-              <div x-show="sidebarCollapsed" 
-                   class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
-                   style="display: none;">
-                CMS Dashboard
-              </div>
-            </a>
+            <% if (checkAccess('users')) { %>
+              <!-- Kelola Admin -->
+              <a href="/admin/users" 
+                 class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-users') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
+                 :class="sidebarCollapsed ? 'justify-center px-0' : ''">
+                
+                <div class="w-5 h-5 flex items-center justify-center shrink-0">
+                  <i data-lucide="users" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-users') ? 'text-white' : 'text-cyan-400 group-hover:text-cyan-300' %>"></i>
+                </div>
+                
+                <span x-show="!sidebarCollapsed" 
+                      x-transition:enter="transition-all ease-out duration-300"
+                      x-transition:enter-start="opacity-0 -translate-x-2"
+                      x-transition:enter-end="opacity-100 translate-x-0"
+                      x-transition:leave="transition-all ease-in duration-150"
+                      x-transition:leave-start="opacity-100 translate-x-0"
+                      x-transition:leave-end="opacity-0 -translate-x-2"
+                      class="truncate whitespace-nowrap overflow-hidden">
+                  Kelola Admin
+                </span>
 
-            <!-- Kelola Admin -->
-            <a href="/admin/users" 
-               class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-users') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
-               :class="sidebarCollapsed ? 'justify-center px-0' : ''">
-              
-              <div class="w-5 h-5 flex items-center justify-center shrink-0">
-                <i data-lucide="users" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-users') ? 'text-white' : 'text-cyan-400 group-hover:text-cyan-300' %>"></i>
-              </div>
-              
-              <span x-show="!sidebarCollapsed" 
-                    x-transition:enter="transition-all ease-out duration-300"
-                    x-transition:enter-start="opacity-0 -translate-x-2"
-                    x-transition:enter-end="opacity-100 translate-x-0"
-                    x-transition:leave="transition-all ease-in duration-150"
-                    x-transition:leave-start="opacity-100 translate-x-0"
-                    x-transition:leave-end="opacity-0 -translate-x-2"
-                    class="truncate whitespace-nowrap overflow-hidden">
-                Kelola Admin
-              </span>
+                <!-- Tooltip on Collapsed Hover -->
+                <div x-show="sidebarCollapsed" 
+                     class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
+                     style="display: none;">
+                  Kelola Admin
+                </div>
+              </a>
+            <% } %>
 
-              <!-- Tooltip on Collapsed Hover -->
-              <div x-show="sidebarCollapsed" 
-                   class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
-                   style="display: none;">
-                Kelola Admin
-              </div>
-            </a>
+            <% if (checkAccess('files')) { %>
+              <!-- Manajemen Berkas Upload -->
+              <a href="/admin/files" 
+                 class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-files') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
+                 :class="sidebarCollapsed ? 'justify-center px-0' : ''">
+                
+                <div class="w-5 h-5 flex items-center justify-center shrink-0">
+                  <i data-lucide="folder-archive" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-files') ? 'text-white' : 'text-rose-400 group-hover:text-rose-300' %>"></i>
+                </div>
+                
+                <span x-show="!sidebarCollapsed" 
+                      x-transition:enter="transition-all ease-out duration-300"
+                      x-transition:enter-start="opacity-0 -translate-x-2"
+                      x-transition:enter-end="opacity-100 translate-x-0"
+                      x-transition:leave="transition-all ease-in duration-150"
+                      x-transition:leave-start="opacity-100 translate-x-0"
+                      x-transition:leave-end="opacity-0 -translate-x-2"
+                      class="truncate whitespace-nowrap overflow-hidden">
+                  Manajemen Berkas
+                </span>
 
-            <!-- Manajemen Berkas Upload (Super Admin) -->
-            <a href="/admin/files" 
-               class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-files') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
-               :class="sidebarCollapsed ? 'justify-center px-0' : ''">
-              
-              <div class="w-5 h-5 flex items-center justify-center shrink-0">
-                <i data-lucide="folder-archive" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-files') ? 'text-white' : 'text-rose-400 group-hover:text-rose-300' %>"></i>
-              </div>
-              
-              <span x-show="!sidebarCollapsed" 
-                    x-transition:enter="transition-all ease-out duration-300"
-                    x-transition:enter-start="opacity-0 -translate-x-2"
-                    x-transition:enter-end="opacity-100 translate-x-0"
-                    x-transition:leave="transition-all ease-in duration-150"
-                    x-transition:leave-start="opacity-100 translate-x-0"
-                    x-transition:leave-end="opacity-0 -translate-x-2"
-                    class="truncate whitespace-nowrap overflow-hidden">
-                Manajemen Berkas
-              </span>
-
-              <!-- Tooltip on Collapsed Hover -->
-              <div x-show="sidebarCollapsed" 
-                   class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
-                   style="display: none;">
-                Manajemen Berkas
-              </div>
-            </a>
+                <!-- Tooltip on Collapsed Hover -->
+                <div x-show="sidebarCollapsed" 
+                     class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
+                     style="display: none;">
+                  Manajemen Berkas
+                </div>
+              </a>
+            <% } %>
           </div>
         <% } %>
       </div>

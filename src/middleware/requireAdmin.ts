@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../lib/prisma';
+import { getMenuPermissions, canRoleAccessMenu } from '../services/menuPermissionService';
 
 export async function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const user = (req as any).session?.user;
@@ -10,17 +11,22 @@ export async function requireAdmin(req: Request, res: Response, next: NextFuncti
     return res.redirect('/admin/login');
   }
 
-  // Populate badge notification counters for admin sidebar
+  // Populate badge notification counters and dynamic menu permissions for admin sidebar
   try {
-    const [pendingClarificationsCount, pendingEkinerjaCount] = await Promise.all([
+    const [pendingClarificationsCount, pendingEkinerjaCount, menuPermissions] = await Promise.all([
       prisma.clarification.count({ where: { statusVerifikasi: 'PENDING' } }),
-      prisma.ekinerjaReport.count({ where: { statusReview: 'PENDING' } })
+      prisma.ekinerjaReport.count({ where: { statusReview: 'PENDING' } }),
+      getMenuPermissions()
     ]);
     res.locals.pendingClarificationsCount = pendingClarificationsCount;
     res.locals.pendingEkinerjaCount = pendingEkinerjaCount;
+    res.locals.menuPermissions = menuPermissions;
+    res.locals.canAccessMenu = (menuId: string) => canRoleAccessMenu(menuPermissions, user.role, menuId);
   } catch (err) {
     res.locals.pendingClarificationsCount = 0;
     res.locals.pendingEkinerjaCount = 0;
+    res.locals.menuPermissions = {};
+    res.locals.canAccessMenu = (menuId: string) => user.role === 'SUPER_ADMIN';
   }
 
   next();
@@ -89,4 +95,34 @@ export function requireNonDinas(req: Request, res: Response, next: NextFunction)
 
   next();
 }
+
+export function requireMenuAccess(menuId: string) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const user = (req as any).session?.user;
+    if (!user) {
+      if ((req as any).session) {
+        (req as any).session.loginError = 'Silakan masuk terlebih dahulu.';
+      }
+      return res.redirect('/admin/login');
+    }
+
+    try {
+      const menuPermissions = await getMenuPermissions();
+      if (!canRoleAccessMenu(menuPermissions, user.role, menuId)) {
+        if ((req as any).session) {
+          (req as any).session.toast = {
+            type: 'danger',
+            message: 'Akses Ditolak: Anda tidak memiliki izin untuk mengakses menu ini.'
+          };
+        }
+        return res.redirect('/admin/klarifikasi');
+      }
+    } catch (err) {
+      console.error(`Error checking menu access for ${menuId}:`, err);
+    }
+
+    next();
+  };
+}
+
 

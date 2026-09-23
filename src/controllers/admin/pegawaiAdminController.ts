@@ -36,6 +36,8 @@ export const pegawaiAdminController = {
         whereClause.OR = [
           { nama: { contains: q, mode: 'insensitive' } },
           { nip: { contains: q, mode: 'insensitive' } },
+          { nik: { contains: q, mode: 'insensitive' } },
+          { noHp: { contains: q, mode: 'insensitive' } },
           { jabatan: { contains: q, mode: 'insensitive' } }
         ];
       }
@@ -89,6 +91,8 @@ export const pegawaiAdminController = {
           id: e.id,
           nip: e.nip,
           nama: e.nama,
+          nik: e.nik || '',
+          noHp: e.noHp || '',
           jabatan: e.jabatan || 'Guru',
           statusKepegawaian: e.statusKepegawaian,
           unitId: e.unitId,
@@ -120,7 +124,7 @@ export const pegawaiAdminController = {
 
   create: async (req: Request, res: Response) => {
     try {
-      const { nip, nama, jabatan, unitId, statusKepegawaian, aktif } = req.body;
+      const { nip, nama, nik, noHp, jabatan, unitId, statusKepegawaian, aktif } = req.body;
 
       if (!nip || !nama || !unitId) {
         if ((req as any).session) {
@@ -151,6 +155,8 @@ export const pegawaiAdminController = {
         data: {
           nip: cleanNip,
           nama: nama.trim(),
+          nik: nik && nik.trim() !== '' ? nik.trim() : null,
+          noHp: noHp && noHp.trim() !== '' ? noHp.trim() : null,
           jabatan: jabatan && jabatan.trim() !== '' ? jabatan.trim() : 'Guru',
           unitId,
           statusKepegawaian: statusKepegawaian || 'PNS',
@@ -209,7 +215,7 @@ export const pegawaiAdminController = {
   update: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { nip, nama, jabatan, unitId, statusKepegawaian, aktif } = req.body;
+      const { nip, nama, nik, noHp, jabatan, unitId, statusKepegawaian, aktif } = req.body;
 
       const cleanNip = nip ? nip.trim() : undefined;
 
@@ -234,6 +240,8 @@ export const pegawaiAdminController = {
         data: {
           nip: cleanNip,
           nama: nama ? nama.trim() : undefined,
+          nik: nik !== undefined ? (nik.trim() || null) : undefined,
+          noHp: noHp !== undefined ? (noHp.trim() || null) : undefined,
           jabatan: jabatan !== undefined ? jabatan.trim() : undefined,
           unitId: unitId || undefined,
           statusKepegawaian: statusKepegawaian || undefined,
@@ -333,6 +341,107 @@ export const pegawaiAdminController = {
         (req as any).session.toast = {
           type: 'danger',
           message: `Gagal menghapus pegawai: ${error.message}`
+        };
+      }
+      res.redirect('/admin/pegawai');
+    }
+  },
+
+  bulkStatus: async (req: Request, res: Response) => {
+    try {
+      const { ids, action } = req.body;
+      let targetIds: string[] = [];
+      if (typeof ids === 'string') {
+        try { targetIds = JSON.parse(ids); } catch { targetIds = [ids]; }
+      } else if (Array.isArray(ids)) {
+        targetIds = ids;
+      }
+
+      if (!targetIds || targetIds.length === 0) {
+        if ((req as any).session) {
+          (req as any).session.toast = { type: 'warning', message: 'Pilih minimal satu pegawai.' };
+        }
+        return res.redirect('/admin/pegawai');
+      }
+
+      const isAktif = action === 'activate';
+      await prisma.employee.updateMany({
+        where: { id: { in: targetIds } },
+        data: { aktif: isAktif }
+      });
+
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'success',
+          message: `${targetIds.length} pegawai berhasil diubah statusnya menjadi ${isAktif ? 'Aktif' : 'Non-Aktif'}.`
+        };
+      }
+
+      const referer = req.get('referer');
+      if (referer && referer.includes('/admin/pegawai')) {
+        return res.redirect(referer);
+      }
+      res.redirect('/admin/pegawai');
+    } catch (error) {
+      console.error('Error in pegawaiAdminController.bulkStatus:', error);
+      res.redirect('/admin/pegawai');
+    }
+  },
+
+  bulkDelete: async (req: Request, res: Response) => {
+    try {
+      const { ids } = req.body;
+      let targetIds: string[] = [];
+      if (typeof ids === 'string') {
+        try { targetIds = JSON.parse(ids); } catch { targetIds = [ids]; }
+      } else if (Array.isArray(ids)) {
+        targetIds = ids;
+      }
+
+      if (!targetIds || targetIds.length === 0) {
+        if ((req as any).session) {
+          (req as any).session.toast = { type: 'warning', message: 'Pilih minimal satu pegawai untuk dihapus.' };
+        }
+        return res.redirect('/admin/pegawai');
+      }
+
+      // Cleanup files for deleted employees in background
+      try {
+        const [empReports, empClarifications] = await Promise.all([
+          prisma.ekinerjaReport.findMany({ where: { employeeId: { in: targetIds } } }),
+          prisma.clarification.findMany({ where: { employeeId: { in: targetIds } } })
+        ]);
+
+        for (const rep of empReports) {
+          if (rep.fileHarianUrl) await deleteFileFromStorage(rep.fileHarianUrl);
+          if (rep.fileBulananUrl) await deleteFileFromStorage(rep.fileBulananUrl);
+        }
+
+        for (const cl of empClarifications) {
+          if (cl.fileUrl) await deleteFileFromStorage(cl.fileUrl);
+        }
+      } catch (fileErr) {
+        console.warn('Gagal membersihkan file fisik saat bulk delete pegawai:', fileErr);
+      }
+
+      const deleteResult = await prisma.employee.deleteMany({
+        where: { id: { in: targetIds } }
+      });
+
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'warning',
+          message: `${deleteResult.count} data pegawai berhasil dihapus dari sistem.`
+        };
+      }
+
+      res.redirect('/admin/pegawai');
+    } catch (error: any) {
+      console.error('Error in pegawaiAdminController.bulkDelete:', error);
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'danger',
+          message: `Gagal menghapus pegawai secara massal: ${error.message}`
         };
       }
       res.redirect('/admin/pegawai');

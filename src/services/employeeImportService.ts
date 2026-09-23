@@ -16,6 +16,8 @@ export function generateEmployeeExcelTemplate(): Buffer {
     {
       'NIP (Wajib)': '198503152010011012',
       'Nama Lengkap (Wajib)': 'Ahmad Fauzi, S.Pd.',
+      'NIK (16 Digit)': '3216011503850001',
+      'Nomor HP / WhatsApp': '081234567890',
       'Jabatan / Tugas (Wajib)': 'Guru Kelas VI',
       'Unit Kerja (Wajib)': 'SDN Cibitung 01',
       'Status Kepegawaian (PNS / PPPK / PPPK_PW / OUTSOURCING)': 'PNS',
@@ -24,6 +26,8 @@ export function generateEmployeeExcelTemplate(): Buffer {
     {
       'NIP (Wajib)': '199008222019032008',
       'Nama Lengkap (Wajib)': 'Siti Nurhaliza, M.Pd.',
+      'NIK (16 Digit)': '3216012208900002',
+      'Nomor HP / WhatsApp': '081234567891',
       'Jabatan / Tugas (Wajib)': 'Guru Kelas III',
       'Unit Kerja (Wajib)': 'SDN Cibitung 01',
       'Status Kepegawaian (PNS / PPPK / PPPK_PW / OUTSOURCING)': 'PPPK',
@@ -32,6 +36,8 @@ export function generateEmployeeExcelTemplate(): Buffer {
     {
       'NIP (Wajib)': '199512102022011005',
       'Nama Lengkap (Wajib)': 'Budi Santoso, S.Kom.',
+      'NIK (16 Digit)': '3216011012950003',
+      'Nomor HP / WhatsApp': '081234567892',
       'Jabatan / Tugas (Wajib)': 'Tenaga Administrasi Sekolah',
       'Unit Kerja (Wajib)': 'SMPN 1 Cibitung',
       'Status Kepegawaian (PNS / PPPK / PPPK_PW / OUTSOURCING)': 'PPPK_PW',
@@ -40,6 +46,8 @@ export function generateEmployeeExcelTemplate(): Buffer {
     {
       'NIP (Wajib)': '199804052023022003',
       'Nama Lengkap (Wajib)': 'Dewi Lestari, S.Pd.',
+      'NIK (16 Digit)': '3216010504980004',
+      'Nomor HP / WhatsApp': '081234567893',
       'Jabatan / Tugas (Wajib)': 'Guru PJOK',
       'Unit Kerja (Wajib)': 'SMPN 1 Cibitung',
       'Status Kepegawaian (PNS / PPPK / PPPK_PW / OUTSOURCING)': 'OUTSOURCING',
@@ -53,6 +61,8 @@ export function generateEmployeeExcelTemplate(): Buffer {
   ws['!cols'] = [
     { wch: 24 }, // NIP
     { wch: 32 }, // Nama
+    { wch: 20 }, // NIK
+    { wch: 20 }, // No HP
     { wch: 28 }, // Jabatan
     { wch: 28 }, // Unit
     { wch: 36 }, // Status
@@ -109,6 +119,8 @@ export async function importEmployeesFromExcel(fileBuffer: Buffer): Promise<Impo
 
       let nip = '';
       let nama = '';
+      let nik = '';
+      let noHp = '';
       let jabatan = 'Guru';
       let unitNama = '';
       let statusKepegawaian = 'PNS';
@@ -122,6 +134,10 @@ export async function importEmployeesFromExcel(fileBuffer: Buffer): Promise<Impo
           nip = v;
         } else if (k.includes('nama')) {
           nama = v;
+        } else if (k.includes('nik') || k.includes('ktp') || k.includes('kependudukan')) {
+          nik = v;
+        } else if (k.includes('hp') || k.includes('wa') || k.includes('telepon') || k.includes('telp') || k.includes('kontak')) {
+          noHp = v;
         } else if (k.includes('jabat') || k.includes('tugas') || k.includes('posisi')) {
           jabatan = v;
         } else if (k.includes('unit') || k.includes('sekolah') || k.includes('instansi')) {
@@ -173,6 +189,8 @@ export async function importEmployeesFromExcel(fileBuffer: Buffer): Promise<Impo
           where: { nip },
           data: {
             nama,
+            nik: nik || existingEmp.nik,
+            noHp: noHp || existingEmp.noHp,
             jabatan: jabatan || existingEmp.jabatan || 'Guru',
             statusKepegawaian,
             unitId,
@@ -186,6 +204,8 @@ export async function importEmployeesFromExcel(fileBuffer: Buffer): Promise<Impo
           data: {
             nip,
             nama,
+            nik: nik || null,
+            noHp: noHp || null,
             jabatan: jabatan || 'Guru',
             statusKepegawaian,
             unitId,

@@ -5,16 +5,22 @@ export const unitKerjaController = {
   show: async (req: Request, res: Response) => {
     try {
       const search = (req.query.search as string) || '';
+      const kategori = (req.query.kategori as string) || 'all';
 
       const whereClause: any = {};
+      if (kategori === 'NEGERI' || kategori === 'SWASTA') {
+        whereClause.kategori = kategori;
+      }
       if (search.trim()) {
         whereClause.OR = [
           { namaUnit: { contains: search, mode: 'insensitive' } },
-          { kepalaSekolah: { contains: search, mode: 'insensitive' } }
+          { jenjang: { contains: search, mode: 'insensitive' } },
+          { kepalaSekolah: { contains: search, mode: 'insensitive' } },
+          { operatorSekolah: { contains: search, mode: 'insensitive' } }
         ];
       }
 
-      const [units, totalUnits, activeEmployees] = await Promise.all([
+      const [units, totalUnits, totalNegeri, totalSwasta, activeEmployees] = await Promise.all([
         prisma.unit.findMany({
           where: whereClause,
           include: {
@@ -23,6 +29,8 @@ export const unitKerjaController = {
           orderBy: { namaUnit: 'asc' }
         }),
         prisma.unit.count(),
+        prisma.unit.count({ where: { kategori: 'NEGERI' } }),
+        prisma.unit.count({ where: { kategori: 'SWASTA' } }),
         prisma.employee.findMany({
           where: { aktif: true },
           select: {
@@ -39,7 +47,12 @@ export const unitKerjaController = {
       const formatted = units.map(u => ({
         id: u.id,
         namaUnit: u.namaUnit,
+        kategori: u.kategori || 'NEGERI',
+        jenjang: u.jenjang || 'SD',
         kepalaSekolah: u.kepalaSekolah || '',
+        kontakKepalaSekolah: u.kontakKepalaSekolah || '',
+        operatorSekolah: u.operatorSekolah || '',
+        kontakOperator: u.kontakOperator || '',
         totalPegawaiAktif: u._count.employees,
         createdAt: u.createdAt.toISOString().split('T')[0]
       }));
@@ -61,6 +74,9 @@ export const unitKerjaController = {
           unitNama: e.unit.namaUnit
         })),
         totalUnits,
+        totalNegeri,
+        totalSwasta,
+        kategori,
         search,
         toast,
         user: (req as any).session?.user || { role: 'SUPER_ADMIN', namaLengkap: 'Administrator Utama' }
@@ -73,7 +89,7 @@ export const unitKerjaController = {
 
   create: async (req: Request, res: Response) => {
     try {
-      const { namaUnit, kepalaSekolah } = req.body;
+      const { namaUnit, kategori, jenjang, kepalaSekolah, kontakKepalaSekolah, operatorSekolah, kontakOperator } = req.body;
 
       if (!namaUnit || namaUnit.trim() === '') {
         if ((req as any).session) {
@@ -94,17 +110,25 @@ export const unitKerjaController = {
         return res.redirect('/admin/unit-kerja');
       }
 
+      const validKategori = kategori === 'SWASTA' ? 'SWASTA' : 'NEGERI';
+      const validJenjang = jenjang?.trim() || 'SD';
+
       await prisma.unit.create({
         data: {
           namaUnit: namaUnit.trim(),
-          kepalaSekolah: kepalaSekolah?.trim() || null
+          kategori: validKategori,
+          jenjang: validJenjang,
+          kepalaSekolah: kepalaSekolah?.trim() || null,
+          kontakKepalaSekolah: kontakKepalaSekolah?.trim() || null,
+          operatorSekolah: operatorSekolah?.trim() || null,
+          kontakOperator: kontakOperator?.trim() || null
         }
       });
 
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'success',
-          message: `Unit kerja "${namaUnit.trim()}" berhasil ditambahkan.`
+          message: `Unit kerja "${namaUnit.trim()}" (${validJenjang} ${validKategori}) berhasil ditambahkan.`
         };
         return (req as any).session.save(() => res.redirect('/admin/unit-kerja'));
       }
@@ -121,7 +145,7 @@ export const unitKerjaController = {
   update: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { namaUnit, kepalaSekolah } = req.body;
+      const { namaUnit, kategori, jenjang, kepalaSekolah, kontakKepalaSekolah, operatorSekolah, kontakOperator } = req.body;
 
       if (!namaUnit || namaUnit.trim() === '') {
         if ((req as any).session) {
@@ -145,11 +169,19 @@ export const unitKerjaController = {
         return res.redirect('/admin/unit-kerja');
       }
 
+      const validKategori = kategori === 'SWASTA' ? 'SWASTA' : 'NEGERI';
+      const validJenjang = jenjang?.trim() || 'SD';
+
       await prisma.unit.update({
         where: { id },
         data: {
           namaUnit: namaUnit.trim(),
-          kepalaSekolah: kepalaSekolah?.trim() || null
+          kategori: validKategori,
+          jenjang: validJenjang,
+          kepalaSekolah: kepalaSekolah?.trim() || null,
+          kontakKepalaSekolah: kontakKepalaSekolah?.trim() || null,
+          operatorSekolah: operatorSekolah?.trim() || null,
+          kontakOperator: kontakOperator?.trim() || null
         }
       });
 
@@ -213,6 +245,109 @@ export const unitKerjaController = {
       if ((req as any).session) {
         (req as any).session.toast = { type: 'danger', message: 'Terjadi kesalahan saat menghapus unit kerja.' };
       }
+      res.redirect('/admin/unit-kerja');
+    }
+  },
+
+  bulkDelete: async (req: Request, res: Response) => {
+    try {
+      const { ids } = req.body;
+      let targetIds: string[] = [];
+      if (typeof ids === 'string') {
+        try { targetIds = JSON.parse(ids); } catch { targetIds = [ids]; }
+      } else if (Array.isArray(ids)) {
+        targetIds = ids;
+      }
+
+      if (!targetIds || targetIds.length === 0) {
+        if ((req as any).session) {
+          (req as any).session.toast = { type: 'warning', message: 'Pilih minimal satu unit kerja untuk dihapus.' };
+        }
+        return res.redirect('/admin/unit-kerja');
+      }
+
+      // Check which units have employees
+      const unitsWithEmployees = await prisma.unit.findMany({
+        where: {
+          id: { in: targetIds },
+          employees: { some: {} }
+        },
+        select: { id: true, namaUnit: true, _count: { select: { employees: true } } }
+      });
+
+      const blockedIds = new Set(unitsWithEmployees.map(u => u.id));
+      const allowedIds = targetIds.filter(id => !blockedIds.has(id));
+
+      let deletedCount = 0;
+      if (allowedIds.length > 0) {
+        const delResult = await prisma.unit.deleteMany({
+          where: { id: { in: allowedIds } }
+        });
+        deletedCount = delResult.count;
+      }
+
+      if ((req as any).session) {
+        if (blockedIds.size > 0 && deletedCount > 0) {
+          (req as any).session.toast = {
+            type: 'warning',
+            message: `${deletedCount} unit kerja berhasil dihapus. ${blockedIds.size} unit tidak dihapus karena masih memiliki data pegawai.`
+          };
+        } else if (blockedIds.size > 0 && deletedCount === 0) {
+          (req as any).session.toast = {
+            type: 'warning',
+            message: `Gagal menghapus: semua ${blockedIds.size} unit yang dipilih masih memiliki data pegawai terdaftar.`
+          };
+        } else {
+          (req as any).session.toast = {
+            type: 'success',
+            message: `${deletedCount} unit kerja berhasil dihapus.`
+          };
+        }
+      }
+
+      res.redirect('/admin/unit-kerja');
+    } catch (error) {
+      console.error('Error in unitKerjaController.bulkDelete:', error);
+      if ((req as any).session) {
+        (req as any).session.toast = { type: 'danger', message: 'Terjadi kesalahan saat menghapus unit kerja massal.' };
+      }
+      res.redirect('/admin/unit-kerja');
+    }
+  },
+
+  bulkKategori: async (req: Request, res: Response) => {
+    try {
+      const { ids, kategori } = req.body;
+      let targetIds: string[] = [];
+      if (typeof ids === 'string') {
+        try { targetIds = JSON.parse(ids); } catch { targetIds = [ids]; }
+      } else if (Array.isArray(ids)) {
+        targetIds = ids;
+      }
+
+      if (!targetIds || targetIds.length === 0) {
+        if ((req as any).session) {
+          (req as any).session.toast = { type: 'warning', message: 'Pilih minimal satu unit kerja.' };
+        }
+        return res.redirect('/admin/unit-kerja');
+      }
+
+      const validKategori = kategori === 'SWASTA' ? 'SWASTA' : 'NEGERI';
+      await prisma.unit.updateMany({
+        where: { id: { in: targetIds } },
+        data: { kategori: validKategori }
+      });
+
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'success',
+          message: `${targetIds.length} unit kerja berhasil diubah status kategorinya menjadi ${validKategori}.`
+        };
+      }
+
+      res.redirect('/admin/unit-kerja');
+    } catch (error) {
+      console.error('Error in unitKerjaController.bulkKategori:', error);
       res.redirect('/admin/unit-kerja');
     }
   }

@@ -1,14 +1,22 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import prisma from '../../lib/prisma';
+import { 
+  ADMIN_MENU_CONFIG, 
+  ALL_ADMIN_ROLES, 
+  getMenuPermissions, 
+  saveMenuPermissions, 
+  getDefaultMenuPermissions 
+} from '../../services/menuPermissionService';
 
 export const usersController = {
   show: async (req: Request, res: Response) => {
     try {
-      const [admins, totalEmployees, totalUnits] = await Promise.all([
+      const [admins, totalEmployees, totalUnits, menuPermissions] = await Promise.all([
         prisma.adminUser.findMany({ orderBy: { createdAt: 'asc' } }),
         prisma.employee.count(),
-        prisma.unit.count()
+        prisma.unit.count(),
+        getMenuPermissions()
       ]);
 
       const formatted = admins.map(a => ({
@@ -33,6 +41,9 @@ export const usersController = {
         admins: formatted,
         totalEmployees,
         totalUnits,
+        menuConfig: ADMIN_MENU_CONFIG,
+        menuPermissions,
+        roles: ALL_ADMIN_ROLES,
         toast,
         user: (req as any).session?.user || { role: 'SUPER_ADMIN', namaLengkap: 'Administrator Utama' }
       });
@@ -209,6 +220,83 @@ export const usersController = {
       res.redirect('/admin/users');
     } catch (error) {
       console.error('Error in usersController.deleteUser:', error);
+      res.redirect('/admin/users');
+    }
+  },
+
+  updateMenuPermissions: async (req: Request, res: Response) => {
+    try {
+      const { permissions } = req.body;
+      let parsedPermissions: Record<string, string[]> = {};
+
+      if (typeof permissions === 'string') {
+        try {
+          parsedPermissions = JSON.parse(permissions);
+        } catch {
+          parsedPermissions = getDefaultMenuPermissions();
+        }
+      } else if (typeof permissions === 'object' && permissions !== null) {
+        parsedPermissions = permissions;
+      } else {
+        parsedPermissions = {
+          SUPER_ADMIN: [],
+          ADMIN_KORWIL: [],
+          ADMIN_DINAS: []
+        };
+        for (const role of ALL_ADMIN_ROLES) {
+          parsedPermissions[role] = [];
+          for (const item of ADMIN_MENU_CONFIG) {
+            const fieldKey = `perm_${role}_${item.id}`;
+            if (req.body[fieldKey] === 'on' || req.body[fieldKey] === 'true' || req.body[fieldKey] === true) {
+              parsedPermissions[role].push(item.id);
+            }
+          }
+        }
+      }
+
+      await saveMenuPermissions(parsedPermissions);
+
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'success',
+          message: 'Hak akses menu admin per peran berhasil disimpan.'
+        };
+      }
+
+      res.redirect('/admin/users');
+    } catch (error: any) {
+      console.error('Error updating menu permissions:', error);
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'danger',
+          message: `Gagal menyimpan hak akses menu: ${error.message}`
+        };
+      }
+      res.redirect('/admin/users');
+    }
+  },
+
+  resetMenuPermissions: async (req: Request, res: Response) => {
+    try {
+      const defaults = getDefaultMenuPermissions();
+      await saveMenuPermissions(defaults);
+
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'success',
+          message: 'Hak akses menu berhasil dikembalikan ke standar awal sistem.'
+        };
+      }
+
+      res.redirect('/admin/users');
+    } catch (error: any) {
+      console.error('Error resetting menu permissions:', error);
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'danger',
+          message: `Gagal mereset hak akses menu: ${error.message}`
+        };
+      }
       res.redirect('/admin/users');
     }
   }
