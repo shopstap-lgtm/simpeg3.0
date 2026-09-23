@@ -1,4 +1,7 @@
 <% if (typeof pagination !== 'undefined' && pagination && pagination.totalItems > 0) { 
+    const isUnitFiltered = (typeof selectedUnit !== 'undefined' && selectedUnit && selectedUnit !== 'unit-all') || !!pagination.isUnitFilter;
+    const defaultLimit = isUnitFiltered ? 'all' : (pagination.defaultLimit || 50);
+
     // Build query string helper to preserve existing filters
     const buildPageUrl = (pageNum) => {
       const params = new URLSearchParams();
@@ -9,7 +12,7 @@
       if (typeof statusFilter !== 'undefined' && statusFilter && statusFilter !== 'all') params.set('statusFilter', statusFilter);
       if (typeof selectedStatus !== 'undefined' && selectedStatus && selectedStatus !== 'ALL') params.set('status', selectedStatus);
       if (typeof selectedAktif !== 'undefined' && selectedAktif && selectedAktif !== 'ALL') params.set('keaktifan', selectedAktif);
-      if (pagination.limit && pagination.limit !== 25) params.set('limit', pagination.limit);
+      if (pagination.limit && String(pagination.limit) !== String(defaultLimit)) params.set('limit', pagination.limit);
       params.set('page', pageNum);
       return '?' + params.toString();
     };
@@ -23,7 +26,9 @@
       if (typeof statusFilter !== 'undefined' && statusFilter && statusFilter !== 'all') params.set('statusFilter', statusFilter);
       if (typeof selectedStatus !== 'undefined' && selectedStatus && selectedStatus !== 'ALL') params.set('status', selectedStatus);
       if (typeof selectedAktif !== 'undefined' && selectedAktif && selectedAktif !== 'ALL') params.set('keaktifan', selectedAktif);
-      params.set('limit', limitVal);
+      if (String(limitVal) !== String(defaultLimit)) {
+        params.set('limit', limitVal);
+      }
       params.set('page', 1);
       return '?' + params.toString();
     };
@@ -61,10 +66,20 @@
       <select id="limitSelector" 
               onchange="window.location.href = this.value" 
               class="form-select py-1 px-3 pr-7 text-xs font-bold rounded-xl w-auto bg-slate-50 border-slate-200">
-        <option value="<%= buildLimitUrl(25) %>" <%= (pagination.limit == 25 || !pagination.limit) ? 'selected' : '' %>>25 (Default)</option>
-        <option value="<%= buildLimitUrl(50) %>" <%= pagination.limit == 50 ? 'selected' : '' %>>50</option>
-        <option value="<%= buildLimitUrl(100) %>" <%= pagination.limit == 100 ? 'selected' : '' %>>100</option>
-        <option value="<%= buildLimitUrl('all') %>" <%= pagination.limit === 'all' ? 'selected' : '' %>>Semua</option>
+        <% if (isUnitFiltered) { %>
+          <option value="<%= buildLimitUrl('all') %>" <%= (pagination.limit === 'all' || pagination.limit === 999999 || !pagination.limit) ? 'selected' : '' %>>Semua (Default)</option>
+          <option value="<%= buildLimitUrl(50) %>" <%= pagination.limit == 50 ? 'selected' : '' %>>50 Baris</option>
+          <option value="<%= buildLimitUrl(100) %>" <%= pagination.limit == 100 ? 'selected' : '' %>>100 Baris</option>
+          <option value="<%= buildLimitUrl(200) %>" <%= pagination.limit == 200 ? 'selected' : '' %>>200 Baris</option>
+        <% } else { %>
+          <option value="<%= buildLimitUrl(50) %>" <%= (pagination.limit == 50 || !pagination.limit) ? 'selected' : '' %>>50 (Default)</option>
+          <option value="<%= buildLimitUrl(100) %>" <%= pagination.limit == 100 ? 'selected' : '' %>>100 Baris</option>
+          <option value="<%= buildLimitUrl(200) %>" <%= pagination.limit == 200 ? 'selected' : '' %>>200 Baris</option>
+          <option value="<%= buildLimitUrl('all') %>" <%= (pagination.limit === 'all' || pagination.limit === 999999) ? 'selected' : '' %>>Semua Baris</option>
+          <% if (pagination.limit == 25) { %>
+            <option value="<%= buildLimitUrl(25) %>" selected>25 Baris</option>
+          <% } %>
+        <% } %>
       </select>
     </div>
   </div>

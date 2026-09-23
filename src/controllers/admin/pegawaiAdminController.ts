@@ -10,10 +10,27 @@ export const pegawaiAdminController = {
       const selectedAktif = (req.query.keaktifan as string) || 'ALL';
       const search = (req.query.search as string) || '';
 
-      // Pagination setup (default 25 rows)
+      // Pagination setup: Default 50 baris, atau tampilkan semua jika filter unit kerja dipilih
+      const isUnitFiltered = selectedUnit !== 'unit-all';
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
-      const limitQuery = req.query.limit as string;
-      const limit = limitQuery === 'all' ? 999999 : (parseInt(limitQuery) || 25);
+      const limitQuery = req.query.limit as string | undefined;
+
+      let limit: number;
+      let effectiveLimitLabel: string | number;
+
+      if (limitQuery === 'all') {
+        limit = 999999;
+        effectiveLimitLabel = 'all';
+      } else if (limitQuery && !isNaN(parseInt(limitQuery))) {
+        limit = parseInt(limitQuery);
+        effectiveLimitLabel = limit;
+      } else if (isUnitFiltered) {
+        limit = 999999;
+        effectiveLimitLabel = 'all';
+      } else {
+        limit = 50;
+        effectiveLimitLabel = 50;
+      }
 
       const whereClause: any = {};
 
@@ -77,7 +94,9 @@ export const pegawaiAdminController = {
       const totalPages = limit === 999999 ? 1 : (Math.ceil(totalFilteredEmployees / limit) || 1);
       const pagination = {
         page,
-        limit: limitQuery === 'all' ? 'all' : limit,
+        limit: effectiveLimitLabel,
+        defaultLimit: isUnitFiltered ? 'all' : 50,
+        isUnitFilter: isUnitFiltered,
         totalItems: totalFilteredEmployees,
         totalPages,
         from: totalFilteredEmployees === 0 ? 0 : ((page - 1) * (limit === 999999 ? totalFilteredEmployees : limit)) + 1,

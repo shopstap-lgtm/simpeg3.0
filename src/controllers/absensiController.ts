@@ -65,10 +65,29 @@ export const absensiController = {
       const selectedStatuses = isAdmin ? parseStatusFilter(req.query.statusFilter || req.query['statusFilter[]'] || req.query.status) : [];
       const statusFilter = selectedStatuses.join(',');
 
-      // Pagination setup (default 25 rows)
+      // Pagination setup: Default 50 baris, atau tampilkan semua baris jika unit kerja dipilih tanpa pagination default
+      const isUnitFiltered = !!(selectedUnit && selectedUnit !== 'unit-all');
       const page = Math.max(1, parseInt(req.query.page as string) || 1);
-      const limitQuery = req.query.limit as string;
-      const limit = limitQuery === 'all' ? 999999 : (parseInt(limitQuery) || 25);
+      const limitQuery = req.query.limit as string | undefined;
+
+      let limit: number;
+      let effectiveLimitLabel: string | number;
+
+      if (limitQuery === 'all') {
+        limit = 999999;
+        effectiveLimitLabel = 'all';
+      } else if (limitQuery && !isNaN(parseInt(limitQuery))) {
+        limit = parseInt(limitQuery);
+        effectiveLimitLabel = limit;
+      } else if (isUnitFiltered) {
+        // Jika filter unit kerja dipilih, tampilkan semua pegawai di unit kerja tersebut tanpa pagination default
+        limit = 999999;
+        effectiveLimitLabel = 'all';
+      } else {
+        // Default pagination: 50 baris
+        limit = 50;
+        effectiveLimitLabel = 50;
+      }
 
       const whereEmp: any = { aktif: true };
       if (selectedUnit && selectedUnit !== 'unit-all') {
@@ -383,10 +402,12 @@ export const absensiController = {
         },
         pagination: {
           page,
-          limit: limitQuery === 'all' ? 'all' : limit,
+          limit: effectiveLimitLabel,
+          defaultLimit: isUnitFiltered ? 'all' : 50,
+          isUnitFilter: isUnitFiltered,
           totalItems: totalFilteredEmployees,
           totalPages: limit === 999999 ? 1 : Math.max(1, Math.ceil(totalFilteredEmployees / limit)),
-          from: totalFilteredEmployees === 0 ? 0 : (page - 1) * limit + 1,
+          from: totalFilteredEmployees === 0 ? 0 : (page - 1) * (limit === 999999 ? totalFilteredEmployees : limit) + 1,
           to: limit === 999999 ? totalFilteredEmployees : Math.min(page * limit, totalFilteredEmployees)
         },
         maintenanceCekPresensi: !!(cms as any)?.maintenanceCekPresensi,

@@ -35,7 +35,8 @@ const buildRedirectUrl = (req: Request, defaultTab = 'pending') => {
   if (status && status !== 'ALL') params.set('status', status);
   if (search) params.set('search', search);
   if (page && page !== '1') params.set('page', page);
-  if (limit && limit !== '25') params.set('limit', limit);
+  const defaultLimit = (unit && unit !== 'unit-all') ? 'all' : '50';
+  if (limit && limit !== defaultLimit) params.set('limit', limit);
 
   return `/admin/ekinerja-review?${params.toString()}`;
 };
@@ -100,11 +101,29 @@ export const ekinerjaReviewController = {
         totalArchiveCount = approvedCount + rejectedCount;
       }
 
-      // Pagination setup for archive list
+      // Pagination setup for archive list: Default 50 baris, atau tampilkan semua jika filter unit kerja dipilih
+      const isUnitFiltered = !!(filterUnit && filterUnit !== 'unit-all');
       const pageQuery = parseInt(req.query.page as string) || 1;
-      const limitQuery = (req.query.limit as string) || '25';
-      const isAllLimit = limitQuery === 'all';
-      const limit = isAllLimit ? 999999 : ([10, 25, 50, 100].includes(parseInt(limitQuery)) ? parseInt(limitQuery) : 25);
+      const limitQuery = req.query.limit as string | undefined;
+
+      let limit: number;
+      let effectiveLimitLabel: string | number;
+
+      if (limitQuery === 'all') {
+        limit = 999999;
+        effectiveLimitLabel = 'all';
+      } else if (limitQuery && !isNaN(parseInt(limitQuery))) {
+        limit = parseInt(limitQuery);
+        effectiveLimitLabel = limit;
+      } else if (isUnitFiltered) {
+        limit = 999999;
+        effectiveLimitLabel = 'all';
+      } else {
+        limit = 50;
+        effectiveLimitLabel = 50;
+      }
+
+      const isAllLimit = effectiveLimitLabel === 'all' || limit === 999999;
       const totalPages = totalArchiveCount === 0 ? 1 : (isAllLimit ? 1 : Math.ceil(totalArchiveCount / limit));
       const page = Math.min(Math.max(1, pageQuery), totalPages);
 
@@ -208,6 +227,8 @@ export const ekinerjaReviewController = {
       const pagination = {
         page,
         limit: isAllLimit ? 'all' : limit,
+        defaultLimit: isUnitFiltered ? 'all' : 50,
+        isUnitFilter: isUnitFiltered,
         totalItems: totalArchiveCount,
         totalPages,
         from,

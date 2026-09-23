@@ -89,7 +89,8 @@
           if (this.search) params.set('search', this.search);
           <% if (typeof pagination !== 'undefined' && pagination) { %>
             if ('<%= pagination.page %>' !== '1') params.set('page', '<%= pagination.page %>');
-            if ('<%= pagination.limit %>' !== '25') params.set('limit', '<%= pagination.limit %>');
+            const defLim = (this.filterUnit && this.filterUnit !== 'unit-all') ? 'all' : '50';
+            if ('<%= pagination.limit %>' && '<%= pagination.limit %>' !== defLim) params.set('limit', '<%= pagination.limit %>');
           <% } %>
           return '/admin/ekinerja-review/' + this.selectedReport.id + '/delete?' + params.toString();
         },
@@ -162,7 +163,8 @@
           if (this.search) params.set('search', this.search);
           <% if (typeof pagination !== 'undefined' && pagination) { %>
             if ('<%= pagination.page %>' !== '1') params.set('page', '<%= pagination.page %>');
-            if ('<%= pagination.limit %>' !== '25') params.set('limit', '<%= pagination.limit %>');
+            const defLim = (this.filterUnit && this.filterUnit !== 'unit-all') ? 'all' : '50';
+            if ('<%= pagination.limit %>' && '<%= pagination.limit %>' !== defLim) params.set('limit', '<%= pagination.limit %>');
           <% } %>
 
           form.action = '/admin/ekinerja-review/' + this.selectedReport.id + '/review?' + params.toString();
@@ -207,7 +209,8 @@
     <div class="bg-slate-50/80 p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 w-full overflow-visible">
       <form action="/admin/ekinerja-review" method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 items-end w-full">
         <input type="hidden" name="tab" :value="activeTab">
-        <% if (typeof pagination !== 'undefined' && pagination && pagination.limit !== 25) { %>
+        <% const defaultFilterLimit = (filterUnit && filterUnit !== 'unit-all') ? 'all' : '50'; %>
+        <% if (typeof pagination !== 'undefined' && pagination && String(pagination.limit) !== String(defaultFilterLimit)) { %>
           <input type="hidden" name="limit" value="<%= pagination.limit %>">
         <% } %>
 
@@ -841,13 +844,16 @@
 
       <!-- Pagination Controls for Riwayat & Arsip Selesai -->
       <% if (typeof pagination !== 'undefined' && pagination && pagination.totalItems > 0) { 
+        const isUnitFiltered = (filterUnit && filterUnit !== 'unit-all') || !!pagination.isUnitFilter;
+        const defaultLimit = isUnitFiltered ? 'all' : (pagination.defaultLimit || 50);
+
         const buildArchivePageUrl = (p) => {
           const params = new URLSearchParams();
           params.set('tab', 'history');
           if (filterUnit && filterUnit !== 'unit-all') params.set('unit', filterUnit);
           if (filterStatus && filterStatus !== 'ALL') params.set('status', filterStatus);
           if (search) params.set('search', search);
-          if (pagination.limit && pagination.limit !== 25) params.set('limit', pagination.limit);
+          if (pagination.limit && String(pagination.limit) !== String(defaultLimit)) params.set('limit', pagination.limit);
           params.set('page', p);
           return '/admin/ekinerja-review?' + params.toString();
         };
@@ -858,7 +864,9 @@
           if (filterUnit && filterUnit !== 'unit-all') params.set('unit', filterUnit);
           if (filterStatus && filterStatus !== 'ALL') params.set('status', filterStatus);
           if (search) params.set('search', search);
-          params.set('limit', lim);
+          if (String(lim) !== String(defaultLimit)) {
+            params.set('limit', lim);
+          }
           params.set('page', 1);
           return '/admin/ekinerja-review?' + params.toString();
         };
@@ -888,11 +896,20 @@
               <select id="ekinerjaLimitSelector" 
                       onchange="window.location.href = this.value" 
                       class="form-select py-1 px-2.5 pr-7 text-xs font-bold rounded-xl w-auto bg-slate-50 border-slate-200 text-slate-800 focus:outline-none cursor-pointer">
-                <option value="<%= buildArchiveLimitUrl(10) %>" <%= pagination.limit == 10 ? 'selected' : '' %>>10</option>
-                <option value="<%= buildArchiveLimitUrl(25) %>" <%= (pagination.limit == 25 || !pagination.limit) ? 'selected' : '' %>>25 (Default)</option>
-                <option value="<%= buildArchiveLimitUrl(50) %>" <%= pagination.limit == 50 ? 'selected' : '' %>>50</option>
-                <option value="<%= buildArchiveLimitUrl(100) %>" <%= pagination.limit == 100 ? 'selected' : '' %>>100</option>
-                <option value="<%= buildArchiveLimitUrl('all') %>" <%= pagination.limit === 'all' ? 'selected' : '' %>>Semua</option>
+                <% if (isUnitFiltered) { %>
+                  <option value="<%= buildArchiveLimitUrl('all') %>" <%= (pagination.limit === 'all' || pagination.limit === 999999 || !pagination.limit) ? 'selected' : '' %>>Semua (Default)</option>
+                  <option value="<%= buildArchiveLimitUrl(50) %>" <%= pagination.limit == 50 ? 'selected' : '' %>>50 Baris</option>
+                  <option value="<%= buildArchiveLimitUrl(100) %>" <%= pagination.limit == 100 ? 'selected' : '' %>>100 Baris</option>
+                  <option value="<%= buildArchiveLimitUrl(200) %>" <%= pagination.limit == 200 ? 'selected' : '' %>>200 Baris</option>
+                <% } else { %>
+                  <option value="<%= buildArchiveLimitUrl(50) %>" <%= (pagination.limit == 50 || !pagination.limit) ? 'selected' : '' %>>50 (Default)</option>
+                  <option value="<%= buildArchiveLimitUrl(100) %>" <%= pagination.limit == 100 ? 'selected' : '' %>>100 Baris</option>
+                  <option value="<%= buildArchiveLimitUrl(200) %>" <%= pagination.limit == 200 ? 'selected' : '' %>>200 Baris</option>
+                  <option value="<%= buildArchiveLimitUrl('all') %>" <%= (pagination.limit === 'all' || pagination.limit === 999999) ? 'selected' : '' %>>Semua Baris</option>
+                  <% if (pagination.limit == 25) { %>
+                    <option value="<%= buildArchiveLimitUrl(25) %>" selected>25 Baris</option>
+                  <% } %>
+                <% } %>
               </select>
             </div>
           </div>
