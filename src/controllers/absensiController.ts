@@ -252,7 +252,9 @@ export const absensiController = {
               keterangan = meta.nationalHoliday ? `Libur Nasional: ${meta.nationalHoliday.name}` : 'Akhir Pekan';
             } else {
               status = existing.status;
-              keterangan = existing.keterangan;
+              keterangan = (existing.keterangan && (existing.keterangan.startsWith('Sinkronisasi Absen') || existing.keterangan.includes('.xls')))
+                ? null
+                : existing.keterangan;
             }
           } else if (meta.nationalHoliday) {
             status = 'LIBUR';
@@ -379,6 +381,7 @@ export const absensiController = {
         selectedStatuses,
         bulan,
         tahun,
+        namaBulan: ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][bulan - 1] || `Bulan ${bulan}`,
         activeDefaultMonth,
         activeDefaultYear,
         daysInMonth,

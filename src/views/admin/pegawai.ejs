@@ -24,6 +24,7 @@
           nip: '',
           nama: '',
           nik: '',
+          npwp: '',
           noHp: '',
           jabatan: 'Guru Kelas',
           unitId: '',
@@ -42,6 +43,7 @@
             nip: emp.nip,
             nama: emp.nama,
             nik: emp.nik || '',
+            npwp: emp.npwp || '',
             noHp: emp.noHp || '',
             jabatan: emp.jabatan || 'Guru',
             unitId: emp.unitId,
@@ -754,12 +756,19 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
               NIK (16 Digit) <span class="text-slate-400 font-normal lowercase">(opsional)</span>
             </label>
             <input type="text" name="nik" maxlength="16" class="form-input text-xs font-mono" placeholder="321601xxxxxxxxxx">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+              NPWP (15-16 Digit) <span class="text-slate-400 font-normal lowercase">(opsional)</span>
+            </label>
+            <input type="text" name="npwp" class="form-input text-xs font-mono" placeholder="08.123.456.7-413.000">
           </div>
 
           <div>
@@ -858,12 +867,19 @@
           </div>
         </div>
 
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
           <div>
             <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
               NIK (16 Digit) <span class="text-slate-400 font-normal lowercase">(opsional)</span>
             </label>
             <input type="text" name="nik" x-model="editData.nik" maxlength="16" class="form-input text-xs font-mono" placeholder="321601xxxxxxxxxx">
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+              NPWP (15-16 Digit) <span class="text-slate-400 font-normal lowercase">(opsional)</span>
+            </label>
+            <input type="text" name="npwp" x-model="editData.npwp" class="form-input text-xs font-mono" placeholder="08.123.456.7-413.000">
           </div>
 
           <div>

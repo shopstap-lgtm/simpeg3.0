@@ -116,7 +116,8 @@ export const pegawaiAdminController = {
           statusKepegawaian: e.statusKepegawaian,
           unitId: e.unitId,
           unitNama: e.unit.namaUnit,
-          aktif: e.aktif
+          aktif: e.aktif,
+          npwp: e.npwp || ''
         })),
         units,
         allUnits,
@@ -143,7 +144,7 @@ export const pegawaiAdminController = {
 
   create: async (req: Request, res: Response) => {
     try {
-      const { nip, nama, nik, noHp, jabatan, unitId, statusKepegawaian, aktif } = req.body;
+      const { nip, nama, nik, noHp, jabatan, unitId, statusKepegawaian, aktif, npwp } = req.body;
 
       if (!nip || !nama || !unitId) {
         if ((req as any).session) {
@@ -170,6 +171,18 @@ export const pegawaiAdminController = {
         return res.redirect('/admin/pegawai');
       }
 
+      let formattedNpwp: string | null = null;
+      if (npwp && npwp.trim() !== '') {
+        const d = npwp.replace(/\D/g, '');
+        if (d.length === 15) {
+          formattedNpwp = `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}.${d.slice(8, 9)}-${d.slice(9, 12)}.${d.slice(12, 15)}`;
+        } else if (d.length === 16) {
+          formattedNpwp = `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}.${d.slice(8, 9)}-${d.slice(9, 12)}.${d.slice(12, 16)}`;
+        } else {
+          formattedNpwp = npwp.trim();
+        }
+      }
+
       const newEmp = await prisma.employee.create({
         data: {
           nip: cleanNip,
@@ -179,7 +192,8 @@ export const pegawaiAdminController = {
           jabatan: jabatan && jabatan.trim() !== '' ? jabatan.trim() : 'Guru',
           unitId,
           statusKepegawaian: statusKepegawaian || 'PNS',
-          aktif: aktif === 'true' || aktif === true || aktif === 'on' || aktif === undefined
+          aktif: aktif === 'true' || aktif === true || aktif === 'on' || aktif === undefined,
+          npwp: formattedNpwp
         },
         include: { unit: true }
       });
@@ -234,7 +248,7 @@ export const pegawaiAdminController = {
   update: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { nip, nama, nik, noHp, jabatan, unitId, statusKepegawaian, aktif } = req.body;
+      const { nip, nama, nik, noHp, jabatan, unitId, statusKepegawaian, aktif, npwp } = req.body;
 
       const cleanNip = nip ? nip.trim() : undefined;
 
@@ -254,6 +268,23 @@ export const pegawaiAdminController = {
         }
       }
 
+      let formattedNpwp: string | null | undefined = undefined;
+      if (npwp !== undefined) {
+        const trimmed = (npwp || '').trim();
+        if (trimmed === '') {
+          formattedNpwp = null;
+        } else {
+          const d = trimmed.replace(/\D/g, '');
+          if (d.length === 15) {
+            formattedNpwp = `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}.${d.slice(8, 9)}-${d.slice(9, 12)}.${d.slice(12, 15)}`;
+          } else if (d.length === 16) {
+            formattedNpwp = `${d.slice(0, 2)}.${d.slice(2, 5)}.${d.slice(5, 8)}.${d.slice(8, 9)}-${d.slice(9, 12)}.${d.slice(12, 16)}`;
+          } else {
+            formattedNpwp = trimmed;
+          }
+        }
+      }
+
       const updated = await prisma.employee.update({
         where: { id },
         data: {
@@ -264,10 +295,28 @@ export const pegawaiAdminController = {
           jabatan: jabatan !== undefined ? jabatan.trim() : undefined,
           unitId: unitId || undefined,
           statusKepegawaian: statusKepegawaian || undefined,
-          aktif: aktif === 'true' || aktif === true || aktif === 'on'
+          aktif: aktif === 'true' || aktif === true || aktif === 'on',
+          npwp: formattedNpwp
         },
         include: { unit: true }
       });
+
+      // Sync NPWP to any NCR employee pages if updated
+      if (formattedNpwp !== undefined) {
+        const first4 = formattedNpwp ? formattedNpwp.replace(/\D/g, '').slice(0, 4) : null;
+        await prisma.ncrEmployeePage.updateMany({
+          where: {
+            OR: [
+              { employeeId: updated.id },
+              { nip: updated.nip }
+            ]
+          },
+          data: {
+            npwp: formattedNpwp,
+            npwpLast4: first4
+          }
+        });
+      }
 
       if ((req as any).session) {
         (req as any).session.toast = {

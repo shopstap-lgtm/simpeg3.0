@@ -168,6 +168,7 @@ router.post('/files/standardize-names', requireSuperAdmin, fileManagerController
 router.get('/ncr-gaji', requireNonDinas, ncrAdminController.show);
 router.post('/ncr-gaji/upload', requireNonDinas, ncrDiskUpload.single('file'), ncrAdminController.uploadMaster);
 router.get('/ncr-gaji/:id/detail', requireNonDinas, ncrAdminController.detail);
+router.post('/ncr-gaji/update-npwp', requireNonDinas, ncrAdminController.updateNpwp);
 router.post('/ncr-gaji/:id/delete', requireNonDinas, ncrAdminController.deletePeriod);
 
 // 9. Kelola Formulir Dinamis (Form Builder - Super Admin & Admin Korwil)

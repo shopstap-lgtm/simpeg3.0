@@ -397,12 +397,13 @@
                   <th class="py-3 px-4 bg-slate-100 whitespace-nowrap border-b border-slate-200">Unit Kerja Sekolah</th>
                   <th class="py-3 px-4 bg-slate-100 text-center whitespace-nowrap border-b border-slate-200">NPWP Terdeteksi</th>
                   <th class="py-3 px-4 bg-slate-100 text-center whitespace-nowrap border-b border-slate-200">4 Digit Awal</th>
+                  <th class="py-3 px-4 bg-slate-100 text-center whitespace-nowrap border-b border-slate-200">Aksi</th>
                 </tr>
               </thead>
               <tbody class="divide-y divide-slate-100 bg-white">
                 <!-- Empty Search Result -->
                 <tr x-show="filteredPages().length === 0" style="display: none;">
-                  <td colspan="7" class="py-12 text-center text-slate-400">
+                  <td colspan="8" class="py-12 text-center text-slate-400">
                     <i data-lucide="search-x" class="w-8 h-8 text-slate-300 mx-auto mb-2"></i>
                     <p class="font-semibold text-slate-600">Tidak ada pegawai yang cocok</p>
                     <p class="text-[11px] text-slate-400 mt-0.5">Coba gunakan kata kunci pencarian yang berbeda</p>
@@ -420,13 +421,15 @@
                     <td class="py-2.5 px-4 font-mono text-slate-600 whitespace-nowrap" x-text="item.nip"></td>
                     <td class="py-2.5 px-4 text-slate-600" x-text="item.unitNama"></td>
                     <td class="py-2.5 px-4 text-center whitespace-nowrap">
-                      <span x-show="item.npwp && item.npwp !== '-'" 
-                            class="font-mono text-[11px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100" 
-                            x-text="item.npwp"></span>
-                      <span x-show="!item.npwp || item.npwp === '-'" 
-                            class="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium border border-amber-100">
-                        Belum Terdeteksi
-                      </span>
+                      <div class="inline-flex items-center justify-center gap-1.5">
+                        <span x-show="item.npwp && item.npwp !== '-'" 
+                              class="font-mono text-[11px] text-emerald-700 font-semibold bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100" 
+                              x-text="item.npwp"></span>
+                        <span x-show="!item.npwp || item.npwp === '-'" 
+                              class="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full font-medium border border-amber-100">
+                          Belum Terdeteksi
+                        </span>
+                      </div>
                     </td>
                     <td class="py-2.5 px-4 text-center whitespace-nowrap">
                       <span x-show="(item.npwpFirst4 || item.npwpLast4) && (item.npwpFirst4 !== '-' && item.npwpLast4 !== '-')" 
@@ -434,6 +437,17 @@
                             x-text="(item.npwpFirst4 || item.npwpLast4) + ' ••••'"></span>
                       <span x-show="(!item.npwpFirst4 && !item.npwpLast4) || (item.npwpFirst4 === '-' && item.npwpLast4 === '-')" 
                             class="text-slate-400 text-[11px]">-</span>
+                    </td>
+                    <td class="py-2.5 px-4 text-center whitespace-nowrap">
+                      <button type="button" 
+                              @click="openEditNpwp(item)" 
+                              class="inline-flex items-center gap-1 py-1 px-2.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer shadow-2xs"
+                              :class="item.npwp && item.npwp !== '-' 
+                                ? 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200' 
+                                : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'">
+                        <i data-lucide="pencil" class="w-3 h-3"></i>
+                        <span x-text="item.npwp && item.npwp !== '-' ? 'Edit' : 'Input NPWP'"></span>
+                      </button>
                     </td>
                   </tr>
                 </template>
@@ -456,6 +470,129 @@
     </div>
   </template>
 
+  <!-- =========================================================
+       EDIT NPWP PEGAWAI MODAL (TELEPORTED TO BODY)
+       ========================================================= -->
+  <template x-teleport="body">
+    <div x-show="editNpwpModal"
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 !m-0 !mt-0 modal-overlay z-modal overflow-y-auto bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4"
+         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 1000000 !important;"
+         @keydown.escape.window="if (!editNpwpData.isSaving) editNpwpModal = false">
+      
+      <div @click.away="if (!editNpwpData.isSaving) editNpwpModal = false" 
+           class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
+        
+        <!-- Modal Header -->
+        <div class="px-6 py-4 bg-gradient-to-r from-indigo-900 to-slate-900 text-white flex items-center justify-between">
+          <div class="flex items-center gap-2.5">
+            <div class="w-9 h-9 rounded-xl bg-indigo-500/30 border border-indigo-400/30 flex items-center justify-center text-indigo-200">
+              <i data-lucide="credit-card" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="font-bold text-sm text-white">Input / Edit NPWP Pegawai</h3>
+              <p class="text-[11px] text-slate-300">Autentikasi unduh slip gaji di halaman publik</p>
+            </div>
+          </div>
+          <button type="button" x-show="!editNpwpData.isSaving" @click="editNpwpModal = false" class="text-slate-400 hover:text-white p-1 cursor-pointer">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <!-- Form Body -->
+        <form @submit.prevent="submitEditNpwp()" class="p-6 space-y-4">
+          <!-- Employee Info Box -->
+          <div class="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-1.5 text-xs">
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400 font-semibold uppercase text-[10px]">Nama Pegawai</span>
+              <span class="font-bold text-slate-900" x-text="editNpwpData.nama"></span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400 font-semibold uppercase text-[10px]">NIP</span>
+              <span class="font-mono text-slate-700 font-semibold" x-text="editNpwpData.nip"></span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400 font-semibold uppercase text-[10px]">Unit Kerja</span>
+              <span class="text-slate-700 text-right truncate max-w-[200px]" x-text="editNpwpData.unitNama"></span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-slate-400 font-semibold uppercase text-[10px]">Halaman Slip</span>
+              <span class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-700 font-bold text-[10px]" x-text="'Halaman ' + editNpwpData.pageNumber"></span>
+            </div>
+          </div>
+
+          <!-- NPWP Input Field -->
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5">
+              Nomor NPWP Pegawai *
+            </label>
+            <input type="text" 
+                   id="input-edit-npwp"
+                   x-model="editNpwpData.inputNpwp" 
+                   placeholder="Contoh: 08.123.456.7-413.000 atau 15-16 digit angka"
+                   class="form-input text-xs font-mono font-medium py-2.5 px-3.5 w-full rounded-xl bg-slate-50 focus:bg-white"
+                   :disabled="editNpwpData.isSaving">
+            
+            <!-- Live Preview Digit Awal -->
+            <div class="mt-2 flex items-center justify-between text-[11px] p-2 bg-slate-50 rounded-lg border border-slate-100">
+              <span class="text-slate-500 font-medium">4 Digit Awal (PIN Unduh Slip):</span>
+              <div class="font-mono font-bold" :class="getNpwpFirst4().length === 4 ? 'text-indigo-600' : 'text-slate-400'">
+                <span x-text="getNpwpFirst4().length === 4 ? getNpwpFirst4() + ' ••••' : '(Menunggu 4 digit...)'"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Alert Note -->
+          <div class="p-3 bg-blue-50 border border-blue-200/80 rounded-xl text-[11px] text-blue-900 leading-relaxed flex items-start gap-2">
+            <i data-lucide="info" class="w-4 h-4 text-blue-600 shrink-0 mt-0.5"></i>
+            <div>
+              NPWP yang disimpan otomatis menyinkronkan data slip pada periode ini dan tersimpan permanen di profil master pegawai.
+            </div>
+          </div>
+
+          <!-- Error Alert -->
+          <div x-show="editNpwpData.errorMsg" 
+               class="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-semibold flex items-center gap-2">
+            <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
+            <span x-text="editNpwpData.errorMsg"></span>
+          </div>
+
+          <!-- Success Alert -->
+          <div x-show="editNpwpData.successMsg" 
+               class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-semibold flex items-center gap-2">
+            <i data-lucide="check-circle-2" class="w-4 h-4 shrink-0 text-emerald-600"></i>
+            <span x-text="editNpwpData.successMsg"></span>
+          </div>
+
+          <!-- Modal Actions -->
+          <div class="pt-2 flex items-center justify-end gap-2.5 border-t border-slate-100">
+            <button type="button" 
+                    @click="editNpwpModal = false" 
+                    :disabled="editNpwpData.isSaving"
+                    class="btn-secondary py-2 px-4 text-xs cursor-pointer">
+              Batal
+            </button>
+            <button type="submit" 
+                    :disabled="editNpwpData.isSaving"
+                    class="btn-primary py-2 px-5 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold gap-1.5 shadow-sm cursor-pointer">
+              <span x-show="!editNpwpData.isSaving">Simpan NPWP</span>
+              <span x-show="editNpwpData.isSaving" class="flex items-center gap-1.5">
+                <i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i>
+                Menyimpan...
+              </span>
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </template>
+
 </main>
 
 <script>
@@ -463,10 +600,23 @@ function ncrAdminPage() {
   return {
     uploadModal: false,
     detailModal: false,
+    editNpwpModal: false,
     isUploading: false,
     selectedPeriod: null,
     periodPages: [],
     searchDetailQuery: '',
+    editNpwpData: {
+      pageId: '',
+      nama: '',
+      nip: '',
+      unitNama: '',
+      pageNumber: '',
+      npwp: '',
+      inputNpwp: '',
+      isSaving: false,
+      errorMsg: '',
+      successMsg: ''
+    },
     bulan: <%= typeof currentMonth !== 'undefined' ? currentMonth : 9 %>,
     tahun: <%= typeof currentYear !== 'undefined' ? currentYear : 2026 %>,
 
@@ -521,6 +671,91 @@ function ncrAdminPage() {
           console.error(err);
           alert('Terjadi kesalahan jaringan saat memuat detail.');
         });
+    },
+
+    openEditNpwp(item) {
+      this.editNpwpData = {
+        pageId: item.id,
+        nama: item.nama,
+        nip: item.nip,
+        unitNama: item.unitNama,
+        pageNumber: item.pageNumber,
+        npwp: item.npwp && item.npwp !== '-' ? item.npwp : '',
+        inputNpwp: item.npwp && item.npwp !== '-' ? item.npwp : '',
+        isSaving: false,
+        errorMsg: '',
+        successMsg: ''
+      };
+      this.editNpwpModal = true;
+      this.$nextTick(() => {
+        if (window.lucide) {
+          lucide.createIcons();
+        }
+        const inputEl = document.getElementById('input-edit-npwp');
+        if (inputEl) inputEl.focus();
+      });
+    },
+
+    getNpwpFirst4() {
+      const clean = (this.editNpwpData.inputNpwp || '').replace(/\D/g, '');
+      return clean.slice(0, 4);
+    },
+
+    async submitEditNpwp() {
+      this.editNpwpData.errorMsg = '';
+      this.editNpwpData.successMsg = '';
+      const rawVal = (this.editNpwpData.inputNpwp || '').trim();
+      const digits = rawVal.replace(/\D/g, '');
+
+      if (rawVal !== '' && digits.length !== 15 && digits.length !== 16) {
+        this.editNpwpData.errorMsg = 'Nomor NPWP harus berjumlah 15 atau 16 digit angka (contoh: 08.123.456.7-413.000).';
+        return;
+      }
+
+      this.editNpwpData.isSaving = true;
+
+      try {
+        const res = await fetch('/admin/ncr-gaji/update-npwp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employeePageId: this.editNpwpData.pageId,
+            npwp: rawVal
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          // Update item in local periodPages array
+          const target = this.periodPages.find(p => p.id === this.editNpwpData.pageId);
+          if (target) {
+            target.npwp = data.npwp;
+            target.npwpFirst4 = data.npwpFirst4;
+            target.npwpLast4 = data.npwpLast4;
+          }
+          this.editNpwpData.successMsg = data.message;
+          setTimeout(() => {
+            this.editNpwpModal = false;
+            this.$nextTick(() => {
+              if (window.lucide) {
+                lucide.createIcons();
+              }
+            });
+          }, 1200);
+        } else {
+          this.editNpwpData.errorMsg = data.message || 'Gagal menyimpan NPWP pegawai.';
+        }
+      } catch (err) {
+        console.error(err);
+        this.editNpwpData.errorMsg = 'Terjadi kesalahan koneksi saat menyimpan NPWP.';
+      } finally {
+        this.editNpwpData.isSaving = false;
+        this.$nextTick(() => {
+          if (window.lucide) {
+            lucide.createIcons();
+          }
+        });
+      }
     }
   };
 }

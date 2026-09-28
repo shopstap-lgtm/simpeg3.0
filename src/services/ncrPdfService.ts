@@ -243,13 +243,27 @@ const CIBITUNG_KEYWORDS = [
         // Deduplication: Only set if not existing, or if current is an authentic salary row and existing was not
         if (!existing || (isSalaryRow && !existing.isSalaryRow)) {
           let detectedNpwp: string | null = null;
-          // In official payroll slips, NPWP is a 15 or 16 digit number placed near the employee's NIP
-          const rowSnippet = rawText.substring(nipIdx, Math.min(rawText.length, nipIdx + 200));
-          const npwpMatches = rowSnippet.match(/\b(\d{15,16})\b/g) || [];
-          for (const candidate of npwpMatches) {
-            if (!candidate.startsWith('19') && !candidate.startsWith('20') && candidate !== cleanNip) {
-              detectedNpwp = formatNpwp(candidate);
+          // In official payroll slips, NPWP is placed near the employee's NIP (either before or after)
+          const rowSnippet = rawText.substring(Math.max(0, nipIdx - 150), Math.min(rawText.length, nipIdx + 300));
+          
+          // 1. Try matching formatted NPWP (e.g. 08.123.456.7-413.000)
+          const formattedMatches = rowSnippet.match(/\b\d{2}\.?\d{3}\.?\d{3}\.?\d{1}[-.]?\d{3}\.?\d{3}\b/g) || [];
+          for (const cand of formattedMatches) {
+            const digits = cleanDigits(cand);
+            if ((digits.length === 15 || digits.length === 16) && !digits.startsWith('19') && !digits.startsWith('20') && digits !== cleanNip) {
+              detectedNpwp = formatNpwp(digits);
               break;
+            }
+          }
+
+          // 2. Fallback: match 15 or 16 continuous digits
+          if (!detectedNpwp) {
+            const npwpMatches = rowSnippet.match(/\b(\d{15,16})\b/g) || [];
+            for (const candidate of npwpMatches) {
+              if (!candidate.startsWith('19') && !candidate.startsWith('20') && candidate !== cleanNip) {
+                detectedNpwp = formatNpwp(candidate);
+                break;
+              }
             }
           }
 

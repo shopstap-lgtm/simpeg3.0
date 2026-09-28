@@ -254,5 +254,93 @@ export const ncrAdminController = {
       };
       res.redirect('/admin/ncr-gaji');
     }
+  },
+
+  updateNpwp: async (req: Request, res: Response) => {
+    const { employeePageId, npwp } = req.body;
+
+    if (!employeePageId) {
+      return res.status(400).json({ success: false, message: 'ID halaman slip pegawai wajib disertakan.' });
+    }
+
+    try {
+      const rawVal = (npwp || '').trim();
+      let formattedNpwp: string | null = null;
+      let npwpFirst4: string | null = null;
+
+      if (rawVal) {
+        const digits = rawVal.replace(/\D/g, '');
+        if (digits.length !== 15 && digits.length !== 16) {
+          return res.status(400).json({
+            success: false,
+            message: 'Nomor NPWP harus berjumlah 15 atau 16 digit angka.'
+          });
+        }
+
+        if (digits.length === 15) {
+          formattedNpwp = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}.${digits.slice(8, 9)}-${digits.slice(9, 12)}.${digits.slice(12, 15)}`;
+        } else {
+          formattedNpwp = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}.${digits.slice(8, 9)}-${digits.slice(9, 12)}.${digits.slice(12, 16)}`;
+        }
+        npwpFirst4 = digits.slice(0, 4);
+      }
+
+      // 1. Update NcrEmployeePage
+      const pageRecord = await prisma.ncrEmployeePage.findUnique({
+        where: { id: employeePageId }
+      });
+
+      if (!pageRecord) {
+        return res.status(404).json({ success: false, message: 'Data slip pegawai tidak ditemukan.' });
+      }
+
+      const updatedPage = await prisma.ncrEmployeePage.update({
+        where: { id: employeePageId },
+        data: {
+          npwp: formattedNpwp,
+          npwpLast4: npwpFirst4
+        }
+      });
+
+      // 2. Sync to Master Employee table
+      if (updatedPage.employeeId) {
+        await prisma.employee.update({
+          where: { id: updatedPage.employeeId },
+          data: { npwp: formattedNpwp }
+        });
+      } else if (updatedPage.nip) {
+        await prisma.employee.updateMany({
+          where: { nip: updatedPage.nip },
+          data: { npwp: formattedNpwp }
+        });
+      }
+
+      // 3. Sync to other periods with the same NIP for consistency
+      if (updatedPage.nip && formattedNpwp) {
+        await prisma.ncrEmployeePage.updateMany({
+          where: { nip: updatedPage.nip },
+          data: {
+            npwp: formattedNpwp,
+            npwpLast4: npwpFirst4
+          }
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: formattedNpwp 
+          ? `NPWP pegawai '${updatedPage.nama}' berhasil disimpan (${formattedNpwp}). Kode verifikasi: ${npwpFirst4}••••.`
+          : `NPWP pegawai '${updatedPage.nama}' berhasil dikosongkan.`,
+        npwp: formattedNpwp || '-',
+        npwpFirst4: npwpFirst4 || '-',
+        npwpLast4: npwpFirst4 || '-'
+      });
+    } catch (error: any) {
+      console.error('[ncrAdminController.updateNpwp] Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Gagal memperbarui data NPWP pegawai.'
+      });
+    }
   }
 };

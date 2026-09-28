@@ -401,14 +401,14 @@ export const uploadAbsensiController = {
                 status: finalStatus,
                 keterangan: isProtectedStatus && mappedStatus === 'TK'
                   ? `Klarifikasi Pra-Rekap Terjaga (${existingDay.status})`
-                  : `Sinkronisasi Absen Bisma: ${file.originalname}`
+                  : null
               },
               create: {
                 employeeId: emp.id,
                 periodId: period.id,
                 tanggal: day,
                 status: mappedStatus,
-                keterangan: `Sinkronisasi Absen Bisma: ${file.originalname}`
+                keterangan: null
               }
             });
 

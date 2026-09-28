@@ -4,7 +4,8 @@
 
       <% const isAdmin=typeof user !=='undefined' && user !==null; const isSuperAdminOrDinas=typeof user !=='undefined'
         && user !==null && (user.role==='SUPER_ADMIN' || user.role==='ADMIN_DINAS' ); const
-        isDefaultPeriod=(bulan===activeDefaultMonth && tahun===activeDefaultYear); %>
+        isDefaultPeriod=(bulan===activeDefaultMonth && tahun===activeDefaultYear);
+        const resolvedNamaBulan = typeof namaBulan !== 'undefined' ? namaBulan : (['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][(bulan || 1) - 1] || 'Bulan'); %>
 
         <main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6" x-data="{
         isAdmin: <%= isAdmin ? 'true' : 'false' %>,
@@ -85,6 +86,41 @@
         pdfUrl: '',
         pdfTitle: '',
         pdfFileName: '',
+
+        rejectTooltip: null,
+        rejectTooltipTimer: null,
+
+        showRejectTooltip(event, dayObj, emp) {
+          if (this.rejectTooltipTimer) clearTimeout(this.rejectTooltipTimer);
+          const target = event.currentTarget;
+          if (!target) return;
+          const rect = target.getBoundingClientRect();
+          const isTop = rect.top > 190;
+          
+          const tooltipWidth = 310;
+          let left = rect.left + rect.width / 2;
+          const padding = 16;
+          const minLeft = tooltipWidth / 2 + padding;
+          const maxLeft = window.innerWidth - tooltipWidth / 2 - padding;
+          if (left < minLeft) left = minLeft;
+          if (left > maxLeft) left = maxLeft;
+
+          this.rejectTooltip = {
+            top: isTop ? rect.top - 8 : rect.bottom + 8,
+            left: left,
+            isTop: isTop,
+            tanggal: dayObj ? dayObj.tanggal : '',
+            status: dayObj ? dayObj.status : '',
+            note: (dayObj && (dayObj.clarificationNote || dayObj.note)) ? (dayObj.clarificationNote || dayObj.note) : 'Dokumen belum sesuai / tidak memenuhi syarat',
+            empName: emp ? emp.nama : ''
+          };
+        },
+
+        hideRejectTooltip() {
+          this.rejectTooltipTimer = setTimeout(() => {
+            this.rejectTooltip = null;
+          }, 60);
+        },
 
         init() {
           this.$watch('currentStatus', (val) => {
@@ -263,6 +299,11 @@
           this.rejectedEmpObj = emp;
           this.rejectedAllDays = allDays;
           this.rejectedInfoModal = true;
+          this.$nextTick(() => {
+            if (window.lucide) {
+              lucide.createIcons();
+            }
+          });
         },
 
         openKlarifikasiWithDays(emp, daysList, defaultDate = '', status = 'TK', isRange = false) {
@@ -1078,18 +1119,20 @@
                                                   <% 
                                                     let badgeTitle = '';
                                                     if (d.clarificationStatus === 'PENDING') {
-                                                      badgeTitle = 'Tgl ' + d.tanggal + ': ' + (d.keterangan || d.status) + ' (Sedang Dalam Review)';
+                                                      badgeTitle = 'Tgl ' + d.tanggal + ': Pengajuan Klarifikasi (Sedang Dalam Review)';
                                                     } else if (d.clarificationStatus === 'REJECTED') {
-                                                      badgeTitle = 'Tgl ' + d.tanggal + ': ' + (d.keterangan || d.status) + ' • Klarifikasi Ditolak: ' + (d.clarificationNote || 'Dokumen belum sesuai');
+                                                      badgeTitle = 'Tgl ' + d.tanggal + ': Klarifikasi Ditolak • Alasan: ' + (d.clarificationNote || 'Dokumen belum sesuai');
                                                     }
                                                   %>
                                                   <button type="button"
                                                     class="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] <%= badgeClass %> shadow-xs cursor-pointer hover:scale-110 active:scale-95 transition-all relative"
-                                                    <% if (badgeTitle) { %>title="<%= badgeTitle %>"<% } %>
+                                                    <% if (badgeTitle && d.clarificationStatus !== 'REJECTED') { %>title="<%= badgeTitle %>"<% } %>
+                                                    @mouseenter="if ('<%= d.clarificationStatus %>' === 'REJECTED') showRejectTooltip($event, empDays[<%= d.tanggal - 1 %>], empInfo)"
+                                                    @mouseleave="hideRejectTooltip()"
                                                     @click="handleCellClick(empInfo, empDays[<%= d.tanggal - 1 %>], empDays)">
                                                     <%= shortCode %>
                                                     <% if (d.clarificationStatus === 'REJECTED') { %>
-                                                      <span class="absolute -top-1 left-1/2 -translate-x-1/2 flex h-2.5 w-2.5 z-10 pointer-events-none" title="Klarifikasi Ditolak: <%= (d.clarificationNote || 'Dokumen belum sesuai').replace(/"/g, '&quot;') %>">
+                                                      <span class="absolute -top-1 left-1/2 -translate-x-1/2 flex h-2.5 w-2.5 z-10 pointer-events-none">
                                                         <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                                                         <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600 border border-white"></span>
                                                       </span>
@@ -1270,18 +1313,20 @@
                                                       <% 
                                                         let badgeTitle = '';
                                                         if (d.clarificationStatus === 'PENDING') {
-                                                          badgeTitle = 'Tgl ' + d.tanggal + ': ' + (d.keterangan || d.status) + ' (Sedang Dalam Review)';
+                                                          badgeTitle = 'Tgl ' + d.tanggal + ': Pengajuan Klarifikasi (Sedang Dalam Review)';
                                                         } else if (d.clarificationStatus === 'REJECTED') {
-                                                          badgeTitle = 'Tgl ' + d.tanggal + ': ' + (d.keterangan || d.status) + ' • Klarifikasi Ditolak: ' + (d.clarificationNote || 'Dokumen belum sesuai');
+                                                          badgeTitle = 'Tgl ' + d.tanggal + ': Klarifikasi Ditolak • Alasan: ' + (d.clarificationNote || 'Dokumen belum sesuai');
                                                         }
                                                       %>
                                                       <button type="button"
                                                         class="inline-flex items-center justify-center w-5 h-5 rounded text-[8px] <%= bgCol %> cursor-pointer hover:scale-120 active:scale-95 transition-all shadow-2xs font-bold leading-none relative"
-                                                        <% if (badgeTitle) { %>title="<%= badgeTitle %>"<% } %>
+                                                        <% if (badgeTitle && d.clarificationStatus !== 'REJECTED') { %>title="<%= badgeTitle %>"<% } %>
+                                                        @mouseenter="if ('<%= d.clarificationStatus %>' === 'REJECTED') showRejectTooltip($event, empDays[<%= d.tanggal - 1 %>], empInfo)"
+                                                        @mouseleave="hideRejectTooltip()"
                                                         @click="handleCellClick(empInfo, empDays[<%= d.tanggal - 1 %>], empDays)">
                                                         <%= char %>
                                                         <% if (d.clarificationStatus === 'REJECTED') { %>
-                                                          <span class="absolute -top-1 left-1/2 -translate-x-1/2 flex h-2 w-2 z-10 pointer-events-none" title="Klarifikasi Ditolak: <%= (d.clarificationNote || 'Dokumen belum sesuai').replace(/"/g, '&quot;') %>">
+                                                          <span class="absolute -top-1 left-1/2 -translate-x-1/2 flex h-2 w-2 z-10 pointer-events-none">
                                                             <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                                                             <span class="relative inline-flex rounded-full h-2 w-2 bg-rose-600 border border-white"></span>
                                                           </span>
@@ -2325,6 +2370,75 @@
                             </div>
 
                           </div>
+                        </div>
+                      </template>
+
+                      <!-- FLOATING TOOLTIP ALASAN PENOLAKAN KLARIFIKASI -->
+                      <template x-teleport="body">
+                        <div x-show="rejectTooltip" 
+                             x-cloak
+                             x-transition:enter="transition ease-out duration-150"
+                             x-transition:enter-start="opacity-0 scale-95"
+                             x-transition:enter-end="opacity-100 scale-100"
+                             x-transition:leave="transition ease-in duration-100"
+                             x-transition:leave-start="opacity-100 scale-100"
+                             x-transition:leave-end="opacity-0 scale-95"
+                             :style="rejectTooltip ? { top: rejectTooltip.top + 'px', left: rejectTooltip.left + 'px', zIndex: 999999 } : {}"
+                             :class="rejectTooltip && rejectTooltip.isTop ? '-translate-x-1/2 -translate-y-full pb-2' : '-translate-x-1/2 pt-2'"
+                             class="fixed pointer-events-none select-none transition-[top,left] duration-75">
+                          
+                          <!-- Top Arrow if displayed below target -->
+                          <template x-if="rejectTooltip && !rejectTooltip.isTop">
+                            <div class="w-3 h-3 bg-white border-l border-t border-rose-200 rotate-45 mx-auto -mb-1.5 shadow-xs relative z-10"></div>
+                          </template>
+
+                          <!-- Card Body -->
+                          <div class="w-72 sm:w-80 bg-white/98 backdrop-blur-md rounded-2xl p-3.5 shadow-2xl border border-rose-200/90 text-left space-y-2.5 ring-1 ring-rose-900/10">
+                            <!-- Header -->
+                            <div class="flex items-center justify-between gap-2 pb-2 border-b border-rose-100">
+                              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wider bg-rose-50 text-rose-700 border border-rose-200 shadow-2xs">
+                                <span class="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></span>
+                                <span>Klarifikasi Ditolak</span>
+                              </span>
+                              <span class="text-xs font-bold text-slate-700" x-text="rejectTooltip ? `Tgl ${rejectTooltip.tanggal} <%= resolvedNamaBulan %>` : ''"></span>
+                            </div>
+
+                            <!-- Pegawai -->
+                            <div class="text-[11px] text-slate-500 font-medium truncate" x-show="rejectTooltip && rejectTooltip.empName">
+                              <span class="text-slate-400">Pegawai:</span> <span class="font-bold text-slate-800" x-text="rejectTooltip ? rejectTooltip.empName : ''"></span>
+                            </div>
+
+                            <!-- Alasan Box -->
+                            <div class="p-2.5 rounded-xl bg-gradient-to-br from-rose-50/90 to-rose-50/40 border border-rose-200/70 space-y-1">
+                              <div class="flex items-center gap-1.5 text-[10.5px] font-bold text-rose-900 uppercase tracking-wider">
+                                <svg class="w-3.5 h-3.5 text-rose-600 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                  <circle cx="12" cy="12" r="10"></circle>
+                                  <line x1="12" y1="8" x2="12" y2="12"></line>
+                                  <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                                </svg>
+                                <span>Catatan / Alasan Admin:</span>
+                              </div>
+                              <p class="text-xs font-semibold text-slate-800 leading-relaxed break-words" x-text="rejectTooltip ? rejectTooltip.note : ''"></p>
+                            </div>
+
+                            <!-- Footer Info -->
+                            <div class="flex items-center justify-between text-[10.5px] text-slate-400 pt-0.5">
+                              <span class="flex items-center gap-1 text-rose-600 font-semibold">
+                                <svg class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                  <circle cx="12" cy="12" r="10"></circle>
+                                  <path d="M12 16v-4"></path>
+                                  <path d="M12 8h.01"></path>
+                                </svg>
+                                <span>Klik badge untuk ajukan ulang</span>
+                              </span>
+                              <span class="font-mono text-slate-500 font-bold" x-text="rejectTooltip ? 'Status: ' + rejectTooltip.status : ''"></span>
+                            </div>
+                          </div>
+
+                          <!-- Bottom Arrow if displayed above target -->
+                          <template x-if="rejectTooltip && rejectTooltip.isTop">
+                            <div class="w-3 h-3 bg-white border-r border-b border-rose-200 rotate-45 mx-auto -mt-1.5 shadow-xs relative z-10"></div>
+                          </template>
                         </div>
                       </template>
 
