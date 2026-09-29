@@ -394,15 +394,24 @@ export const absensiController = {
         holidays: Object.fromEntries(holidayService.getHolidaysForMonth(tahun, bulan)),
         isAdmin,
         isSuperAdminOrDinas: isAdmin && (sessionUser?.role === 'SUPER_ADMIN' || sessionUser?.role === 'ADMIN_DINAS'),
-        klarifikasiConfig: {
-          month: (cms as any)?.klarifikasiMonth || cms?.selectedMonth || 7,
-          praRekapEnabled: (cms as any)?.klarifikasiPraRekapEnabled || false,
-          praRekapDates: (cms as any)?.klarifikasiPraRekapDates || 'ALL',
-          nlEnabled: cms?.klarifikasiNlEnabled || false,
-          nlDates: cms?.klarifikasiNlDates || 'ALL',
-          pcEnabled: cms?.klarifikasiPcEnabled || false,
-          pcDates: cms?.klarifikasiPcDates || 'ALL'
-        },
+        klarifikasiConfig: (() => {
+          // Load per-month policies
+          let allPolicies: Record<string, any> = {};
+          try { allPolicies = JSON.parse((cms as any)?.klarifikasiPolicies || '{}'); } catch { allPolicies = {}; }
+          // Fallback: if allPolicies is empty, use legacy single-month fields
+          if (Object.keys(allPolicies).length === 0) {
+            const legacyMonth = (cms as any)?.klarifikasiMonth || cms?.selectedMonth || 7;
+            allPolicies[String(legacyMonth)] = {
+              praRekapEnabled: (cms as any)?.klarifikasiPraRekapEnabled || false,
+              praRekapDates: (cms as any)?.klarifikasiPraRekapDates || 'ALL',
+              nlEnabled: cms?.klarifikasiNlEnabled || false,
+              nlDates: cms?.klarifikasiNlDates || 'ALL',
+              pcEnabled: cms?.klarifikasiPcEnabled || false,
+              pcDates: cms?.klarifikasiPcDates || 'ALL'
+            };
+          }
+          return { policies: allPolicies };
+        })(),
         pagination: {
           page,
           limit: effectiveLimitLabel,
@@ -636,7 +645,34 @@ export const absensiController = {
 
       const dayNum = getDayNum(tanggalAbsen);
       const monthNum = getMonthNum(tanggalAbsen);
-      const activeKlarifikasiMonth = (cms as any)?.klarifikasiMonth || cms?.selectedMonth || 7;
+
+      // Load per-month klarifikasi policies
+      let allPolicies: Record<string, any> = {};
+      try {
+        allPolicies = JSON.parse((cms as any)?.klarifikasiPolicies || '{}');
+      } catch { allPolicies = {}; }
+
+      // Get the policy for the month being submitted, fallback to legacy fields if no policy exists
+      const getMonthPolicy = (month: number | null) => {
+        if (!month) return null;
+        const policy = allPolicies[String(month)];
+        if (policy) return policy;
+        // Fallback to legacy single-month fields if this is the legacy active month
+        const legacyMonth = (cms as any)?.klarifikasiMonth || cms?.selectedMonth || 7;
+        if (month === legacyMonth) {
+          return {
+            praRekapEnabled: (cms as any)?.klarifikasiPraRekapEnabled || false,
+            praRekapDates: (cms as any)?.klarifikasiPraRekapDates || 'ALL',
+            nlEnabled: cms?.klarifikasiNlEnabled || false,
+            nlDates: cms?.klarifikasiNlDates || 'ALL',
+            pcEnabled: cms?.klarifikasiPcEnabled || false,
+            pcDates: cms?.klarifikasiPcDates || 'ALL'
+          };
+        }
+        return null; // No policy for this month
+      };
+
+      const monthPolicy = getMonthPolicy(monthNum);
 
       const isDatePermitted = (datesSetting: string, day: number | null) => {
         if (!day) return true;
@@ -646,8 +682,7 @@ export const absensiController = {
       };
 
       if (normStatusAwal === 'EMPTY') {
-        const isMonthMatch = !monthNum || monthNum === activeKlarifikasiMonth;
-        if (!cms?.klarifikasiPraRekapEnabled || !isMonthMatch || !isDatePermitted(cms?.klarifikasiPraRekapDates || 'ALL', dayNum)) {
+        if (!monthPolicy?.praRekapEnabled || !isDatePermitted(monthPolicy?.praRekapDates || 'ALL', dayNum)) {
           if ((req as any).session) {
             (req as any).session.toast = {
               type: 'warning',
@@ -658,8 +693,7 @@ export const absensiController = {
           return res.redirect(buildAbsensiRedirectUrl(req));
         }
       } else if (normStatusAwal === 'HADIR' || normStatusAwal === 'NL') {
-        const isMonthMatch = !monthNum || monthNum === activeKlarifikasiMonth;
-        if (!cms?.klarifikasiNlEnabled || !isMonthMatch || !isDatePermitted(cms?.klarifikasiNlDates || 'ALL', dayNum)) {
+        if (!monthPolicy?.nlEnabled || !isDatePermitted(monthPolicy?.nlDates || 'ALL', dayNum)) {
           if ((req as any).session) {
             (req as any).session.toast = {
               type: 'warning',
@@ -670,8 +704,7 @@ export const absensiController = {
           return res.redirect(buildAbsensiRedirectUrl(req));
         }
       } else if (normStatusAwal === 'PC' || normStatusAwal === 'TL') {
-        const isMonthMatch = !monthNum || monthNum === activeKlarifikasiMonth;
-        if (!cms?.klarifikasiPcEnabled || !isMonthMatch || !isDatePermitted(cms?.klarifikasiPcDates || 'ALL', dayNum)) {
+        if (!monthPolicy?.pcEnabled || !isDatePermitted(monthPolicy?.pcDates || 'ALL', dayNum)) {
           if ((req as any).session) {
             (req as any).session.toast = {
               type: 'warning',

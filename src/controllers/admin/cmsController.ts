@@ -217,16 +217,54 @@ export const cmsController = {
         }
       }
 
+      // Build the per-month policy object for the submitted month
+      const monthPolicy = {
+        praRekapEnabled: isPraRekapEnabled,
+        praRekapDates: finalPraRekapDates,
+        nlEnabled: isNlEnabled,
+        nlDates: finalNlDates,
+        pcEnabled: isPcEnabled,
+        pcDates: finalPcDates
+      };
+
+      // Read existing policies and merge the new month's policy
+      const existing = await prisma.cmsConfig.findUnique({ where: { id: 'cms-main' } });
+      let allPolicies: Record<string, any> = {};
+      try {
+        allPolicies = JSON.parse((existing as any)?.klarifikasiPolicies || '{}');
+      } catch { allPolicies = {}; }
+      allPolicies[String(parsedMonth)] = monthPolicy;
+
+      // Also migrate legacy single-month data if klarifikasiPolicies was empty
+      if (existing && Object.keys(allPolicies).length === 1) {
+        const legacyMonth = (existing as any)?.klarifikasiMonth;
+        if (legacyMonth && legacyMonth !== parsedMonth) {
+          allPolicies[String(legacyMonth)] = {
+            praRekapEnabled: (existing as any)?.klarifikasiPraRekapEnabled || false,
+            praRekapDates: (existing as any)?.klarifikasiPraRekapDates || 'ALL',
+            nlEnabled: (existing as any)?.klarifikasiNlEnabled || false,
+            nlDates: (existing as any)?.klarifikasiNlDates || 'ALL',
+            pcEnabled: (existing as any)?.klarifikasiPcEnabled || false,
+            pcDates: (existing as any)?.klarifikasiPcDates || 'ALL'
+          };
+        }
+      }
+
+      const policiesJson = JSON.stringify(allPolicies);
+
       await prisma.cmsConfig.upsert({
         where: { id: 'cms-main' },
         update: {
+          // Legacy fields: keep synced to the latest submitted month
           klarifikasiMonth: parsedMonth,
           klarifikasiPraRekapEnabled: isPraRekapEnabled,
           klarifikasiPraRekapDates: finalPraRekapDates,
           klarifikasiNlEnabled: isNlEnabled,
           klarifikasiNlDates: finalNlDates,
           klarifikasiPcEnabled: isPcEnabled,
-          klarifikasiPcDates: finalPcDates
+          klarifikasiPcDates: finalPcDates,
+          // New multi-month field
+          klarifikasiPolicies: policiesJson
         },
         create: {
           id: 'cms-main',
@@ -236,14 +274,18 @@ export const cmsController = {
           klarifikasiNlEnabled: isNlEnabled,
           klarifikasiNlDates: finalNlDates,
           klarifikasiPcEnabled: isPcEnabled,
-          klarifikasiPcDates: finalPcDates
+          klarifikasiPcDates: finalPcDates,
+          klarifikasiPolicies: policiesJson
         }
       });
+
+      const months = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+      const monthName = months[parsedMonth] || `Bulan ${parsedMonth}`;
 
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'success',
-          message: 'Kebijakan buka/tutup klarifikasi absensi (Pra-Rekap, Hadir Normal & TL/PC) berhasil diperbarui.'
+          message: `Kebijakan klarifikasi absensi bulan ${monthName} berhasil diperbarui. Setting bulan lain tidak terpengaruh.`
         };
       }
 

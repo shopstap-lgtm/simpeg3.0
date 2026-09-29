@@ -22,20 +22,52 @@
       maintenanceTitle: <%- JSON.stringify((typeof cms.maintenanceTitle !== 'undefined' && cms.maintenanceTitle) ? cms.maintenanceTitle : 'Sedang Dalam Pemeliharaan') %>,
       maintenanceMessage: <%- JSON.stringify((typeof cms.maintenanceMessage !== 'undefined' && cms.maintenanceMessage) ? cms.maintenanceMessage : 'Halaman ini sedang dalam proses pemeliharaan dan pembaruan data berkala oleh tim admin Korwil Cibitung. Mohon kembali beberapa saat lagi.') %>,
 
-      // Kebijakan Buka / Tutup Klarifikasi Absensi (Pra-Rekap, NL & PC)
+      // Kebijakan Buka / Tutup Klarifikasi Absensi (Pra-Rekap, NL & PC) — Per-Bulan
+      allKlarifikasiPolicies: <%- JSON.stringify((() => {
+        let policies = {};
+        try { policies = JSON.parse(cms.klarifikasiPolicies || '{}'); } catch(e) { policies = {}; }
+        if (Object.keys(policies).length === 0) {
+          const legacyMonth = cms.klarifikasiMonth || cms.selectedMonth || 7;
+          policies[String(legacyMonth)] = {
+            praRekapEnabled: cms.klarifikasiPraRekapEnabled || false,
+            praRekapDates: cms.klarifikasiPraRekapDates || 'ALL',
+            nlEnabled: cms.klarifikasiNlEnabled || false,
+            nlDates: cms.klarifikasiNlDates || 'ALL',
+            pcEnabled: cms.klarifikasiPcEnabled || false,
+            pcDates: cms.klarifikasiPcDates || 'ALL'
+          };
+        }
+        return policies;
+      })()) %>,
+
       selectedKlarifikasiMonth: <%= (typeof cms.klarifikasiMonth !== 'undefined' && cms.klarifikasiMonth) ? cms.klarifikasiMonth : (cms.selectedMonth || 7) %>,
-      
-      klarifikasiPraRekapEnabled: <%= (typeof cms.klarifikasiPraRekapEnabled !== 'undefined' && cms.klarifikasiPraRekapEnabled) ? 'true' : 'false' %>,
-      klarifikasiPraRekapMode: <%- JSON.stringify((typeof cms.klarifikasiPraRekapDates !== 'undefined' && cms.klarifikasiPraRekapDates && cms.klarifikasiPraRekapDates !== "ALL") ? "CUSTOM" : "ALL") %>,
-      klarifikasiPraRekapDates: <%- JSON.stringify((typeof cms.klarifikasiPraRekapDates !== 'undefined' && cms.klarifikasiPraRekapDates && cms.klarifikasiPraRekapDates !== "ALL") ? cms.klarifikasiPraRekapDates.split(',').map(d => parseInt(d.trim())).filter(Boolean) : []) %>,
 
-      klarifikasiNlEnabled: <%= (typeof cms.klarifikasiNlEnabled !== 'undefined' && cms.klarifikasiNlEnabled) ? 'true' : 'false' %>,
-      klarifikasiNlMode: <%- JSON.stringify((typeof cms.klarifikasiNlDates !== 'undefined' && cms.klarifikasiNlDates && cms.klarifikasiNlDates !== "ALL") ? "CUSTOM" : "ALL") %>,
-      klarifikasiNlDates: <%- JSON.stringify((typeof cms.klarifikasiNlDates !== 'undefined' && cms.klarifikasiNlDates && cms.klarifikasiNlDates !== "ALL") ? cms.klarifikasiNlDates.split(',').map(d => parseInt(d.trim())).filter(Boolean) : []) %>,
+      klarifikasiPraRekapEnabled: false,
+      klarifikasiPraRekapMode: 'ALL',
+      klarifikasiPraRekapDates: [],
+      klarifikasiNlEnabled: false,
+      klarifikasiNlMode: 'ALL',
+      klarifikasiNlDates: [],
+      klarifikasiPcEnabled: false,
+      klarifikasiPcMode: 'ALL',
+      klarifikasiPcDates: [],
 
-      klarifikasiPcEnabled: <%= (typeof cms.klarifikasiPcEnabled !== 'undefined' && cms.klarifikasiPcEnabled) ? 'true' : 'false' %>,
-      klarifikasiPcMode: <%- JSON.stringify((typeof cms.klarifikasiPcDates !== 'undefined' && cms.klarifikasiPcDates && cms.klarifikasiPcDates !== "ALL") ? "CUSTOM" : "ALL") %>,
-      klarifikasiPcDates: <%- JSON.stringify((typeof cms.klarifikasiPcDates !== 'undefined' && cms.klarifikasiPcDates && cms.klarifikasiPcDates !== "ALL") ? cms.klarifikasiPcDates.split(',').map(d => parseInt(d.trim())).filter(Boolean) : []) %>,
+      loadPolicyForMonth(month) {
+        const policy = this.allKlarifikasiPolicies[String(month)] || {};
+        this.klarifikasiPraRekapEnabled = !!policy.praRekapEnabled;
+        this.klarifikasiPraRekapDates = (policy.praRekapDates && policy.praRekapDates !== 'ALL') ? String(policy.praRekapDates).split(',').map(d => parseInt(d.trim())).filter(Boolean) : [];
+        this.klarifikasiPraRekapMode = (policy.praRekapDates && policy.praRekapDates !== 'ALL') ? 'CUSTOM' : 'ALL';
+        this.klarifikasiNlEnabled = !!policy.nlEnabled;
+        this.klarifikasiNlDates = (policy.nlDates && policy.nlDates !== 'ALL') ? String(policy.nlDates).split(',').map(d => parseInt(d.trim())).filter(Boolean) : [];
+        this.klarifikasiNlMode = (policy.nlDates && policy.nlDates !== 'ALL') ? 'CUSTOM' : 'ALL';
+        this.klarifikasiPcEnabled = !!policy.pcEnabled;
+        this.klarifikasiPcDates = (policy.pcDates && policy.pcDates !== 'ALL') ? String(policy.pcDates).split(',').map(d => parseInt(d.trim())).filter(Boolean) : [];
+        this.klarifikasiPcMode = (policy.pcDates && policy.pcDates !== 'ALL') ? 'CUSTOM' : 'ALL';
+      },
+
+      init() {
+        this.loadPolicyForMonth(this.selectedKlarifikasiMonth);
+      },
 
       getDaysInKlarifikasiMonth() {
         const m = parseInt(this.selectedKlarifikasiMonth) || 7;
@@ -52,7 +84,7 @@
         const m = parseInt(this.selectedKlarifikasiMonth) || 7;
         const y = parseInt(this.selectedYear) || 2026;
         const day = new Date(y, m - 1, 1).getDay();
-        return (day + 6) % 7; // Monday = 0, Sunday = 6
+        return (day + 6) % 7;
       },
       getKlarifikasiOffsetArray() {
         const offset = this.getKlarifikasiMonthStartOffset();
@@ -69,6 +101,7 @@
         return months[parseInt(this.selectedKlarifikasiMonth)] || 'Bulan ' + this.selectedKlarifikasiMonth;
       },
       onKlarifikasiMonthChange() {
+        this.loadPolicyForMonth(this.selectedKlarifikasiMonth);
         const maxDays = this.getDaysInKlarifikasiMonth();
         this.klarifikasiPraRekapDates = this.klarifikasiPraRekapDates.filter(d => d <= maxDays);
         this.klarifikasiNlDates = this.klarifikasiNlDates.filter(d => d <= maxDays);
@@ -709,8 +742,6 @@
       <div class="flex items-center gap-2 self-start sm:self-auto">
         <span class="text-xs font-bold text-slate-500">Bulan:</span>
         <select id="selectKlarifikasiMonth"
-                name="klarifikasiMonth" 
-                form="form-klarifikasi-policy"
                 x-model="selectedKlarifikasiMonth"
                 @change="onKlarifikasiMonthChange()"
                 class="form-select text-xs font-bold text-slate-800 bg-white border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 rounded-xl py-1.5 px-3 shadow-2xs cursor-pointer min-w-[170px]">

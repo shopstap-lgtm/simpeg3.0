@@ -336,7 +336,7 @@
          style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 999999 !important;"
          @keydown.escape.window="detailModal = false">
       
-      <div @click.away="detailModal = false" 
+      <div @click.away="if (!editNpwpModal) detailModal = false"
            class="bg-white rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col overflow-hidden border border-slate-200">
         
         <!-- Header -->
@@ -440,7 +440,7 @@
                     </td>
                     <td class="py-2.5 px-4 text-center whitespace-nowrap">
                       <button type="button" 
-                              @click="openEditNpwp(item)" 
+                              @click.stop="openEditNpwp(item)" 
                               class="inline-flex items-center gap-1 py-1 px-2.5 rounded-lg text-xs font-semibold border transition-all cursor-pointer shadow-2xs"
                               :class="item.npwp && item.npwp !== '-' 
                                 ? 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200' 
@@ -481,11 +481,12 @@
          x-transition:leave="transition ease-in duration-150"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"
+         @click.self="if (!editNpwpData.isSaving) editNpwpModal = false"
          class="fixed inset-0 !m-0 !mt-0 modal-overlay z-modal overflow-y-auto bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4"
          style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 1000000 !important;"
          @keydown.escape.window="if (!editNpwpData.isSaving) editNpwpModal = false">
       
-      <div @click.away="if (!editNpwpData.isSaving) editNpwpModal = false" 
+      <div @click.stop 
            class="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-100">
         
         <!-- Modal Header -->
@@ -534,7 +535,7 @@
             <input type="text" 
                    id="input-edit-npwp"
                    x-model="editNpwpData.inputNpwp" 
-                   placeholder="Contoh: 08.123.456.7-413.000 atau 15-16 digit angka"
+                   placeholder="Contoh: 7751 (4 digit awal) atau 08.123.456.7-413.000"
                    class="form-input text-xs font-mono font-medium py-2.5 px-3.5 w-full rounded-xl bg-slate-50 focus:bg-white"
                    :disabled="editNpwpData.isSaving">
             
@@ -707,8 +708,8 @@ function ncrAdminPage() {
       const rawVal = (this.editNpwpData.inputNpwp || '').trim();
       const digits = rawVal.replace(/\D/g, '');
 
-      if (rawVal !== '' && digits.length !== 15 && digits.length !== 16) {
-        this.editNpwpData.errorMsg = 'Nomor NPWP harus berjumlah 15 atau 16 digit angka (contoh: 08.123.456.7-413.000).';
+      if (rawVal !== '' && digits.length !== 4 && digits.length !== 15 && digits.length !== 16) {
+        this.editNpwpData.errorMsg = 'Nomor NPWP harus berupa 4 digit awal (PIN slip) atau 15/16 digit NPWP lengkap.';
         return;
       }
 

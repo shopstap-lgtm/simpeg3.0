@@ -270,19 +270,23 @@ export const ncrAdminController = {
 
       if (rawVal) {
         const digits = rawVal.replace(/\D/g, '');
-        if (digits.length !== 15 && digits.length !== 16) {
+        if (digits.length !== 4 && digits.length !== 15 && digits.length !== 16) {
           return res.status(400).json({
             success: false,
-            message: 'Nomor NPWP harus berjumlah 15 atau 16 digit angka.'
+            message: 'Nomor NPWP harus berupa 4 digit awal (PIN slip) atau 15/16 digit NPWP lengkap.'
           });
         }
 
-        if (digits.length === 15) {
+        if (digits.length === 4) {
+          npwpFirst4 = digits;
+          formattedNpwp = `${digits}•••• (4 Digit Awal)`;
+        } else if (digits.length === 15) {
           formattedNpwp = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}.${digits.slice(8, 9)}-${digits.slice(9, 12)}.${digits.slice(12, 15)}`;
+          npwpFirst4 = digits.slice(0, 4);
         } else {
           formattedNpwp = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}.${digits.slice(8, 9)}-${digits.slice(9, 12)}.${digits.slice(12, 16)}`;
+          npwpFirst4 = digits.slice(0, 4);
         }
-        npwpFirst4 = digits.slice(0, 4);
       }
 
       // 1. Update NcrEmployeePage
@@ -302,13 +306,14 @@ export const ncrAdminController = {
         }
       });
 
-      // 2. Sync to Master Employee table
-      if (updatedPage.employeeId) {
-        await prisma.employee.update({
+      // 2. Sync to Master Employee table (safe updateMany)
+      if (updatedPage.employeeId && formattedNpwp) {
+        await prisma.employee.updateMany({
           where: { id: updatedPage.employeeId },
           data: { npwp: formattedNpwp }
         });
-      } else if (updatedPage.nip) {
+      }
+      if (updatedPage.nip && formattedNpwp) {
         await prisma.employee.updateMany({
           where: { nip: updatedPage.nip },
           data: { npwp: formattedNpwp }
@@ -316,7 +321,7 @@ export const ncrAdminController = {
       }
 
       // 3. Sync to other periods with the same NIP for consistency
-      if (updatedPage.nip && formattedNpwp) {
+      if (updatedPage.nip) {
         await prisma.ncrEmployeePage.updateMany({
           where: { nip: updatedPage.nip },
           data: {
@@ -329,7 +334,7 @@ export const ncrAdminController = {
       return res.json({
         success: true,
         message: formattedNpwp 
-          ? `NPWP pegawai '${updatedPage.nama}' berhasil disimpan (${formattedNpwp}). Kode verifikasi: ${npwpFirst4}••••.`
+          ? `NPWP/PIN pegawai '${updatedPage.nama}' berhasil disimpan (${formattedNpwp}). Kode verifikasi slip: ${npwpFirst4}••••.`
           : `NPWP pegawai '${updatedPage.nama}' berhasil dikosongkan.`,
         npwp: formattedNpwp || '-',
         npwpFirst4: npwpFirst4 || '-',

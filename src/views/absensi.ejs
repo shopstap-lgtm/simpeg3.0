@@ -12,35 +12,36 @@
         isSuperAdminOrDinas: <%= isSuperAdminOrDinas ? 'true' : 'false' %>,
         currentBulan: <%= bulan %>,
         isDefaultPeriod: <%= isDefaultPeriod ? 'true' : 'false' %>,
-        klarifikasiConfig: <%= JSON.stringify(typeof klarifikasiConfig !== 'undefined' ? klarifikasiConfig : { month: 7, praRekapEnabled: false, praRekapDates: 'ALL', nlEnabled: false, nlDates: 'ALL', pcEnabled: false, pcDates: 'ALL' }) %>,
+        klarifikasiConfig: <%= JSON.stringify(typeof klarifikasiConfig !== 'undefined' ? klarifikasiConfig : { policies: {} }) %>,
 
         isStatusEligibleForKlarifikasi(status, dayNumber) {
           if (status === 'TK' || status === 'DL_KUNING') return true;
 
-          const activeMonth = this.klarifikasiConfig.month || <%= activeDefaultMonth %>;
-          if (this.currentBulan !== activeMonth) return false;
+          // Get the policy for the currently viewed month
+          const monthPolicy = (this.klarifikasiConfig.policies || {})[String(this.currentBulan)];
+          if (!monthPolicy) return false;
 
           // Pra-Rekap (Hari Kosong / EMPTY)
           if (status === 'EMPTY') {
-            if (!this.klarifikasiConfig.praRekapEnabled) return false;
-            if (this.klarifikasiConfig.praRekapDates === 'ALL') return true;
-            const allowed = this.klarifikasiConfig.praRekapDates.split(',').map(d => parseInt(d.trim())).filter(Boolean);
+            if (!monthPolicy.praRekapEnabled) return false;
+            if (monthPolicy.praRekapDates === 'ALL') return true;
+            const allowed = String(monthPolicy.praRekapDates).split(',').map(d => parseInt(d.trim())).filter(Boolean);
             return allowed.includes(dayNumber);
           }
 
           // NL (HADIR / NL - Hadir Normal)
           if (status === 'HADIR' || status === 'NL') {
-            if (!this.klarifikasiConfig.nlEnabled) return false;
-            if (this.klarifikasiConfig.nlDates === 'ALL') return true;
-            const allowed = this.klarifikasiConfig.nlDates.split(',').map(d => parseInt(d.trim())).filter(Boolean);
+            if (!monthPolicy.nlEnabled) return false;
+            if (monthPolicy.nlDates === 'ALL') return true;
+            const allowed = String(monthPolicy.nlDates).split(',').map(d => parseInt(d.trim())).filter(Boolean);
             return allowed.includes(dayNumber);
           }
 
           // TL & PC (Terlambat & Pulang Cepat)
           if (status === 'PC' || status === 'TL') {
-            if (!this.klarifikasiConfig.pcEnabled) return false;
-            if (this.klarifikasiConfig.pcDates === 'ALL') return true;
-            const allowed = this.klarifikasiConfig.pcDates.split(',').map(d => parseInt(d.trim())).filter(Boolean);
+            if (!monthPolicy.pcEnabled) return false;
+            if (monthPolicy.pcDates === 'ALL') return true;
+            const allowed = String(monthPolicy.pcDates).split(',').map(d => parseInt(d.trim())).filter(Boolean);
             return allowed.includes(dayNumber);
           }
 
@@ -282,10 +283,11 @@
             } else if (dayObj.status === 'EMPTY') {
               alert('Pengajuan klarifikasi pra-rekap (hari kosong) untuk tanggal ' + dayObj.tanggal + ' belum dibuka oleh Admin Korwil.');
             } else {
+              const _mp = (this.klarifikasiConfig.policies || {})[String(this.currentBulan)] || {};
               let msg = 'Hanya presensi berstatus Tanpa Keterangan (TK) dan DL Belum Sesuai (DL Kuning)';
-              if (this.klarifikasiConfig.praRekapEnabled) msg += ', serta Pra-Rekap (Hari Kosong) pada tanggal yang dibuka';
-              if (this.klarifikasiConfig.nlEnabled) msg += ', serta Hadir Normal (NL) pada tanggal yang dibuka';
-              if (this.klarifikasiConfig.pcEnabled) msg += ', serta Terlambat (TL) & Pulang Cepat (PC) pada tanggal yang dibuka';
+              if (_mp.praRekapEnabled) msg += ', serta Pra-Rekap (Hari Kosong) pada tanggal yang dibuka';
+              if (_mp.nlEnabled) msg += ', serta Hadir Normal (NL) pada tanggal yang dibuka';
+              if (_mp.pcEnabled) msg += ', serta Terlambat (TL) & Pulang Cepat (PC) pada tanggal yang dibuka';
               alert(msg + ' yang dapat diajukan klarifikasi.');
             }
           }
@@ -336,10 +338,11 @@
           });
 
           if (!this.isAdmin && this.eligibleDays.length === 0) {
+            const _mp2 = (this.klarifikasiConfig.policies || {})[String(this.currentBulan)] || {};
             let msg = 'Pegawai ' + emp.nama + ' tidak memiliki presensi berstatus TK atau DL Kuning';
-            if (this.klarifikasiConfig.praRekapEnabled) msg += ' / Pra-Rekap';
-            if (this.klarifikasiConfig.nlEnabled) msg += ' / NL';
-            if (this.klarifikasiConfig.pcEnabled) msg += ' / TL & PC';
+            if (_mp2.praRekapEnabled) msg += ' / Pra-Rekap';
+            if (_mp2.nlEnabled) msg += ' / NL';
+            if (_mp2.pcEnabled) msg += ' / TL & PC';
             msg += ' pada tanggal yang dibuka untuk klarifikasi.';
             alert(msg);
             return;
