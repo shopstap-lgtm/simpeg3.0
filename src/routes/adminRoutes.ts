@@ -15,6 +15,7 @@ import { unitKerjaController } from '../controllers/admin/unitKerjaController';
 import { fileManagerController } from '../controllers/admin/fileManagerController';
 import { ncrAdminController } from '../controllers/admin/ncrAdminController';
 import { formController } from '../controllers/admin/formController';
+import { sheetAdminController } from '../controllers/admin/sheetAdminController';
 import { requireAdmin, requireSuperAdmin, requireSuperAdminOrDinas, requireNonDinas } from '../middleware/requireAdmin';
 
 const router = Router();
@@ -182,5 +183,24 @@ router.post('/forms/:id/delete', requireNonDinas, formController.delete);
 router.get('/forms/:id/responses', requireNonDinas, formController.responses);
 router.post('/forms/:id/responses/:responseId/delete', requireNonDinas, formController.deleteResponse);
 router.get('/forms/:id/export-excel', requireNonDinas, formController.exportExcel);
+
+// 10. Kelola Spreadsheet Dinamis (Google Sheet Builder - Super Admin & Admin Korwil)
+router.get('/sheets', requireNonDinas, sheetAdminController.list);
+router.get('/sheets/create', requireNonDinas, sheetAdminController.renderCreate);
+router.post('/sheets/create', requireNonDinas, sheetAdminController.create);
+router.get('/sheets/:id/edit', requireNonDinas, sheetAdminController.renderEdit);
+router.post('/sheets/:id/edit', requireNonDinas, sheetAdminController.update);
+router.get('/sheets/:id/manage', requireNonDinas, sheetAdminController.manage);
+router.post('/sheets/:id/rows', requireNonDinas, sheetAdminController.addRow);
+router.post('/sheets/:id/rows/:rowId', requireNonDinas, sheetAdminController.saveRow);
+router.post('/sheets/:id/rows/:rowId/delete', requireNonDinas, sheetAdminController.deleteRow);
+router.post('/sheets/:id/bulk-save', requireNonDinas, sheetAdminController.bulkSave);
+router.get('/sheets/:id/export', requireNonDinas, sheetAdminController.exportXlsx);
+router.post('/sheets/:id/toggle-status', requireNonDinas, sheetAdminController.toggleStatus);
+router.post('/sheets/:id/delete', requireNonDinas, sheetAdminController.deleteSheet);
+router.post('/sheets/:id/columns', requireNonDinas, sheetAdminController.addColumn);
+router.post('/sheets/:id/columns/:colKey/delete', requireNonDinas, sheetAdminController.deleteColumn);
+router.post('/sheets/:id/columns/update', requireNonDinas, sheetAdminController.updateColumns);
+router.post('/sheets/:id/columns/visibility', requireNonDinas, sheetAdminController.updateColumnsVisibility);
 
 export default router;

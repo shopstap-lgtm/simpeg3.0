@@ -8,6 +8,7 @@ import { absensiController } from '../controllers/absensiController';
 import { ekinerjaController } from '../controllers/ekinerjaController';
 import { ncrPublicController } from '../controllers/ncrPublicController';
 import { publicFormController } from '../controllers/publicFormController';
+import { sheetPublicController } from '../controllers/sheetPublicController';
 import { checkMaintenance } from '../middleware/maintenanceMiddleware';
 
 const router = Router();
@@ -81,5 +82,12 @@ router.post('/ncr-gaji/download', checkMaintenance('ncr', 'NCR Gaji Pegawai'), n
 router.get('/form/:slug', publicFormController.renderForm);
 router.post('/form/:slug/submit', formDiskUpload.any(), publicFormController.submitForm);
 router.get('/form/:slug/success', publicFormController.renderSuccess);
+
+// Online Spreadsheets (Google Sheet Builder - Public & Grid Entry)
+router.get('/sheet/:slug', sheetPublicController.show);
+router.post('/sheet/:slug/verify-nip', sheetPublicController.verifyNip);
+router.post('/sheet/:slug/save-row', sheetPublicController.saveRow);
+router.post('/sheet/:slug/bulk-save', sheetPublicController.bulkSave);
+router.get('/sheet/:slug/export', sheetPublicController.exportXlsx);
 
 export default router;

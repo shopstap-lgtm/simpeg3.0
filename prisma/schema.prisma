@@ -284,4 +284,54 @@ model FormResponse {
   @@index([nip])
 }
 
+model DataSheet {
+  id                  String         @id @default(cuid())
+  slug                String         @unique
+  title               String
+  description         String?
+  targetType          String         @default("CUSTOM")   // "UNIT" | "PEGAWAI" | "CUSTOM"
+  accessMode          String         @default("PUBLIC_VIEW") // "PUBLIC_VIEW" | "PROTECTED_NIP" | "OPEN_EDIT"
+  status              String         @default("ACTIVE")   // "ACTIVE" | "CLOSED" | "DRAFT"
+  columns             Json           // Array of { key: string, label: string, type: string, options?: string[], required?: boolean, width?: number }
+  allowBulkPaste      Boolean        @default(true)
+  allowPublicExport   Boolean        @default(true)
+  requirePin          Boolean        @default(false)      // In PROTECTED_NIP mode, also verify 4-digit PIN
+  createdBy           String?
+
+  rows                DataSheetRow[]
+
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([slug])
+  @@index([status])
+  @@index([targetType])
+}
+
+model DataSheetRow {
+  id              String      @id @default(cuid())
+  sheetId         String
+  rowIndex        Int         @default(0)
+  entityType      String      @default("CUSTOM") // "UNIT" | "PEGAWAI" | "CUSTOM"
+  entityId        String?     // reference to UnitKerja.id or Employee.id
+  identifier      String?     // NIP (for PEGAWAI) or Kode Unit (for UNIT)
+  label           String?     // Nama Pegawai / Nama Unit
+  subLabel        String?     // Nama Unit Kerja / Jabatan
+  data            Json        // { [colKey]: string | number | boolean }
+  isLocked        Boolean     @default(false)
+  lastUpdatedBy   String?
+  lastUpdatedAt   DateTime    @default(now())
+
+  sheet           DataSheet   @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([sheetId])
+  @@index([identifier])
+  @@index([entityId])
+  @@index([rowIndex])
+}
+
+
 
