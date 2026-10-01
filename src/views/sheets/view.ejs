@@ -598,12 +598,13 @@
   <!-- FLOATING FILTER & SORT DROPDOWN (Fixed position to never get clipped by table bounds) -->
   <div x-show="activeFilterCol"
        x-cloak
-       @click.away="activeFilterCol = null"
-       :style="`position: fixed; top: ${filterDropdownPos.top}px; left: ${filterDropdownPos.left}px; width: 280px; z-index: 9999;`"
-       class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-3.5 space-y-3 text-xs animate-in fade-in zoom-in-95 duration-100">
+       x-ref="filterDropdown"
+       @click.away="activeFilterCol = null; activeFilterBtn = null"
+       :style="`position: fixed; top: ${filterDropdownPos.top}px; left: ${filterDropdownPos.left}px; width: 280px; max-height: ${filterDropdownPos.maxHeight || '460px'}; z-index: 9999;`"
+       class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-3.5 space-y-3 text-xs overflow-y-auto scrollbar-thin animate-in fade-in zoom-in-95 duration-100 flex flex-col">
     
     <!-- Popover Header -->
-    <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+    <div class="flex items-center justify-between pb-2 border-b border-slate-100 shrink-0">
       <div class="truncate pr-2">
         <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Filter & Urutkan Kolom</span>
         <span class="font-extrabold text-slate-900 text-xs truncate block" x-text="activeFilterLabel"></span>
@@ -683,7 +684,7 @@
     </div>
 
     <!-- Popover Footer Action Buttons -->
-    <div class="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+    <div class="pt-2 border-t border-slate-100 flex items-center justify-between gap-2 shrink-0">
       <button type="button"
               @click="resetColumnFilter(activeFilterCol)"
               class="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer">
@@ -794,9 +795,10 @@
       activeSort: { colKey: null, direction: 'asc' },
       columnFilters: {}, // { [colKey]: string[] of allowed values }
       activeFilterCol: null,
+      activeFilterBtn: null,
       activeFilterLabel: '',
       filterSearchText: '',
-      filterDropdownPos: { top: 0, left: 0 },
+      filterDropdownPos: { top: 0, left: 0, maxHeight: '460px' },
 
       init() {
         if (window.lucide) {
@@ -808,6 +810,15 @@
             this.startSessionTimer(180);
           }
         }
+
+        // Reposition filter popover dynamically on scroll (window or table container) and window resize
+        window.addEventListener('scroll', () => {
+          if (this.activeFilterCol) this.repositionFilterDropdown();
+        }, { passive: true, capture: true });
+
+        window.addEventListener('resize', () => {
+          if (this.activeFilterCol) this.repositionFilterDropdown();
+        }, { passive: true });
       },
 
       isIdentityColumn(col) {
@@ -899,30 +910,70 @@
       openFilterDropdown(colKey, colLabel, event) {
         if (this.activeFilterCol === colKey) {
           this.activeFilterCol = null;
+          this.activeFilterBtn = null;
           return;
         }
         this.activeFilterCol = colKey;
         this.activeFilterLabel = colLabel || colKey;
         this.filterSearchText = '';
+        this.activeFilterBtn = event.currentTarget;
 
-        const btn = event.currentTarget;
-        const rect = btn.getBoundingClientRect();
-        const popoverWidth = 280;
+        this.repositionFilterDropdown();
+
+        this.$nextTick(() => {
+          this.repositionFilterDropdown();
+          if (window.lucide) window.lucide.createIcons();
+        });
+      },
+
+      repositionFilterDropdown() {
+        if (!this.activeFilterCol || !this.activeFilterBtn) return;
+        const rect = this.activeFilterBtn.getBoundingClientRect();
         
+        // If button is completely off screen, close the dropdown
+        if (rect.bottom < 40 || rect.top > window.innerHeight - 20) {
+          this.activeFilterCol = null;
+          this.activeFilterBtn = null;
+          return;
+        }
+
+        const popoverWidth = 280;
         let left = rect.left;
         if (left + popoverWidth > window.innerWidth - 16) {
           left = window.innerWidth - popoverWidth - 16;
         }
         if (left < 16) left = 16;
 
-        this.filterDropdownPos = {
-          top: Math.round(rect.bottom + 6),
-          left: Math.round(left)
-        };
+        const popoverEl = this.$refs.filterDropdown;
+        const popoverHeight = popoverEl ? popoverEl.offsetHeight : 360;
+        const margin = 6;
+        
+        const spaceBelow = window.innerHeight - rect.bottom - margin - 12;
+        const spaceAbove = rect.top - margin - 12;
 
-        this.$nextTick(() => {
-          if (window.lucide) window.lucide.createIcons();
-        });
+        let top;
+        let maxHeight;
+
+        // If there is enough space below (at least 260px) or space below is greater than space above
+        if (spaceBelow >= Math.min(popoverHeight, 260) || spaceBelow >= spaceAbove) {
+          top = rect.bottom + margin;
+          maxHeight = Math.max(180, spaceBelow);
+        } else {
+          // Open upwards
+          top = Math.max(12, rect.top - popoverHeight - margin);
+          maxHeight = Math.max(180, spaceAbove);
+        }
+
+        // Safety check to ensure bottom never overflows viewport
+        if (top + Math.min(popoverHeight, maxHeight) > window.innerHeight - 12) {
+          top = Math.max(12, window.innerHeight - Math.min(popoverHeight, maxHeight) - 12);
+        }
+
+        this.filterDropdownPos = {
+          top: Math.round(top),
+          left: Math.round(left),
+          maxHeight: `${Math.round(maxHeight)}px`
+        };
       },
 
       applySort(colKey, direction) {
