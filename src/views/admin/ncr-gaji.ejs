@@ -80,11 +80,11 @@
         <i data-lucide="shield-check" class="w-5 h-5"></i>
       </div>
       <div class="space-y-1">
-        <h3 class="text-sm font-bold text-blue-950">Mekanisme Cerdas Pemotongan & Keamanan NCR Gaji</h3>
+        <h3 class="text-sm font-bold text-blue-950">Mekanisme Cerdas Pemotongan & Pengunduhan NCR Gaji</h3>
         <p class="text-xs text-blue-800/90 leading-relaxed max-w-4xl">
-          1. <strong>Filter Otomatis Wilayah:</strong> Anda cukup mengunggah 1 file PDF NCR utuh se-Kabupaten. Sistem akan mendeteksi unit kerja sekolah di Cibitung dan otomatis membuang ribuan halaman kecamatan lain.<br>
-          2. <strong>Deteksi & Sinkronisasi NPWP:</strong> Nomor NPWP pada halaman gaji dideteksi dan disinkronkan ke database pegawai secara otomatis.<br>
-          3. <strong>Verifikasi Publik:</strong> Pegawai yang mengunduh slip gaji di halaman publik wajib memvalidasi <strong>4 digit awal NPWP</strong> untuk keamanan privasi gaji.
+          1. <strong>Filter & Penggabungan Multi-Berkas:</strong> Anda dapat mengunggah <strong>1 hingga 5 berkas PDF</strong> Master NCR sekaligus. Sistem otomatis memindai seluruh sekolah Cibitung dan menggabungkannya ke 1 dokumen ringkas Cibitung (membuang halaman kecamatan lain).<br>
+          2. <strong>Deteksi & Sinkronisasi NPWP:</strong> Nomor NPWP pada lembar gaji tetap dideteksi otomatis ke database pegawai.<br>
+          3. <strong>Akses Publik Langsung:</strong> Verifikasi 4 digit NPWP dinonaktifkan, sehingga pegawai dapat langsung memilih nama/NIP dan mengunduh slip gajinya secara instan tanpa kendala credential NPWP.
         </p>
       </div>
     </div>
@@ -278,23 +278,62 @@
           </div>
 
           <div>
-            <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
-              Berkas PDF Master NCR (1 Kabupaten) *
-            </label>
-            <input type="file" name="file" accept=".pdf,application/pdf" required 
+            <div class="flex items-center justify-between mb-1">
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-700">
+                Berkas PDF Master NCR (1 s.d. 5 File) *
+              </label>
+              <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                Maksimal 5 File PDF
+              </span>
+            </div>
+
+            <input type="file" 
+                   name="files" 
+                   multiple 
+                   accept=".pdf,application/pdf" 
+                   required 
+                   @change="handleFilesSelected($event)"
                    class="block w-full text-xs text-slate-500 file:mr-4 file:py-2.5 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border border-slate-200 rounded-xl p-1 bg-slate-50 cursor-pointer">
+
             <p class="text-[11px] text-slate-400 mt-1">
-              Maksimal 250 MB. Format harus berkas .PDF asli hasil sistem payroll.
+              Anda dapat memilih 1 hingga 5 berkas PDF sekaligus (misal: PNS & PPPK atau Part 1 & Part 2). Sistem akan menggabungkannya menjadi 1 kesatuan.
             </p>
+
+            <!-- Error message if more than 5 files selected -->
+            <template x-if="fileError">
+              <div class="mt-2 p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-semibold flex items-center gap-2">
+                <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
+                <span x-text="fileError"></span>
+              </div>
+            </template>
+
+            <!-- Preview selected files list -->
+            <template x-if="selectedFilesList.length > 0">
+              <div class="mt-2.5 space-y-1.5 p-2.5 bg-slate-50 border border-slate-200 rounded-xl max-h-36 overflow-y-auto">
+                <div class="text-[10px] uppercase font-bold text-slate-400 tracking-wider flex items-center justify-between">
+                  <span>Berkas Terpilih (<span x-text="selectedFilesList.length"></span>/5):</span>
+                  <span class="text-indigo-600 font-bold" x-text="totalSelectedSize"></span>
+                </div>
+                <template x-for="(file, index) in selectedFilesList" :key="index">
+                  <div class="flex items-center justify-between gap-2 p-1.5 bg-white rounded-lg border border-slate-100 text-xs">
+                    <div class="flex items-center gap-1.5 min-w-0">
+                      <i data-lucide="file-text" class="w-3.5 h-3.5 text-rose-500 shrink-0"></i>
+                      <span class="truncate font-semibold text-slate-700" x-text="file.name"></span>
+                    </div>
+                    <span class="text-[10px] font-mono font-bold text-slate-400 shrink-0" x-text="formatFileSize(file.size)"></span>
+                  </div>
+                </template>
+              </div>
+            </template>
           </div>
 
           <div class="bg-amber-50 border border-amber-200/80 rounded-xl p-3 text-[11px] text-amber-800 space-y-1">
             <div class="font-bold flex items-center gap-1.5 text-amber-900">
               <i data-lucide="info" class="w-3.5 h-3.5"></i>
-              <span>Proses Filter Otomatis:</span>
+              <span>Proses Filter & Penggabungan Otomatis:</span>
             </div>
             <p>
-              Sistem akan memindai seluruh halaman PDF, menyaring hanya sekolah di Cibitung, mengekstrak NPWP pegawai, dan membuang halaman kecamatan lain. Proses mungkin membutuhkan waktu beberapa detik tergantung ketebalan halaman.
+              Sistem akan memindai seluruh berkas PDF yang dipilih, mengumpulkan seluruh halaman sekolah di Cibitung, mengekstrak NPWP, dan menggabungkannya ke dalam 1 dokumen ringkas master Cibitung.
             </p>
           </div>
 
@@ -310,7 +349,9 @@
             <button type="button" @click="uploadModal = false" class="btn-secondary py-2 px-4 text-xs cursor-pointer">
               Batal
             </button>
-            <button type="submit" class="btn-primary py-2 px-5 text-xs gap-2 cursor-pointer">
+            <button type="submit" 
+                    :disabled="!!fileError || selectedFilesList.length === 0"
+                    class="btn-primary py-2 px-5 text-xs gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed">
               <i data-lucide="check" class="w-4 h-4"></i>
               <span>Proses & Simpan NCR</span>
             </button>
@@ -621,13 +662,54 @@ function ncrAdminPage() {
     bulan: <%= typeof currentMonth !== 'undefined' ? currentMonth : 9 %>,
     tahun: <%= typeof currentYear !== 'undefined' ? currentYear : 2026 %>,
 
+    selectedFilesList: [],
+    fileError: '',
+
     openUploadModal() {
       this.uploadModal = true;
+      this.selectedFilesList = [];
+      this.fileError = '';
       this.$nextTick(() => {
         if (window.lucide) {
           lucide.createIcons();
         }
       });
+    },
+
+    handleFilesSelected(event) {
+      this.fileError = '';
+      const files = Array.from(event.target.files || []);
+      if (files.length > 5) {
+        this.fileError = `Anda memilih ${files.length} file. Maksimal yang diizinkan adalah 5 berkas PDF sekaligus.`;
+        this.selectedFilesList = [];
+        event.target.value = '';
+        return;
+      }
+
+      this.selectedFilesList = files.map(f => ({
+        name: f.name,
+        size: f.size
+      }));
+
+      this.$nextTick(() => {
+        if (window.lucide) {
+          lucide.createIcons();
+        }
+      });
+    },
+
+    formatFileSize(bytes) {
+      if (!bytes || bytes === 0) return '0 B';
+      const k = 1024;
+      const dm = 1;
+      const sizes = ['B', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    },
+
+    get totalSelectedSize() {
+      const sum = this.selectedFilesList.reduce((acc, f) => acc + (f.size || 0), 0);
+      return this.formatFileSize(sum);
     },
 
     filteredPages() {

@@ -78,13 +78,36 @@ export const ncrAdminController = {
   },
 
   uploadMaster: async (req: Request, res: Response) => {
-    const file = req.file;
+    const uploadedFiles: Express.Multer.File[] = [];
+    if (req.files) {
+      if (Array.isArray(req.files)) {
+        uploadedFiles.push(...req.files);
+      } else {
+        const filesObj = req.files as { [fieldname: string]: Express.Multer.File[] };
+        if (filesObj.files) uploadedFiles.push(...filesObj.files);
+        if (filesObj.file) uploadedFiles.push(...filesObj.file);
+      }
+    } else if (req.file) {
+      uploadedFiles.push(req.file);
+    }
+
     const { bulan, tahun } = req.body;
 
-    if (!file) {
+    if (uploadedFiles.length === 0) {
       (req as any).session.toast = {
         type: 'error',
-        message: 'Silakan pilih berkas PDF Master NCR Gaji yang akan diunggah.'
+        message: 'Silakan pilih setidaknya 1 berkas PDF Master NCR Gaji yang akan diunggah (maksimal 5 berkas).'
+      };
+      return res.redirect('/admin/ncr-gaji');
+    }
+
+    if (uploadedFiles.length > 5) {
+      for (const f of uploadedFiles) {
+        try { if (fs.existsSync(f.path)) fs.unlinkSync(f.path); } catch (e) {}
+      }
+      (req as any).session.toast = {
+        type: 'error',
+        message: 'Maksimal 5 berkas PDF yang dapat diunggah sekaligus.'
       };
       return res.redirect('/admin/ncr-gaji');
     }
@@ -93,8 +116,10 @@ export const ncrAdminController = {
     const tahunNum = parseInt(tahun, 10);
 
     if (!bulanNum || bulanNum < 1 || bulanNum > 12 || !tahunNum || tahunNum < 2000) {
-      // Clean up uploaded file
-      try { fs.unlinkSync(file.path); } catch (e) { /* ignore */ }
+      // Clean up uploaded files
+      for (const f of uploadedFiles) {
+        try { if (fs.existsSync(f.path)) fs.unlinkSync(f.path); } catch (e) {}
+      }
       (req as any).session.toast = {
         type: 'error',
         message: 'Bulan atau tahun periode NCR tidak valid.'
@@ -105,39 +130,47 @@ export const ncrAdminController = {
     try {
       const adminName = (req as any).session?.user?.namaLengkap || 'Admin Korwil';
 
+      const filePayload = uploadedFiles.map(f => ({
+        filePath: f.path,
+        fileName: f.originalname
+      }));
+
       const result = await ncrPdfService.processMasterNcrPdf({
-        filePath: file.path,
-        fileName: file.originalname,
+        files: filePayload,
         bulan: bulanNum,
         tahun: tahunNum,
         uploadedBy: adminName
       });
 
-      // Safely delete raw uploaded master file since filtered version is saved
-      try {
-        if (fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
+      // Safely delete raw uploaded master files since filtered version is saved
+      for (const f of uploadedFiles) {
+        try {
+          if (fs.existsSync(f.path)) {
+            fs.unlinkSync(f.path);
+          }
+        } catch (err) {
+          console.warn('[ncrAdminController] Could not remove temp uploaded file:', err);
         }
-      } catch (err) {
-        console.warn('[ncrAdminController] Could not remove temp uploaded file:', err);
       }
 
       const namaBulan = MONTH_NAMES[bulanNum] || `Bulan ${bulanNum}`;
       (req as any).session.toast = {
         type: 'success',
-        message: `Berhasil memproses NCR Gaji ${namaBulan} ${tahunNum}! Menyimpan ${result.totalFilteredPages} halaman sekolah Cibitung dari total ${result.totalOriginalPages} halaman se-Kabupaten (${result.discardedPagesCount} halaman kecamatan lain dibuang). Terindeks ${result.totalEmployeesMatched} pegawai.`
+        message: `Berhasil memproses NCR Gaji ${namaBulan} ${tahunNum}! Menyimpan ${result.totalFilteredPages} halaman sekolah Cibitung dari total ${result.totalOriginalPages} halaman (${result.discardedPagesCount} halaman kecamatan lain dibuang). Terindeks ${result.totalEmployeesMatched} pegawai dari ${uploadedFiles.length} berkas PDF.`
       };
 
       res.redirect('/admin/ncr-gaji');
     } catch (error: any) {
       console.error('[ncrAdminController.uploadMaster] Error processing PDF:', error);
 
-      // Clean up uploaded file
-      try {
-        if (fs.existsSync(file.path)) {
-          fs.unlinkSync(file.path);
-        }
-      } catch (e) { /* ignore */ }
+      // Clean up uploaded files
+      for (const f of uploadedFiles) {
+        try {
+          if (fs.existsSync(f.path)) {
+            fs.unlinkSync(f.path);
+          }
+        } catch (e) { /* ignore */ }
+      }
 
       (req as any).session.toast = {
         type: 'error',

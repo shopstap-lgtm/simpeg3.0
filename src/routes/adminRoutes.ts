@@ -184,7 +184,7 @@ router.post('/files/standardize-names', requireMenuAccess('files'), fileManagerC
 
 // 8. Kelola Master NCR Gaji
 router.get('/ncr-gaji', requireMenuAccess('ncr_gaji'), ncrAdminController.show);
-router.post('/ncr-gaji/upload', requireMenuAccess('ncr_gaji'), ncrDiskUpload.single('file'), ncrAdminController.uploadMaster);
+router.post('/ncr-gaji/upload', requireMenuAccess('ncr_gaji'), ncrDiskUpload.fields([{ name: 'files', maxCount: 5 }, { name: 'file', maxCount: 1 }]), ncrAdminController.uploadMaster);
 router.get('/ncr-gaji/:id/detail', requireMenuAccess('ncr_gaji'), ncrAdminController.detail);
 router.post('/ncr-gaji/update-npwp', requireMenuAccess('ncr_gaji'), ncrAdminController.updateNpwp);
 router.post('/ncr-gaji/:id/delete', requireMenuAccess('ncr_gaji'), ncrAdminController.deletePeriod);

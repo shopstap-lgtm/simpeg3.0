@@ -26,9 +26,15 @@ export interface ProcessNcrResult {
   matchedUnits: string[];
 }
 
-export interface ProcessNcrOptions {
+export interface ProcessNcrFileItem {
   filePath: string;
   fileName: string;
+}
+
+export interface ProcessNcrOptions {
+  files?: ProcessNcrFileItem[];
+  filePath?: string;
+  fileName?: string;
   bulan: number;
   tahun: number;
   uploadedBy?: string;
@@ -128,15 +134,25 @@ export const ncrPdfService = {
    * 5. Persists NcrPeriod and NcrEmployeePage in database
    */
   async processMasterNcrPdf(options: ProcessNcrOptions): Promise<ProcessNcrResult> {
-    const { filePath, fileName, bulan, tahun, uploadedBy = 'Admin Korwil' } = options;
+    const { bulan, tahun, uploadedBy = 'Admin Korwil' } = options;
 
-    console.log(`[ncrPdfService] Starting master NCR processing for ${bulan}/${tahun}... File: ${filePath}`);
-    const originalFileBuffer = await fs.promises.readFile(filePath);
+    const inputFiles: ProcessNcrFileItem[] = [];
+    if (options.files && options.files.length > 0) {
+      inputFiles.push(...options.files);
+    } else if (options.filePath && options.fileName) {
+      inputFiles.push({ filePath: options.filePath, fileName: options.fileName });
+    }
 
-const CIBITUNG_KEYWORDS = [
-  'cibitung', 'wanasari', 'wanajaya', 'kertamukti',
-  'muktiwari', 'sarimukti', 'sukajaya', 'cibuntu'
-];
+    if (inputFiles.length === 0) {
+      throw new Error('Tidak ada berkas PDF Master NCR yang diberikan.');
+    }
+
+    console.log(`[ncrPdfService] Starting master NCR processing for ${bulan}/${tahun} with ${inputFiles.length} file(s)...`);
+
+    const CIBITUNG_KEYWORDS = [
+      'cibitung', 'wanasari', 'wanajaya', 'kertamukti',
+      'muktiwari', 'sarimukti', 'sukajaya', 'cibuntu'
+    ];
 
     // 1. Fetch all reference employees in Cibitung
     const employees = await prisma.employee.findMany({
@@ -155,18 +171,11 @@ const CIBITUNG_KEYWORDS = [
       empByNip.set(cleanDigits(e.nip), e);
     }
 
-    // 2. Extract text from each page of the original PDF
-    console.log('[ncrPdfService] Extracting text with pdfjs-dist...');
-    const extractedPages = await this.extractTextFromAllPages(originalFileBuffer);
-    const totalOriginalPages = extractedPages.length;
-    console.log(`[ncrPdfService] Extracted ${totalOriginalPages} pages.`);
-
-    // 3. Filter pages belonging to Cibitung
-    const keptPageIndices: number[] = []; // 0-indexed for pdf-lib copyPages
+    let totalOriginalPages = 0;
     const matchedUnitsSet = new Set<string>();
     const employeesToUpdateNpwp = new Map<string, string>(); // employeeId -> npwp
 
-    // Map cleanNip -> unique employee page data (guarantees no duplicate records per employee)
+    // Map cleanNip -> unique employee page data
     const employeePageMap = new Map<string, {
       originalPageNumber: number;
       newFilteredPageNumber: number;
@@ -179,165 +188,188 @@ const CIBITUNG_KEYWORDS = [
       isSalaryRow: boolean;
     }>();
 
-    for (let idx = 0; idx < extractedPages.length; idx++) {
-      const { pageNumber: origPageNum, text: rawText } = extractedPages[idx];
+    // 2. Initialize consolidated PDFDocument for kept Cibitung pages
+    const filteredDoc = await PDFDocument.create();
+    let totalKeptPages = 0;
 
-      // Check Cibitung header
-      // Standard header format: [ DINAS PENDIDIKAN ] <UNIT> DAFTAR PEMBAYARAN GAJI INDUK ...
-      const headerMatch = rawText.match(/\[\s*DINAS\s+PENDIDIKAN\s*\]\s*([^]+?)\s*DAFTAR\s+PEMBAYARAN/i);
-      let isCibitungPage = false;
-      let unitNamaFromHeader = 'Korwil Cibitung';
+    // 3. Process each input PDF file
+    for (let fIdx = 0; fIdx < inputFiles.length; fIdx++) {
+      const fileItem = inputFiles[fIdx];
+      console.log(`[ncrPdfService] Processing file [${fIdx + 1}/${inputFiles.length}]: ${fileItem.fileName}`);
 
-      if (headerMatch) {
-        const headerUnit = headerMatch[1].toLowerCase().replace(/\s+/g, ' ').trim();
-        if (CIBITUNG_KEYWORDS.some(kw => headerUnit.includes(kw))) {
-          isCibitungPage = true;
-          unitNamaFromHeader = headerMatch[1].replace(/\s+/g, ' ').trim();
-          matchedUnitsSet.add(unitNamaFromHeader);
-        }
-      } else {
-        // Fallback: Check if raw text explicitly mentions Cibitung keywords
-        const lower = rawText.toLowerCase();
-        if (CIBITUNG_KEYWORDS.some(kw => lower.includes(kw))) {
-          isCibitungPage = true;
-        }
-      }
+      const fileBuffer = await fs.promises.readFile(fileItem.filePath);
+      const extractedPages = await this.extractTextFromAllPages(fileBuffer);
+      totalOriginalPages += extractedPages.length;
 
-      // Check employee matching strictly by 18-digit NIP
-      const pageMatchedEmps: {
+      const fileKeptIndices: number[] = [];
+      const fileMatchedEmpsPerPage = new Map<number, Array<{
         emp: typeof employees[0];
         cleanNip: string;
         nipIdx: number;
         snippet: string;
         isSalaryRow: boolean;
-      }[] = [];
+        rawText: string;
+        unitNamaFromHeader: string;
+        origPageNum: number;
+      }>>();
 
-      for (const [cleanNip, emp] of empByNip.entries()) {
-        if (rawText.includes(cleanNip)) {
-          const nipIdx = rawText.indexOf(cleanNip);
-          const snippet = rawText.substring(nipIdx, nipIdx + 80);
-          // In authentic salary rows, NIP is immediately followed by "( PNS - " or "( PPPK - "
-          const isSalaryRow = /\(\s*(pns|pppk)/i.test(snippet);
+      for (let idx = 0; idx < extractedPages.length; idx++) {
+        const { pageNumber: origPageNum, text: rawText } = extractedPages[idx];
 
-          if (isSalaryRow) {
+        // Check Cibitung header
+        const headerMatch = rawText.match(/\[\s*DINAS\s+PENDIDIKAN\s*\]\s*([^]+?)\s*DAFTAR\s+PEMBAYARAN/i);
+        let isCibitungPage = false;
+        let unitNamaFromHeader = 'Korwil Cibitung';
+
+        if (headerMatch) {
+          const headerUnit = headerMatch[1].toLowerCase().replace(/\s+/g, ' ').trim();
+          if (CIBITUNG_KEYWORDS.some(kw => headerUnit.includes(kw))) {
+            isCibitungPage = true;
+            unitNamaFromHeader = headerMatch[1].replace(/\s+/g, ' ').trim();
+            matchedUnitsSet.add(unitNamaFromHeader);
+          }
+        } else {
+          const lower = rawText.toLowerCase();
+          if (CIBITUNG_KEYWORDS.some(kw => lower.includes(kw))) {
             isCibitungPage = true;
           }
-
-          pageMatchedEmps.push({ emp, cleanNip, nipIdx, snippet, isSalaryRow });
         }
-      }
 
-      if (!isCibitungPage) {
-        continue;
-      }
+        const pageMatchedEmps: Array<{
+          emp: typeof employees[0];
+          cleanNip: string;
+          nipIdx: number;
+          snippet: string;
+          isSalaryRow: boolean;
+          rawText: string;
+          unitNamaFromHeader: string;
+          origPageNum: number;
+        }> = [];
 
-      // Keep this Cibitung page!
-      keptPageIndices.push(idx);
-      const newFilteredPageNumber = keptPageIndices.length; // 1-indexed in the new filtered document
+        for (const [cleanNip, emp] of empByNip.entries()) {
+          if (rawText.includes(cleanNip)) {
+            const nipIdx = rawText.indexOf(cleanNip);
+            const snippet = rawText.substring(nipIdx, nipIdx + 80);
+            const isSalaryRow = /\(\s*(pns|pppk)/i.test(snippet);
 
-      // Process matched employees for this page
-      for (const item of pageMatchedEmps) {
-        const { emp, cleanNip, nipIdx, isSalaryRow } = item;
-        const existing = employeePageMap.get(cleanNip);
-
-        // Deduplication: Only set if not existing, or if current is an authentic salary row and existing was not
-        if (!existing || (isSalaryRow && !existing.isSalaryRow)) {
-          let detectedNpwp: string | null = null;
-          // In official payroll slips, NPWP is placed near the employee's NIP (either before or after)
-          const rowSnippet = rawText.substring(Math.max(0, nipIdx - 150), Math.min(rawText.length, nipIdx + 300));
-          
-          // 1. Try matching formatted NPWP (e.g. 08.123.456.7-413.000)
-          const formattedMatches = rowSnippet.match(/\b\d{2}\.?\d{3}\.?\d{3}\.?\d{1}[-.]?\d{3}\.?\d{3}\b/g) || [];
-          for (const cand of formattedMatches) {
-            const digits = cleanDigits(cand);
-            if ((digits.length === 15 || digits.length === 16) && !digits.startsWith('19') && !digits.startsWith('20') && digits !== cleanNip) {
-              detectedNpwp = formatNpwp(digits);
-              break;
+            if (isSalaryRow) {
+              isCibitungPage = true;
             }
-          }
 
-          // 2. Fallback: match 15 or 16 continuous digits
-          if (!detectedNpwp) {
-            const npwpMatches = rowSnippet.match(/\b(\d{15,16})\b/g) || [];
-            for (const candidate of npwpMatches) {
-              if (!candidate.startsWith('19') && !candidate.startsWith('20') && candidate !== cleanNip) {
-                detectedNpwp = formatNpwp(candidate);
-                break;
+            pageMatchedEmps.push({ emp, cleanNip, nipIdx, snippet, isSalaryRow, rawText, unitNamaFromHeader, origPageNum });
+          }
+        }
+
+        if (!isCibitungPage) {
+          continue;
+        }
+
+        fileKeptIndices.push(idx);
+        fileMatchedEmpsPerPage.set(idx, pageMatchedEmps);
+      }
+
+      if (fileKeptIndices.length > 0) {
+        const srcDoc = await PDFDocument.load(fileBuffer, { ignoreEncryption: true });
+        const copiedPages = await filteredDoc.copyPages(srcDoc, fileKeptIndices);
+
+        for (let cIdx = 0; cIdx < copiedPages.length; cIdx++) {
+          filteredDoc.addPage(copiedPages[cIdx]);
+          totalKeptPages++;
+          const newFilteredPageNumber = totalKeptPages;
+          const origIdx = fileKeptIndices[cIdx];
+          const matchedEmps = fileMatchedEmpsPerPage.get(origIdx) || [];
+
+          for (const item of matchedEmps) {
+            const { emp, cleanNip, nipIdx, isSalaryRow, rawText, unitNamaFromHeader, origPageNum } = item;
+            const existing = employeePageMap.get(cleanNip);
+
+            if (!existing || (isSalaryRow && !existing.isSalaryRow)) {
+              let detectedNpwp: string | null = null;
+              const rowSnippet = rawText.substring(Math.max(0, nipIdx - 150), Math.min(rawText.length, nipIdx + 300));
+
+              const formattedMatches = rowSnippet.match(/\b\d{2}\.?\d{3}\.?\d{3}\.?\d{1}[-.]?\d{3}\.?\d{3}\b/g) || [];
+              for (const cand of formattedMatches) {
+                const digits = cleanDigits(cand);
+                if ((digits.length === 15 || digits.length === 16) && !digits.startsWith('19') && !digits.startsWith('20') && digits !== cleanNip) {
+                  detectedNpwp = formatNpwp(digits);
+                  break;
+                }
               }
+
+              if (!detectedNpwp) {
+                const npwpMatches = rowSnippet.match(/\b(\d{15,16})\b/g) || [];
+                for (const candidate of npwpMatches) {
+                  if (!candidate.startsWith('19') && !candidate.startsWith('20') && candidate !== cleanNip) {
+                    detectedNpwp = formatNpwp(candidate);
+                    break;
+                  }
+                }
+              }
+
+              const finalNpwp = detectedNpwp || emp.npwp || null;
+              const finalFirst4 = finalNpwp ? cleanDigits(finalNpwp).slice(0, 4) : null;
+
+              if (detectedNpwp && !emp.npwp) {
+                employeesToUpdateNpwp.set(emp.id, detectedNpwp);
+              }
+
+              const unitDisplayName = emp.unit?.namaUnit || unitNamaFromHeader;
+              matchedUnitsSet.add(unitDisplayName);
+
+              employeePageMap.set(cleanNip, {
+                originalPageNumber: origPageNum,
+                newFilteredPageNumber,
+                employeeId: emp.id,
+                nip: emp.nip,
+                nama: emp.nama,
+                unitNama: unitDisplayName,
+                npwp: finalNpwp,
+                npwpLast4: finalFirst4,
+                isSalaryRow
+              });
             }
           }
-
-          const finalNpwp = detectedNpwp || emp.npwp || null;
-          const finalFirst4 = finalNpwp ? cleanDigits(finalNpwp).slice(0, 4) : null;
-
-          if (detectedNpwp && !emp.npwp) {
-            employeesToUpdateNpwp.set(emp.id, detectedNpwp);
-          }
-
-          const unitDisplayName = emp.unit?.namaUnit || unitNamaFromHeader;
-          matchedUnitsSet.add(unitDisplayName);
-
-          employeePageMap.set(cleanNip, {
-            originalPageNumber: origPageNum,
-            newFilteredPageNumber,
-            employeeId: emp.id,
-            nip: emp.nip,
-            nama: emp.nama,
-            unitNama: unitDisplayName,
-            npwp: finalNpwp,
-            npwpLast4: finalFirst4,
-            isSalaryRow
-          });
         }
       }
     }
 
     const matchedEmployeePagesData = Array.from(employeePageMap.values());
+    console.log(`[ncrPdfService] Filtered result: Kept ${totalKeptPages} of ${totalOriginalPages} pages. Matched ${matchedEmployeePagesData.length} employee-page records.`);
 
-    console.log(`[ncrPdfService] Filtered result: Kept ${keptPageIndices.length} of ${totalOriginalPages} pages. Matched ${matchedEmployeePagesData.length} employee-page records.`);
-
-    if (keptPageIndices.length === 0) {
-      throw new Error('Tidak ditemukan halaman yang memuat unit kerja sekolah Cibitung atau NIP pegawai Korwil Cibitung dalam berkas PDF ini. Mohon pastikan berkas yang diunggah memuat data Kecamatan Cibitung.');
+    if (totalKeptPages === 0) {
+      throw new Error('Tidak ditemukan halaman yang memuat unit kerja sekolah Cibitung atau NIP pegawai Korwil Cibitung dalam berkas PDF yang diunggah. Mohon pastikan berkas yang diunggah memuat data Kecamatan Cibitung.');
     }
 
-    // 4. Create new compact PDF containing ONLY kept Cibitung pages using pdf-lib
-    console.log('[ncrPdfService] Creating sliced PDF document with pdf-lib...');
-    const srcDoc = await PDFDocument.load(originalFileBuffer, { ignoreEncryption: true });
-    const filteredDoc = await PDFDocument.create();
-
-    const copiedPages = await filteredDoc.copyPages(srcDoc, keptPageIndices);
-    for (const page of copiedPages) {
-      filteredDoc.addPage(page);
-    }
-
+    // 4. Save consolidated PDF containing ONLY kept Cibitung pages
     const filteredBytes = await filteredDoc.save();
     const storageDir = this.getNcrStorageDir();
     const timestamp = Date.now();
-    const cleanOrigName = fileName.replace(/[^a-zA-Z0-9._-]/g, '_');
     const filteredFileName = `ncr_cibitung_${bulan}_${tahun}_${timestamp}.pdf`;
     const targetFilePath = path.join(storageDir, filteredFileName);
     const publicRelativeUrl = `/uploads/ncr/${filteredFileName}`;
 
     await fs.promises.writeFile(targetFilePath, Buffer.from(filteredBytes));
-    console.log(`[ncrPdfService] Saved filtered PDF to ${targetFilePath} (${(filteredBytes.length / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(`[ncrPdfService] Saved consolidated filtered PDF to ${targetFilePath} (${(filteredBytes.length / 1024 / 1024).toFixed(2)} MB)`);
 
     // 5. Database transaction: Upsert NcrPeriod and NcrEmployeePage
-    console.log('[ncrPdfService] Persisting period and employee mappings to database...');
     const monthNames = [
       '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
       'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
     ];
     const periodJudul = `NCR Gaji ${monthNames[bulan] || bulan} ${tahun}`;
 
+    // Consolidated display file name
+    const displayFileName = inputFiles.length === 1 
+      ? inputFiles[0].fileName 
+      : `${inputFiles.map(f => f.fileName).join(', ').slice(0, 200)} (${inputFiles.length} Berkas PDF)`;
+
     const period = await prisma.$transaction(async (tx) => {
-      // Check existing period for this bulan & tahun
       const existing = await tx.ncrPeriod.findUnique({
         where: { bulan_tahun: { bulan, tahun } },
         select: { id: true, fileUrl: true }
       });
 
       if (existing) {
-        // Remove old filtered file if exists
         try {
           const oldFull = path.join(process.cwd(), 'public', existing.fileUrl);
           if (fs.existsSync(oldFull)) {
@@ -347,22 +379,20 @@ const CIBITUNG_KEYWORDS = [
           console.warn('[ncrPdfService] Could not remove old file:', e);
         }
 
-        // Delete old records (Cascade will remove employeePages)
         await tx.ncrPeriod.delete({
           where: { id: existing.id }
         });
       }
 
-      // Create new NcrPeriod
       const newPeriod = await tx.ncrPeriod.create({
         data: {
           bulan,
           tahun,
           judul: periodJudul,
-          fileName,
+          fileName: displayFileName,
           fileUrl: publicRelativeUrl,
           totalOriginalPages,
-          totalFilteredPages: keptPageIndices.length,
+          totalFilteredPages: totalKeptPages,
           totalEmployeesMatched: matchedEmployeePagesData.length,
           uploadedBy
         }
@@ -410,12 +440,12 @@ const CIBITUNG_KEYWORDS = [
       periodId: period.id,
       bulan,
       tahun,
-      fileName,
+      fileName: displayFileName,
       filteredFilePath: targetFilePath,
       totalOriginalPages,
-      totalFilteredPages: keptPageIndices.length,
+      totalFilteredPages: totalKeptPages,
       totalEmployeesMatched: matchedEmployeePagesData.length,
-      discardedPagesCount: totalOriginalPages - keptPageIndices.length,
+      discardedPagesCount: totalOriginalPages - totalKeptPages,
       matchedUnits: Array.from(matchedUnitsSet)
     };
   },

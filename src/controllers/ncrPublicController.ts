@@ -202,14 +202,6 @@ export const ncrPublicController = {
     }
 
     const cleanNip = cleanDigits(nip);
-    const inputFirst4 = cleanDigits(npwpFirst4 || npwpLast4 || '');
-
-    if (!inputFirst4 || inputFirst4.length !== 4) {
-      return res.status(400).json({
-        success: false,
-        message: 'Silakan masukkan tepat 4 digit awal NPWP Anda untuk verifikasi keamanan.'
-      });
-    }
 
     try {
       // Find period by ID or by bulan & tahun
@@ -259,27 +251,7 @@ export const ncrPublicController = {
         });
       }
 
-      // Determine expected first 4 digits of NPWP
-      let expectedFirst4: string | null = null;
-      if (pageRecord.npwp) {
-        expectedFirst4 = cleanDigits(pageRecord.npwp).slice(0, 4);
-      }
-      if (!expectedFirst4 && pageRecord.employee?.npwp) {
-        expectedFirst4 = cleanDigits(pageRecord.employee.npwp).slice(0, 4);
-      }
-      if (!expectedFirst4 && pageRecord.npwpLast4) {
-        expectedFirst4 = pageRecord.npwpLast4;
-      }
-
-      // Security check: NPWP first 4 validation
-      if (!expectedFirst4 || expectedFirst4 !== inputFirst4) {
-        return res.status(403).json({
-          success: false,
-          message: '4 digit awal NPWP yang Anda masukkan tidak sesuai dengan data slip gaji.'
-        });
-      }
-
-      // Extract the single-page slip PDF
+      // Extract the single-page slip PDF directly (NPWP 4-digit verification disabled)
       const slipBytes = await ncrPdfService.extractEmployeeSlipPdf(
         pageRecord.ncrPeriod.fileUrl,
         pageRecord.pageNumber

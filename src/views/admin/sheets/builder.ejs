@@ -464,6 +464,28 @@
                   Semua Format File (*)
                 </button>
               </div>
+
+              <!-- Pola Penamaan Berkas (Auto-Rename) -->
+              <div class="space-y-1.5 pt-2 border-t border-blue-200/60">
+                <div class="flex items-center justify-between">
+                  <label class="block text-[10.5px] font-bold uppercase tracking-wider text-blue-900">
+                    Pola Penamaan File Upload (Auto-Rename)
+                  </label>
+                  <span class="text-[10px] text-indigo-600 font-semibold">Otomatis di-rename rapi saat disimpan</span>
+                </div>
+                <input type="text" 
+                       x-model="col.renamePattern" 
+                       placeholder="Contoh: {NIP}_{NAMA}_{NAMA_FILE}"
+                       class="form-input text-xs py-2 px-3 rounded-xl w-full bg-white border-blue-200 font-mono text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 shadow-2xs">
+                <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
+                  <span class="text-[10px] text-slate-500 font-medium">Tag bantuan:</span>
+                  <button type="button" @click="col.renamePattern = (col.renamePattern || '') + '{NIP}_'" class="px-2 py-0.5 rounded-md bg-white border border-blue-200 hover:bg-indigo-100 text-slate-700 hover:text-indigo-800 text-[10px] font-mono font-bold cursor-pointer transition-colors">+ {NIP}</button>
+                  <button type="button" @click="col.renamePattern = (col.renamePattern || '') + '{NAMA}_'" class="px-2 py-0.5 rounded-md bg-white border border-blue-200 hover:bg-indigo-100 text-slate-700 hover:text-indigo-800 text-[10px] font-mono font-bold cursor-pointer transition-colors">+ {NAMA}</button>
+                  <button type="button" @click="col.renamePattern = (col.renamePattern || '') + '{SEKOLAH}_'" class="px-2 py-0.5 rounded-md bg-white border border-blue-200 hover:bg-indigo-100 text-slate-700 hover:text-indigo-800 text-[10px] font-mono font-bold cursor-pointer transition-colors">+ {SEKOLAH}</button>
+                  <button type="button" @click="col.renamePattern = (col.renamePattern || '') + '{NAMA_FILE}'" class="px-2 py-0.5 rounded-md bg-white border border-blue-200 hover:bg-indigo-100 text-slate-700 hover:text-indigo-800 text-[10px] font-mono font-bold cursor-pointer transition-colors">+ {NAMA_FILE}</button>
+                  <button type="button" @click="col.renamePattern = (col.renamePattern || '') + '{TANGGAL}'" class="px-2 py-0.5 rounded-md bg-white border border-blue-200 hover:bg-indigo-100 text-slate-700 hover:text-indigo-800 text-[10px] font-mono font-bold cursor-pointer transition-colors">+ {TANGGAL}</button>
+                </div>
+              </div>
             </div>
 
             <!-- Column Advanced Options: Protect, Filter, Visibility -->
@@ -636,6 +658,7 @@ function sheetBuilderApp() {
         rawOptions: '',
         allowedExtensions: '.pdf,.jpg,.jpeg,.png',
         maxFileSizeMb: 10,
+        renamePattern: '{NIP}_{NAMA}_{NAMA_FILE}',
         required: false,
         hidden: false,
         isProtected: false,

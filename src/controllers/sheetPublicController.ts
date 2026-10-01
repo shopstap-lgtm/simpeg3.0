@@ -4,6 +4,43 @@ import path from 'path';
 import fs from 'fs';
 import prisma from '../lib/prisma';
 
+function generateRenamedFilename(
+  originalFilename: string,
+  pattern: string | undefined,
+  meta: { nip?: string | null; nama?: string | null; unitNama?: string | null }
+): { physicalName: string; displayName: string } {
+  const ext = path.extname(originalFilename);
+  const baseName = path.basename(originalFilename, ext);
+
+  if (!pattern || !pattern.trim()) {
+    const safeBase = baseName.replace(/[^a-zA-Z0-9-_]/g, '_').slice(0, 50) || 'BERKAS';
+    const physical = `${Date.now()}_${safeBase}${ext}`;
+    return { physicalName: physical, displayName: originalFilename };
+  }
+
+  const cleanNip = (meta.nip || 'NONIP').replace(/[^0-9]/g, '') || 'NONIP';
+  const cleanNama = (meta.nama || 'ANONIM').toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_') || 'ANONIM';
+  const cleanUnit = (meta.unitNama || 'NOUNIT').toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_') || 'NOUNIT';
+  const dateStr = new Date().toISOString().split('T')[0];
+  const cleanBaseName = baseName.replace(/[^a-zA-Z0-9-_]/g, '_') || 'BERKAS';
+
+  let result = pattern
+    .replace(/\{NIP\}/gi, cleanNip)
+    .replace(/\{NAMA\}/gi, cleanNama)
+    .replace(/\{SEKOLAH\}/gi, cleanUnit)
+    .replace(/\{UNIT\}/gi, cleanUnit)
+    .replace(/\{TANGGAL\}/gi, dateStr)
+    .replace(/\{NAMA_FILE\}/gi, cleanBaseName);
+
+  result = result.replace(/[^a-zA-Z0-9-_]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+  if (!result) result = `BERKAS_${Date.now()}`;
+
+  const displayName = `${result}${ext}`;
+  const physicalName = `${Date.now()}_${result}${ext}`;
+
+  return { physicalName, displayName };
+}
+
 export const sheetPublicController = {
   // 1. Render Public Sheet View
   show: async (req: Request, res: Response) => {
@@ -392,9 +429,30 @@ export const sheetPublicController = {
         try { rowData = JSON.parse(rowData); } catch (e) { rowData = {}; }
       }
 
+      // Handle Auto-Rename pattern if defined
+      let finalFilename = file.filename;
+      let finalDisplayName = file.originalname;
+
+      const renameInfo = generateRenamedFilename(file.originalname, targetCol.renamePattern, {
+        nip: targetRow.identifier,
+        nama: targetRow.label,
+        unitNama: targetRow.subLabel
+      });
+
+      if (targetCol.renamePattern && targetCol.renamePattern.trim()) {
+        const newPath = path.join(path.dirname(file.path), renameInfo.physicalName);
+        try {
+          fs.renameSync(file.path, newPath);
+          finalFilename = renameInfo.physicalName;
+          finalDisplayName = renameInfo.displayName;
+        } catch (renameErr) {
+          console.warn('[sheetPublicController] Rename file error:', renameErr);
+        }
+      }
+
       const fileInfo = {
-        url: `/uploads/${file.filename}`,
-        name: file.originalname,
+        url: `/uploads/${finalFilename}`,
+        name: finalDisplayName,
         size: file.size,
         uploadedAt: new Date().toISOString()
       };
