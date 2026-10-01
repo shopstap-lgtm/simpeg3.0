@@ -100,8 +100,10 @@ export function createApp(): Express {
   app.set('views', viewsPath);
   app.set('view engine', 'ejs');
 
-  // 5b. Lightweight Real-time Presence Tracking Middleware
-  app.use((req: Request, _res: Response, next: NextFunction) => {
+  // 5b. Lightweight Real-time Presence Tracking & User Context Middleware
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.locals.user = (req as any).session?.user || null;
+
     if (
       req.method === 'GET' &&
       !req.path.startsWith('/api') &&
