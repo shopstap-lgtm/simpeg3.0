@@ -83,9 +83,9 @@ router.get('/form/:slug', publicFormController.renderForm);
 router.post('/form/:slug/submit', formDiskUpload.any(), publicFormController.submitForm);
 router.get('/form/:slug/success', publicFormController.renderSuccess);
 
-// Online Spreadsheets (Google Sheet Builder - Public & Grid Entry)
 router.get('/sheet/:slug', sheetPublicController.show);
 router.post('/sheet/:slug/verify-nip', sheetPublicController.verifyNip);
+router.post('/sheet/:slug/lock-row', sheetPublicController.lockRow);
 router.post('/sheet/:slug/save-row', sheetPublicController.saveRow);
 router.post('/sheet/:slug/bulk-save', sheetPublicController.bulkSave);
 router.get('/sheet/:slug/export', sheetPublicController.exportXlsx);

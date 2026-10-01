@@ -44,18 +44,46 @@ export const sheetPublicController = {
         rawData = (rawData && typeof rawData === 'object' && !Array.isArray(rawData)) ? rawData : {};
         const safeData: Record<string, any> = {};
         for (const col of publicCols) {
-          if (rawData[col.key] !== undefined) {
+          if (rawData[col.key] !== undefined && rawData[col.key] !== null && rawData[col.key] !== '') {
             safeData[col.key] = rawData[col.key];
+          } else {
+            // Case-insensitive match or fallback from entity fields
+            const lk = (col.key || '').toLowerCase();
+            const matchedKey = Object.keys(rawData).find(k => k.toLowerCase() === lk);
+            if (matchedKey && rawData[matchedKey] !== undefined && rawData[matchedKey] !== null && rawData[matchedKey] !== '') {
+              safeData[col.key] = rawData[matchedKey];
+            } else if ((lk === 'nama' || lk === 'label' || lk === 'namalengkap' || lk === 'namaunit') && r.label) {
+              safeData[col.key] = r.label;
+            } else if ((lk === 'nip' || lk === 'identifier' || lk === 'kode') && r.identifier) {
+              safeData[col.key] = r.identifier;
+            } else if ((lk === 'unitkerja' || lk === 'sublabel' || lk === 'unit' || lk === 'jabatan') && r.subLabel) {
+              safeData[col.key] = r.subLabel;
+            } else if (rawData[col.key] !== undefined) {
+              safeData[col.key] = rawData[col.key];
+            }
           }
         }
+        // In PROTECTED_NIP mode: hide employee response data for rows not currently unlocked by session
+        if (sheet.accessMode === 'PROTECTED_NIP' && r.id !== sessionUnlocked) {
+          for (const col of publicCols) {
+            const isProtectedCol = !!col.isProtected;
+            const isIdentityCol = ['nama', 'label', 'namalengkap', 'namapegawai', 'nama_lengkap', 'nip', 'identifier', 'kode', 'unitkerja', 'sublabel', 'jabatan'].includes((col.key || '').toLowerCase());
+            if (!isProtectedCol && !isIdentityCol) {
+              if (safeData[col.key] !== undefined && safeData[col.key] !== null && String(safeData[col.key]).trim() !== '' && String(safeData[col.key]).trim() !== '-') {
+                safeData[col.key] = '__FILLED__';
+              }
+            }
+          }
+        }
+
         return {
           id: r.id,
           rowIndex: r.rowIndex,
           entityType: r.entityType,
           entityId: r.entityId,
-          label: isNamaExplicitlyHidden ? '-' : r.label,
-          identifier: isNipExplicitlyHidden ? '-' : r.identifier,
-          subLabel: isUnitExplicitlyHidden ? '-' : r.subLabel,
+          label: isNamaExplicitlyHidden ? '-' : (r.label || (safeData as any).nama || (safeData as any).label || (rawData as any).nama || '-'),
+          identifier: isNipExplicitlyHidden ? '-' : (r.identifier || (safeData as any).nip || (safeData as any).identifier || (rawData as any).nip || '-'),
+          subLabel: isUnitExplicitlyHidden ? '-' : (r.subLabel || (safeData as any).unitKerja || (safeData as any).subLabel || (rawData as any).unitKerja || '-'),
           lastUpdatedAt: r.lastUpdatedAt,
           data: safeData
         };
@@ -153,16 +181,37 @@ export const sheetPublicController = {
       }
       (req as any).session.unlockedSheetRows[sheet.id] = row.id;
 
+      let rowData = row.data;
+      if (typeof rowData === 'string') {
+        try { rowData = JSON.parse(rowData); } catch (e) { rowData = {}; }
+      }
+
       return res.json({
         success: true,
         message: `Kredensial terverifikasi! Anda dapat mengedit baris atas nama '${row.label || cleanNip}'.`,
         rowId: row.id,
         label: row.label,
-        identifier: row.identifier
+        identifier: row.identifier,
+        data: rowData || {}
       });
     } catch (error: any) {
       console.error('[sheetPublicController.verifyNip] Error:', error);
       return res.status(500).json({ success: false, message: error.message || 'Gagal memverifikasi kredensial.' });
+    }
+  },
+
+  // 2b. Lock row session (timeout or manual logout)
+  lockRow: async (req: Request, res: Response) => {
+    try {
+      const { slug } = req.params;
+      const sheet = await prisma.dataSheet.findUnique({ where: { slug } });
+      if (sheet && (req as any).session?.unlockedSheetRows) {
+        delete (req as any).session.unlockedSheetRows[sheet.id];
+      }
+      return res.json({ success: true, message: 'Sesi pengisian berhasil dikunci kembali.' });
+    } catch (error: any) {
+      console.error('[sheetPublicController.lockRow] Error:', error);
+      return res.status(500).json({ success: false, message: 'Gagal mengunci sesi.' });
     }
   },
 
@@ -213,6 +262,24 @@ export const sheetPublicController = {
 
       const parsedData = typeof data === 'string' ? JSON.parse(data) : (data || {});
 
+      // Preserve protected column values from being overwritten by public users
+      const sheetCols = (sheet.columns as any[]) || [];
+      const protectedKeys = sheetCols.filter((c: any) => !!c.isProtected).map((c: any) => c.key);
+      if (protectedKeys.length > 0) {
+        const existingRow = await prisma.dataSheetRow.findUnique({ where: { id: rowId } });
+        let existingData = existingRow?.data || {};
+        if (typeof existingData === 'string') {
+          try { existingData = JSON.parse(existingData); } catch (e) { existingData = {}; }
+        }
+        for (const pk of protectedKeys) {
+          if (existingData && (existingData as any)[pk] !== undefined) {
+            parsedData[pk] = (existingData as any)[pk];
+          } else {
+            delete parsedData[pk];
+          }
+        }
+      }
+
       const updated = await prisma.dataSheetRow.update({
         where: { id: rowId },
         data: {
@@ -250,13 +317,36 @@ export const sheetPublicController = {
         return res.status(400).json({ success: false, message: 'Data baris tidak valid.' });
       }
 
+      const sheetCols = (sheet.columns as any[]) || [];
+      const protectedKeys = sheetCols.filter((c: any) => !!c.isProtected).map((c: any) => c.key);
+
       await prisma.$transaction(async (tx) => {
         for (const item of rows) {
           if (item.id) {
+            let rowData = item.data || {};
+            if (typeof rowData === 'string') {
+              try { rowData = JSON.parse(rowData); } catch (e) { rowData = {}; }
+            }
+
+            if (protectedKeys.length > 0) {
+              const existingRow = await tx.dataSheetRow.findUnique({ where: { id: item.id } });
+              let existingData = existingRow?.data || {};
+              if (typeof existingData === 'string') {
+                try { existingData = JSON.parse(existingData); } catch (e) { existingData = {}; }
+              }
+              for (const pk of protectedKeys) {
+                if (existingData && (existingData as any)[pk] !== undefined) {
+                  rowData[pk] = (existingData as any)[pk];
+                } else {
+                  delete rowData[pk];
+                }
+              }
+            }
+
             await tx.dataSheetRow.update({
               where: { id: item.id },
               data: {
-                data: item.data || {},
+                data: rowData,
                 lastUpdatedAt: new Date(),
                 lastUpdatedBy: 'Pengisi Publik'
               }
@@ -322,7 +412,13 @@ export const sheetPublicController = {
             else if (c.key === 'nama') val = r.label || '';
             else if (c.key === 'unitKerja') val = r.subLabel || '';
           }
-          if (c.type === 'checkbox') {
+          const isProtectedCol = !!c.isProtected;
+          const isIdentityCol = ['nama', 'label', 'namalengkap', 'namapegawai', 'nama_lengkap', 'nip', 'identifier', 'kode', 'unitkerja', 'sublabel', 'jabatan'].includes((c.key || '').toLowerCase());
+
+          if (sheet.accessMode === 'PROTECTED_NIP' && !isProtectedCol && !isIdentityCol) {
+            const isFilled = val !== undefined && val !== null && String(val).trim() !== '' && String(val).trim() !== '-';
+            entry[c.label] = isFilled ? '✓ Terisi' : '-';
+          } else if (c.type === 'checkbox') {
             entry[c.label] = val === true || val === 'true' ? 'YA' : 'TIDAK';
           } else {
             entry[c.label] = val !== undefined && val !== null ? val : '';

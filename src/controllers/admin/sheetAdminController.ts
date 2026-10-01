@@ -106,6 +106,8 @@ export const sheetAdminController = {
         options: Array.isArray(col.options) ? col.options.filter(Boolean) : (typeof col.options === 'string' ? col.options.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
         required: !!col.required,
         hidden: !!col.hidden,
+        isProtected: !!col.isProtected,
+        filterable: col.filterable !== undefined ? !!col.filterable : true,
         placeholder: col.placeholder?.trim() || '',
         width: col.width ? parseInt(col.width, 10) : 170
       }));
@@ -282,6 +284,8 @@ export const sheetAdminController = {
         options: Array.isArray(col.options) ? col.options.filter(Boolean) : (typeof col.options === 'string' ? col.options.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
         required: !!col.required,
         hidden: !!col.hidden,
+        isProtected: !!col.isProtected,
+        filterable: col.filterable !== undefined ? !!col.filterable : true,
         placeholder: col.placeholder?.trim() || '',
         width: col.width ? parseInt(col.width, 10) : 170
       }));
@@ -635,6 +639,9 @@ export const sheetAdminController = {
         options: Array.isArray(options) ? options.filter(Boolean) : (typeof options === 'string' ? options.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
         placeholder: placeholder?.trim() || '',
         required: !!required,
+        hidden: false,
+        isProtected: !!req.body.isProtected,
+        filterable: req.body.filterable !== undefined ? !!req.body.filterable : true,
         width: width ? parseInt(width, 10) : 170
       };
 
@@ -687,12 +694,19 @@ export const sheetAdminController = {
         return res.status(400).json({ success: false, message: 'Daftar kolom tidak valid' });
       }
 
+      const sanitizedCols = columns.map((col: any) => ({
+        ...col,
+        hidden: !!col.hidden,
+        isProtected: !!col.isProtected,
+        filterable: col.filterable !== undefined ? !!col.filterable : true
+      }));
+
       await prisma.dataSheet.update({
         where: { id },
-        data: { columns }
+        data: { columns: sanitizedCols }
       });
 
-      res.json({ success: true, columns });
+      res.json({ success: true, columns: sanitizedCols });
     } catch (error) {
       console.error('[sheetAdminController.updateColumns] Error:', error);
       res.status(500).json({ success: false, message: 'Gagal memperbarui kolom' });

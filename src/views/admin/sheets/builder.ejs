@@ -408,17 +408,54 @@
               </div>
             </div>
 
-            <!-- Column Visibility Option -->
-            <div class="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <label class="inline-flex items-center gap-2 cursor-pointer select-none">
-                <input type="checkbox" x-model="col.hidden" class="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer">
-                <span class="font-bold text-slate-700">Sembunyikan kolom ini dari tampilan publik</span>
-              </label>
-              <template x-if="col.hidden">
-                <span class="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-md border border-amber-200">
-                  ✕ Hidden Publik (Hanya diakses oleh Admin)
-                </span>
-              </template>
+            <!-- Column Advanced Options: Protect, Filter, Visibility -->
+            <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div class="flex flex-wrap items-center gap-4">
+                <!-- Protect Column Option -->
+                <label class="inline-flex items-center gap-2 cursor-pointer select-none" title="Nilai kolom TETAP DITAMPILKAN ke publik, namun hanya Admin yang dapat mengubah isinya (Read-Only bagi responden publik)">
+                  <input type="checkbox" x-model="col.isProtected" class="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer">
+                  <span class="font-bold text-slate-800 flex items-center gap-1.5">
+                    <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-600"></i>
+                    <span>Proteksi Kolom (Nilai Tetap Tampil, Read-Only Publik)</span>
+                  </span>
+                </label>
+
+                <!-- Filterable Option -->
+                <label class="inline-flex items-center gap-2 cursor-pointer select-none" title="Aktifkan tombol filter & sort pada header kolom di spreadsheet">
+                  <input type="checkbox" x-model="col.filterable" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer">
+                  <span class="font-bold text-slate-800 flex items-center gap-1.5">
+                    <i data-lucide="filter" class="w-3.5 h-3.5 text-indigo-600"></i>
+                    <span>Filter di Header</span>
+                  </span>
+                </label>
+
+                <!-- Column Visibility Option -->
+                <label class="inline-flex items-center gap-2 cursor-pointer select-none" title="Sembunyikan kolom ini sepenuhnya dari pengunjung publik">
+                  <input type="checkbox" x-model="col.hidden" class="rounded text-slate-600 focus:ring-slate-500 w-4 h-4 cursor-pointer">
+                  <span class="font-semibold text-slate-600">Hidden Publik</span>
+                </label>
+              </div>
+
+              <!-- Status Badges Preview -->
+              <div class="flex flex-wrap items-center gap-1.5 shrink-0">
+                <template x-if="col.isProtected">
+                  <span class="text-[10px] font-extrabold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 flex items-center gap-1 shadow-2xs">
+                    <i data-lucide="lock" class="w-3 h-3 text-amber-600"></i>
+                    <span>Protected</span>
+                  </span>
+                </template>
+                <template x-if="col.filterable !== false">
+                  <span class="text-[10px] font-extrabold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200 flex items-center gap-1 shadow-2xs">
+                    <i data-lucide="filter" class="w-3 h-3 text-indigo-600"></i>
+                    <span>Filter Aktif</span>
+                  </span>
+                </template>
+                <template x-if="col.hidden">
+                  <span class="text-[10px] font-extrabold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200 shadow-2xs">
+                    ✕ Hidden
+                  </span>
+                </template>
+              </div>
             </div>
 
           </div>
@@ -446,27 +483,27 @@ function sheetBuilderApp() {
   const existingSheet = <%- JSON.stringify(sheet || null) %>;
 
   const defaultEmployeeCols = [
-    { key: 'nip', label: 'NIP', type: 'text', required: true, placeholder: '1985...', width: 170 },
-    { key: 'nama', label: 'Nama Lengkap', type: 'text', required: true, placeholder: 'Nama Guru/Pegawai', width: 220 },
-    { key: 'unitKerja', label: 'Unit Sekolah', type: 'text', required: false, placeholder: 'SDN...', width: 200 },
-    { key: 'jabatan', label: 'Jabatan', type: 'text', required: false, placeholder: 'Guru Kelas / Ops...', width: 180 },
-    { key: 'statusKepegawaian', label: 'Status Kepegawaian', type: 'select', options: ['PNS', 'PPPK', 'PPPK_PW', 'OUTSOURCING'], rawOptions: 'PNS, PPPK, PPPK_PW, OUTSOURCING', required: false, placeholder: '', width: 160 },
-    { key: 'nik', label: 'NIK', type: 'text', required: false, placeholder: '3216...', width: 160 },
-    { key: 'noHp', label: 'No. HP / WA', type: 'text', required: false, placeholder: '0812...', width: 140 },
-    { key: 'npwp', label: 'NPWP', type: 'text', required: false, placeholder: '16 digit...', width: 160 },
-    { key: 'col_status', label: 'Status Verifikasi', type: 'select', options: ['Sesuai', 'Perlu Perbaikan', 'Belum Lengkap'], rawOptions: 'Sesuai, Perlu Perbaikan, Belum Lengkap', required: false, placeholder: '', width: 160 },
-    { key: 'col_catatan', label: 'Catatan / Keterangan', type: 'text', required: false, placeholder: 'Catatan tambahan...', width: 220 }
+    { key: 'nip', label: 'NIP', type: 'text', required: true, isProtected: true, filterable: true, placeholder: '1985...', width: 170 },
+    { key: 'nama', label: 'Nama Lengkap', type: 'text', required: true, isProtected: true, filterable: true, placeholder: 'Nama Guru/Pegawai', width: 220 },
+    { key: 'unitKerja', label: 'Unit Sekolah', type: 'text', required: false, isProtected: true, filterable: true, placeholder: 'SDN...', width: 200 },
+    { key: 'jabatan', label: 'Jabatan', type: 'text', required: false, isProtected: true, filterable: true, placeholder: 'Guru Kelas / Ops...', width: 180 },
+    { key: 'statusKepegawaian', label: 'Status Kepegawaian', type: 'select', options: ['PNS', 'PPPK', 'PPPK_PW', 'OUTSOURCING'], rawOptions: 'PNS, PPPK, PPPK_PW, OUTSOURCING', required: false, isProtected: true, filterable: true, placeholder: '', width: 160 },
+    { key: 'nik', label: 'NIK', type: 'text', required: false, isProtected: true, filterable: true, placeholder: '3216...', width: 160 },
+    { key: 'noHp', label: 'No. HP / WA', type: 'text', required: false, isProtected: true, filterable: true, placeholder: '0812...', width: 140 },
+    { key: 'npwp', label: 'NPWP', type: 'text', required: false, isProtected: true, filterable: true, placeholder: '16 digit...', width: 160 },
+    { key: 'col_status', label: 'Status Verifikasi', type: 'select', options: ['Sesuai', 'Perlu Perbaikan', 'Belum Lengkap'], rawOptions: 'Sesuai, Perlu Perbaikan, Belum Lengkap', required: false, isProtected: false, filterable: true, placeholder: '', width: 160 },
+    { key: 'col_catatan', label: 'Catatan / Keterangan', type: 'text', required: false, isProtected: false, filterable: true, placeholder: 'Catatan tambahan...', width: 220 }
   ];
 
   const defaultUnitCols = [
-    { key: 'namaUnit', label: 'Nama Unit Sekolah', type: 'text', required: true, placeholder: 'SDN...', width: 220 },
-    { key: 'jenjang', label: 'Jenjang', type: 'select', options: ['SD', 'SMP', 'PAUD/TK', 'LAINNYA'], rawOptions: 'SD, SMP, PAUD/TK, LAINNYA', required: false, placeholder: '', width: 120 },
-    { key: 'kategori', label: 'Kategori', type: 'select', options: ['NEGERI', 'SWASTA'], rawOptions: 'NEGERI, SWASTA', required: false, placeholder: '', width: 120 },
-    { key: 'kepalaSekolah', label: 'Kepala Sekolah', type: 'text', required: false, placeholder: 'Nama Kepala Sekolah', width: 180 },
-    { key: 'kontakKepalaSekolah', label: 'No. HP Kepala Sekolah', type: 'text', required: false, placeholder: '0812...', width: 150 },
-    { key: 'operatorSekolah', label: 'Operator Sekolah', type: 'text', required: false, placeholder: 'Nama Operator', width: 180 },
-    { key: 'kontakOperator', label: 'No. HP Operator', type: 'text', required: false, placeholder: '0812...', width: 150 },
-    { key: 'col_status', label: 'Status Verifikasi', type: 'select', options: ['Lengkap', 'Belum Lengkap', 'Proses'], rawOptions: 'Lengkap, Belum Lengkap, Proses', required: false, placeholder: '', width: 160 }
+    { key: 'namaUnit', label: 'Nama Unit Sekolah', type: 'text', required: true, isProtected: true, filterable: true, placeholder: 'SDN...', width: 220 },
+    { key: 'jenjang', label: 'Jenjang', type: 'select', options: ['SD', 'SMP', 'PAUD/TK', 'LAINNYA'], rawOptions: 'SD, SMP, PAUD/TK, LAINNYA', required: false, isProtected: true, filterable: true, placeholder: '', width: 120 },
+    { key: 'kategori', label: 'Kategori', type: 'select', options: ['NEGERI', 'SWASTA'], rawOptions: 'NEGERI, SWASTA', required: false, isProtected: true, filterable: true, placeholder: '', width: 120 },
+    { key: 'kepalaSekolah', label: 'Kepala Sekolah', type: 'text', required: false, isProtected: false, filterable: true, placeholder: 'Nama Kepala Sekolah', width: 180 },
+    { key: 'kontakKepalaSekolah', label: 'No. HP Kepala Sekolah', type: 'text', required: false, isProtected: false, filterable: true, placeholder: '0812...', width: 150 },
+    { key: 'operatorSekolah', label: 'Operator Sekolah', type: 'text', required: false, isProtected: false, filterable: true, placeholder: 'Nama Operator', width: 180 },
+    { key: 'kontakOperator', label: 'No. HP Operator', type: 'text', required: false, isProtected: false, filterable: true, placeholder: '0812...', width: 150 },
+    { key: 'col_status', label: 'Status Verifikasi', type: 'select', options: ['Lengkap', 'Belum Lengkap', 'Proses'], rawOptions: 'Lengkap, Belum Lengkap, Proses', required: false, isProtected: false, filterable: true, placeholder: '', width: 160 }
   ];
 
   let initialCols = [];
@@ -474,6 +511,8 @@ function sheetBuilderApp() {
     initialCols = existingSheet.columns.map(c => ({
       ...c,
       hidden: !!c.hidden,
+      isProtected: !!c.isProtected,
+      filterable: c.filterable !== undefined ? !!c.filterable : true,
       rawOptions: Array.isArray(c.options) ? c.options.join(', ') : (c.rawOptions || '')
     }));
   } else {
@@ -537,6 +576,8 @@ function sheetBuilderApp() {
         rawOptions: '',
         required: false,
         hidden: false,
+        isProtected: false,
+        filterable: true,
         placeholder: '',
         width: 170
       });
@@ -583,6 +624,8 @@ function sheetBuilderApp() {
           }
         }
         copy.hidden = !!copy.hidden;
+        copy.isProtected = !!copy.isProtected;
+        copy.filterable = copy.filterable !== undefined ? !!copy.filterable : true;
         delete copy.rawOptions;
         return copy;
       });

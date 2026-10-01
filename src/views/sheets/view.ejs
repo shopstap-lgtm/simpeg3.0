@@ -157,14 +157,29 @@
     </div>
 
     <!-- Search Toolbar & Pagination & Column Visibility Controls -->
-    <div class="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
-      <div class="relative w-full sm:max-w-md">
-        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
-        <input type="text"
-               x-model="searchQuery"
-               @input="currentPage = 1"
-               placeholder="Cari nama, NIP, nama sekolah, dll..."
-               class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none">
+    <div class="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 max-w-2xl">
+        <div class="relative flex-1">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+          <input type="text"
+                 x-model="searchQuery"
+                 @input="currentPage = 1"
+                 placeholder="Cari nama, NIP, nama sekolah, dll..."
+                 class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none">
+        </div>
+
+        <!-- Active Filter / Sort Indicator Pill -->
+        <template x-if="hasActiveFiltersOrSort">
+          <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-semibold text-indigo-900 shadow-2xs shrink-0">
+            <div class="flex items-center gap-1.5">
+              <i data-lucide="filter" class="w-3.5 h-3.5 text-indigo-600"></i>
+              <span class="font-extrabold text-indigo-800" x-text="activeFilterSummary"></span>
+            </div>
+            <button type="button" @click="resetAllFilters()" class="text-[11px] font-bold text-rose-600 hover:text-rose-800 hover:underline cursor-pointer ml-1" title="Hapus seluruh filter & pengurutan kolom">
+              Reset
+            </button>
+          </div>
+        </template>
       </div>
 
       <div class="flex flex-wrap items-center gap-2.5 text-xs text-slate-500 self-stretch sm:self-center justify-between sm:justify-end">
@@ -231,38 +246,99 @@
               
               <!-- Fallback Identitas Columns if not explicitly defined in sheet -->
               <template x-if="!isFieldDefinedInSheet('nama') && !isFieldDefinedInSheet('label')">
-                <th class="py-3 px-4 min-w-[200px] border-r border-slate-200 bg-slate-100">
-                  <%= sheet.targetType === 'UNIT' ? 'Nama Unit Sekolah' : (sheet.targetType === 'PEGAWAI' ? 'Nama Pegawai' : 'Label Baris') %>
+                <th class="py-2.5 px-3 min-w-[200px] border-r border-slate-200 bg-slate-100">
+                  <div class="flex items-center justify-between gap-1.5">
+                    <span class="truncate font-bold text-slate-800"><%= sheet.targetType === 'UNIT' ? 'Nama Unit Sekolah' : (sheet.targetType === 'PEGAWAI' ? 'Nama Pegawai' : 'Label Baris') %></span>
+                    <button type="button"
+                            @click.stop="openFilterDropdown('nama', '<%= sheet.targetType === 'UNIT' ? 'Nama Unit' : 'Nama Pegawai' %>', $event)"
+                            class="p-1 rounded transition-colors cursor-pointer relative shrink-0"
+                            :class="isColumnFilteredOrSorted('nama') ? 'bg-indigo-600 text-white shadow-xs' : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'"
+                            title="Filter & Urutkan kolom ini">
+                      <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                      <template x-if="isColumnFilteredOrSorted('nama')">
+                        <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white"></span>
+                      </template>
+                    </button>
+                  </div>
                 </th>
               </template>
 
               <template x-if="!isFieldDefinedInSheet('nip') && !isFieldDefinedInSheet('identifier') && ('<%= sheet.targetType %>' === 'PEGAWAI' || '<%= sheet.targetType %>' === 'UNIT')">
-                <th class="py-3 px-4 min-w-[150px] border-r border-slate-200 bg-slate-100">
-                  <%= sheet.targetType === 'PEGAWAI' ? 'NIP' : 'Kode' %>
+                <th class="py-2.5 px-3 min-w-[150px] border-r border-slate-200 bg-slate-100">
+                  <div class="flex items-center justify-between gap-1.5">
+                    <span class="truncate font-bold text-slate-800"><%= sheet.targetType === 'PEGAWAI' ? 'NIP' : 'Kode' %></span>
+                    <button type="button"
+                            @click.stop="openFilterDropdown('nip', '<%= sheet.targetType === 'PEGAWAI' ? 'NIP' : 'Kode' %>', $event)"
+                            class="p-1 rounded transition-colors cursor-pointer relative shrink-0"
+                            :class="isColumnFilteredOrSorted('nip') ? 'bg-indigo-600 text-white shadow-xs' : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'"
+                            title="Filter & Urutkan kolom ini">
+                      <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                      <template x-if="isColumnFilteredOrSorted('nip')">
+                        <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white"></span>
+                      </template>
+                    </button>
+                  </div>
                 </th>
               </template>
 
               <template x-if="!isFieldDefinedInSheet('unitKerja') && !isFieldDefinedInSheet('subLabel') && !isFieldDefinedInSheet('jabatan')">
-                <th class="py-3 px-4 min-w-[150px] border-r border-slate-200 bg-slate-100">
-                  <%= sheet.targetType === 'PEGAWAI' ? 'Jabatan / Instansi' : 'Keterangan' %>
+                <th class="py-2.5 px-3 min-w-[150px] border-r border-slate-200 bg-slate-100">
+                  <div class="flex items-center justify-between gap-1.5">
+                    <span class="truncate font-bold text-slate-800"><%= sheet.targetType === 'PEGAWAI' ? 'Jabatan / Instansi' : 'Keterangan' %></span>
+                    <button type="button"
+                            @click.stop="openFilterDropdown('unitKerja', '<%= sheet.targetType === 'PEGAWAI' ? 'Jabatan / Instansi' : 'Keterangan' %>', $event)"
+                            class="p-1 rounded transition-colors cursor-pointer relative shrink-0"
+                            :class="isColumnFilteredOrSorted('unitKerja') ? 'bg-indigo-600 text-white shadow-xs' : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'"
+                            title="Filter & Urutkan kolom ini">
+                      <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                      <template x-if="isColumnFilteredOrSorted('unitKerja')">
+                        <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white"></span>
+                      </template>
+                    </button>
+                  </div>
                 </th>
               </template>
 
               <!-- Dynamic Custom Columns (Filtered by Column Visibility) -->
               <template x-for="col in visibleColumns" :key="col.key">
-                <th class="py-3 px-4 min-w-[170px] border-r border-slate-200 bg-slate-100">
+                <th class="py-2.5 px-3 min-w-[170px] border-r border-slate-200 bg-slate-100">
                   <div class="flex items-center justify-between gap-1.5">
-                    <span class="truncate font-bold text-slate-800" :title="col.label" x-text="col.label"></span>
-                    <span class="text-[9px] px-1.5 py-0.5 rounded font-mono shrink-0 uppercase"
-                          :class="{
-                            'bg-blue-100 text-blue-700': col.type === 'number' || col.type === 'currency',
-                            'bg-purple-100 text-purple-700': col.type === 'select',
-                            'bg-emerald-100 text-emerald-700': col.type === 'checkbox',
-                            'bg-amber-100 text-amber-700': col.type === 'date',
-                            'bg-slate-200 text-slate-700': col.type === 'text' || col.type === 'textarea'
-                          }"
-                          x-text="col.type">
-                    </span>
+                    <div class="flex items-center gap-1.5 truncate">
+                      <span class="truncate font-bold text-slate-800" :title="col.label" x-text="col.label"></span>
+                      <template x-if="col.isProtected">
+                        <span class="text-[9px] px-1.5 py-0.5 rounded font-extrabold bg-amber-100 text-amber-800 border border-amber-300 shrink-0 flex items-center gap-0.5" title="Kolom ini diproteksi (Read-Only)">
+                          <i data-lucide="lock" class="w-2.5 h-2.5 text-amber-700"></i>
+                          <span>Protected</span>
+                        </span>
+                      </template>
+                    </div>
+
+                    <div class="flex items-center gap-1 shrink-0">
+                      <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase"
+                            :class="{
+                              'bg-blue-100 text-blue-700': col.type === 'number' || col.type === 'currency',
+                              'bg-purple-100 text-purple-700': col.type === 'select',
+                              'bg-emerald-100 text-emerald-700': col.type === 'checkbox',
+                              'bg-amber-100 text-amber-700': col.type === 'date',
+                              'bg-slate-200 text-slate-700': col.type === 'text' || col.type === 'textarea'
+                            }"
+                            x-text="col.type">
+                      </span>
+
+                      <!-- TOMBOL FILTER DI HEADER (jika filterable !== false) -->
+                      <template x-if="col.filterable !== false">
+                        <button type="button"
+                                @click.stop="openFilterDropdown(col.key, col.label, $event)"
+                                class="p-1 rounded transition-colors cursor-pointer relative"
+                                :class="isColumnFilteredOrSorted(col.key) ? 'bg-indigo-600 text-white shadow-xs' : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'"
+                                :title="isColumnFilteredOrSorted(col.key) ? 'Filter / Urutan aktif pada kolom ini' : 'Filter & Urutkan kolom ini'">
+                          <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                          <template x-if="isColumnFilteredOrSorted(col.key)">
+                            <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white"></span>
+                          </template>
+                        </button>
+                      </template>
+                    </div>
                   </div>
                 </th>
               </template>
@@ -312,12 +388,15 @@
                 <!-- Dynamic Columns (Filtered by Column Visibility) -->
                 <template x-for="col in visibleColumns" :key="col.key">
                   <td class="py-1 px-2 border-r border-slate-200 relative transition-colors"
-                      :class="{ 'bg-emerald-50/50': isCellFilled(row, col.key) }"
+                      :class="{ 
+                        'bg-amber-50/20': col.isProtected,
+                        'bg-emerald-50/50': !col.isProtected && isCellFilled(row, col.key) 
+                      }"
                       :data-row-id="row.id"
                       :data-col-key="col.key">
 
-                    <!-- SCENARIO A: Row is EDITABLE (either OPEN_EDIT mode or verified PROTECTED_NIP) -->
-                    <template x-if="canEditRow(row)">
+                    <!-- SCENARIO A: Row & Cell is EDITABLE (either OPEN_EDIT mode or verified PROTECTED_NIP and not protected column) -->
+                    <template x-if="canEditCell(row, col)">
                       <div>
                         <!-- Checkbox -->
                         <template x-if="col.type === 'checkbox'">
@@ -381,32 +460,60 @@
                       </div>
                     </template>
 
-                    <!-- SCENARIO B: READ-ONLY (Cell cannot be edited by this user) -->
-                    <template x-if="!canEditRow(row)">
+                    <!-- SCENARIO B: READ-ONLY / PROTECTED / MASKED FOR UNVERIFIED ROWS -->
+                    <template x-if="!canEditCell(row, col)">
                       <div class="px-2 py-1.5 min-h-[30px] flex items-center transition-colors"
                            :class="{
-                             'justify-end font-mono': col.type === 'number' || col.type === 'currency', 
-                             'justify-center': col.type === 'checkbox'
+                             'justify-end font-mono': !shouldMaskCell(row, col) && (col.type === 'number' || col.type === 'currency'), 
+                             'justify-center': shouldMaskCell(row, col) || col.type === 'checkbox'
                            }">
                         
-                        <!-- Checkbox read-only badge -->
-                        <template x-if="col.type === 'checkbox'">
-                          <span :class="getCellValue(row, col.key) ? 'text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2 py-0.5 rounded-md font-bold' : 'text-slate-300'">
-                            <span x-text="getCellValue(row, col.key) ? '✓ Ya' : '-'"></span>
-                          </span>
+                        <!-- KASUS 1: CELL DISAMARKAN (Spreadsheet Proteksi NIP, kolom isian pegawai, baris belum dibuka oleh pegawai bersangkutan) -->
+                        <template x-if="shouldMaskCell(row, col)">
+                          <div class="flex items-center justify-center">
+                            <template x-if="isCellFilled(row, col.key)">
+                              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 shadow-2xs select-none"
+                                    title="Data telah terisi oleh pegawai">
+                                <i data-lucide="check" class="w-3.5 h-3.5 stroke-[3] text-emerald-600"></i>
+                                <span>Terisi</span>
+                              </span>
+                            </template>
+                            <template x-if="!isCellFilled(row, col.key)">
+                              <span class="text-slate-300 font-semibold text-xs select-none">-</span>
+                            </template>
+                          </div>
                         </template>
 
-                        <!-- Formatted Value -->
-                        <template x-if="col.type !== 'checkbox'">
-                          <template x-if="isCellFilled(row, col.key)">
-                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-100/90 text-emerald-900 border border-emerald-300/80 font-bold text-xs shadow-2xs"
-                                  x-text="getCellValue(row, col.key)">
-                            </span>
-                          </template>
-                          <template x-if="!isCellFilled(row, col.key)">
-                            <span class="text-slate-300 italic text-xs">-</span>
-                          </template>
+                        <!-- KASUS 2: NILAI DITAMPILKAN (Kolom diproteksi admin, atau kolom identitas, atau baris sedang dibuka) -->
+                        <template x-if="!shouldMaskCell(row, col)">
+                          <div>
+                            <!-- Checkbox read-only badge -->
+                            <template x-if="col.type === 'checkbox'">
+                              <div class="flex items-center justify-center">
+                                <span :class="getCellValue(row, col.key) ? 'text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2 py-0.5 rounded-md font-bold text-xs' : 'text-slate-300 font-semibold'">
+                                  <span x-text="getCellValue(row, col.key) ? '✓ Ya' : '-'"></span>
+                                </span>
+                              </div>
+                            </template>
+
+                            <!-- Formatted Value: Nilai TETAP DITAMPILKAN dengan jelas -->
+                            <template x-if="col.type !== 'checkbox'">
+                              <div class="flex items-center gap-1.5 w-full"
+                                   :class="{ 'justify-end': col.type === 'number' || col.type === 'currency' }">
+                                <span class="text-xs truncate select-text"
+                                      :class="{ 
+                                        'font-mono': col.type === 'number' || col.type === 'currency',
+                                        'text-slate-800 font-bold': getCellValue(row, col.key) && String(getCellValue(row, col.key)).trim() !== '' && String(getCellValue(row, col.key)).trim() !== '-',
+                                        'text-slate-300 italic': !getCellValue(row, col.key) || String(getCellValue(row, col.key)).trim() === '' || String(getCellValue(row, col.key)).trim() === '-'
+                                      }"
+                                      x-text="(getCellValue(row, col.key) && String(getCellValue(row, col.key)).trim() !== '' && String(getCellValue(row, col.key)) !== '__FILLED__') ? getCellValue(row, col.key) : (getCellValue(row, col.key) === '__FILLED__' ? '✓ Terisi' : '-')"
+                                      :title="getCellValue(row, col.key) || ''">
+                                </span>
+                              </div>
+                            </template>
+                          </div>
                         </template>
+
                       </div>
                     </template>
 
@@ -417,16 +524,24 @@
                 <% if (sheet.accessMode === 'PROTECTED_NIP') { %>
                   <td class="py-2 px-2 text-center">
                     <template x-if="isRowUnlocked(row)">
-                      <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-indigo-600 text-white">
-                        <i data-lucide="edit-2" class="w-3 h-3"></i>
-                        <span>Aktif Diedit</span>
-                      </span>
+                      <div class="flex items-center justify-center gap-1.5">
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-indigo-600 text-white shadow-2xs">
+                          <i data-lucide="edit-2" class="w-3 h-3"></i>
+                          <span>Aktif Diedit</span>
+                        </span>
+                        <button type="button"
+                                @click="lockRow(false)"
+                                class="p-1 rounded-lg text-slate-400 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors"
+                                title="Kunci Kembali Baris Ini">
+                          <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+                        </button>
+                      </div>
                     </template>
                     <template x-if="!isRowUnlocked(row)">
                       <button type="button"
                               @click="promptUnlockRow(row)"
-                              class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold text-slate-500 hover:text-amber-700 hover:bg-amber-50 border border-slate-200 transition-colors">
-                        <i data-lucide="lock" class="w-3 h-3 text-slate-400"></i>
+                              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 border border-indigo-200 transition-colors">
+                        <i data-lucide="edit-3" class="w-3 h-3 text-indigo-500"></i>
                         <span>Isi Baris</span>
                       </button>
                     </template>
@@ -550,6 +665,145 @@
     </div>
   </div>
 
+  <!-- FLOATING FILTER & SORT DROPDOWN (Fixed position to never get clipped by table bounds) -->
+  <div x-show="activeFilterCol"
+       x-cloak
+       @click.away="activeFilterCol = null"
+       :style="`position: fixed; top: ${filterDropdownPos.top}px; left: ${filterDropdownPos.left}px; width: 280px; z-index: 9999;`"
+       class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-3.5 space-y-3 text-xs animate-in fade-in zoom-in-95 duration-100">
+    
+    <!-- Popover Header -->
+    <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+      <div class="truncate pr-2">
+        <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Filter & Urutkan Kolom</span>
+        <span class="font-extrabold text-slate-900 text-xs truncate block" x-text="activeFilterLabel"></span>
+      </div>
+      <button type="button" @click="activeFilterCol = null" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <!-- 1. Sort Actions -->
+    <div class="space-y-1">
+      <div class="text-[10px] font-bold uppercase text-slate-400">Pengurutan (Sort)</div>
+      <div class="grid grid-cols-2 gap-1.5">
+        <button type="button"
+                @click="applySort(activeFilterCol, 'asc')"
+                class="py-1.5 px-2 rounded-xl border flex items-center justify-center gap-1.5 font-bold text-[11px] transition-colors cursor-pointer"
+                :class="isSortActive(activeFilterCol, 'asc') ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'">
+          <i data-lucide="arrow-up-a-z" class="w-3.5 h-3.5"></i>
+          <span>A → Z / 0 → 9</span>
+        </button>
+        <button type="button"
+                @click="applySort(activeFilterCol, 'desc')"
+                class="py-1.5 px-2 rounded-xl border flex items-center justify-center gap-1.5 font-bold text-[11px] transition-colors cursor-pointer"
+                :class="isSortActive(activeFilterCol, 'desc') ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'">
+          <i data-lucide="arrow-down-z-a" class="w-3.5 h-3.5"></i>
+          <span>Z → A / 9 → 0</span>
+        </button>
+      </div>
+      <template x-if="activeSort.colKey === activeFilterCol">
+        <button type="button"
+                @click="clearSort()"
+                class="w-full text-center text-[10px] font-bold text-slate-500 hover:text-rose-600 py-1 hover:underline cursor-pointer">
+          ✕ Hapus Pengurutan Kolom Ini
+        </button>
+      </template>
+    </div>
+
+    <!-- 2. Value Filters -->
+    <div class="space-y-1.5 pt-1.5 border-t border-slate-100">
+      <div class="flex items-center justify-between text-[10px] font-bold uppercase text-slate-400">
+        <span>Filter Nilai Sel</span>
+        <div class="flex items-center gap-1.5 text-indigo-600">
+          <button type="button" @click="selectAllFilterValues()" class="hover:underline cursor-pointer">Semua</button>
+          <span>•</span>
+          <button type="button" @click="clearFilterValuesSelection()" class="hover:underline cursor-pointer">Kosongkan</button>
+        </div>
+      </div>
+
+      <!-- Search in filter values -->
+      <div class="relative">
+        <input type="text"
+               x-model="filterSearchText"
+               placeholder="Cari nilai..."
+               class="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:bg-white focus:border-indigo-500">
+      </div>
+
+      <!-- Distinct Value Checkboxes List -->
+      <div class="max-h-40 overflow-y-auto space-y-1 scrollbar-thin border border-slate-100 rounded-xl p-1.5 bg-slate-50/50">
+        <template x-for="item in currentColumnDistinctValues" :key="item.value">
+          <label class="flex items-center justify-between p-1 hover:bg-white rounded-lg cursor-pointer text-xs select-none">
+            <div class="flex items-center gap-2 truncate pr-1">
+              <input type="checkbox"
+                     :checked="isFilterValueSelected(item.value)"
+                     @change="toggleFilterValue(item.value)"
+                     class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer">
+              <span class="truncate font-semibold text-slate-800" x-text="item.value || '(Kosong / Belum Diisi)'"></span>
+            </div>
+            <span class="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded" x-text="item.count"></span>
+          </label>
+        </template>
+        <template x-if="currentColumnDistinctValues.length === 0">
+          <div class="text-[11px] text-slate-400 text-center py-2 italic">
+            Tidak ada nilai cocok
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Popover Footer Action Buttons -->
+    <div class="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+      <button type="button"
+              @click="resetColumnFilter(activeFilterCol)"
+              class="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer">
+        Reset Filter
+      </button>
+      <button type="button"
+              @click="activeFilterCol = null"
+              class="btn-primary py-1.5 px-3.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs cursor-pointer">
+        Tutup
+      </button>
+    </div>
+
+  </div>
+
+  <!-- FLOATING SESSION CONTROLLER (Mode PROTECTED_NIP: Tampil saat baris dibuka untuk pengisian) -->
+  <template x-if="accessMode === 'PROTECTED_NIP' && currentUnlockedRowId && unlockedRow">
+    <div class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 max-w-lg w-[94%] sm:w-auto bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-700/80 flex flex-wrap items-center justify-between gap-3.5 animate-in slide-in-from-bottom duration-200">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center shrink-0">
+          <i data-lucide="shield-check" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold text-xs text-white" x-text="unlockedRow.label"></span>
+            <span class="text-[10px] font-mono bg-slate-800 text-amber-300 px-1.5 py-0.5 rounded font-bold" x-text="unlockedRow.identifier"></span>
+          </div>
+          <div class="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+            <span>Sisa waktu sesi:</span>
+            <span class="font-mono font-black"
+                  :class="sessionTimerSeconds <= 30 ? 'text-rose-400 animate-pulse text-xs' : 'text-emerald-400'"
+                  x-text="formatTimer(sessionTimerSeconds)">
+            </span>
+            <button type="button" @click="extendSession(120)" class="text-[10px] text-indigo-300 hover:text-indigo-200 underline cursor-pointer ml-1">
+              +2 Menit
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <button type="button"
+                @click="lockRow(false)"
+                class="px-3.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-colors cursor-pointer">
+          <i data-lucide="lock" class="w-3.5 h-3.5"></i>
+          <span>Selesai & Kunci</span>
+        </button>
+      </div>
+    </div>
+  </template>
+
 </main>
 
 <script>
@@ -561,6 +815,12 @@
     } catch (e) {
       console.error('Failed to parse public sheet data:', e);
     }
+
+    const initialColumns = (config.columns || []).map(c => ({
+      ...c,
+      isProtected: !!c.isProtected,
+      filterable: c.filterable !== undefined ? !!c.filterable : true
+    }));
 
     const storageKey = 'sheet_public_hidden_cols_' + config.sheetId;
     let savedHidden = [];
@@ -576,7 +836,7 @@
       accessMode: config.accessMode,
       targetType: config.targetType,
       currentUnlockedRowId: config.initialUnlockedRowId || '',
-      columns: config.columns || [],
+      columns: initialColumns,
       allDefinedColumns: config.allSheetColumns || [],
       hiddenColKeys: Array.isArray(savedHidden) ? savedHidden : [],
       rows: (config.initialRows || []).map(r => {
@@ -596,13 +856,45 @@
       verifyError: '',
       verifyInput: { nip: '' },
 
+      // Session Timer State (PROTECTED_NIP mode)
+      sessionTimerSeconds: 0,
+      sessionTimerInterval: null,
+
+      // Filter & Sort State
+      activeSort: { colKey: null, direction: 'asc' },
+      columnFilters: {}, // { [colKey]: string[] of allowed values }
+      activeFilterCol: null,
+      activeFilterLabel: '',
+      filterSearchText: '',
+      filterDropdownPos: { top: 0, left: 0 },
+
       init() {
         if (window.lucide) {
           this.$nextTick(() => window.lucide.createIcons());
         }
         if (this.currentUnlockedRowId) {
           this.jumpToRow(this.currentUnlockedRowId);
+          if (this.accessMode === 'PROTECTED_NIP') {
+            this.startSessionTimer(180);
+          }
         }
+      },
+
+      isIdentityColumn(col) {
+        if (!col) return false;
+        const k = (col.key || '').toLowerCase();
+        const l = (col.label || '').toLowerCase();
+        return ['nama', 'label', 'namalengkap', 'namapegawai', 'nama_lengkap', 'nip', 'identifier', 'kode', 'unitkerja', 'sublabel', 'jabatan'].includes(k)
+          || l.includes('nama pegawai') || l.includes('nama lengkap') || l === 'nip';
+      },
+
+      shouldMaskCell(row, col) {
+        if (this.accessMode !== 'PROTECTED_NIP') return false;
+        if (!col) return false;
+        if (col.isProtected) return false;
+        if (this.isIdentityColumn(col)) return false;
+        if (this.isRowUnlocked(row)) return false;
+        return true;
       },
 
       get visibleColumns() {
@@ -642,16 +934,217 @@
         return this.rows.find(r => r.id === this.currentUnlockedRowId) || null;
       },
 
-      get filteredRows() {
-        if (!this.searchQuery.trim()) return this.rows;
-        const q = this.searchQuery.toLowerCase();
-        return this.rows.filter(r => {
-          if (r.label && r.label.toLowerCase().includes(q)) return true;
-          if (r.identifier && r.identifier.toLowerCase().includes(q)) return true;
-          if (r.subLabel && r.subLabel.toLowerCase().includes(q)) return true;
-          const d = r.data || {};
-          return Object.values(d).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(q));
+      // --- FILTER & SORT METHODS ---
+      get hasActiveFiltersOrSort() {
+        return Object.keys(this.columnFilters).length > 0 || !!this.activeSort.colKey;
+      },
+
+      get activeFilterSummary() {
+        const parts = [];
+        if (this.activeSort.colKey) {
+          const col = this.columns.find(c => c.key === this.activeSort.colKey);
+          let name = col ? col.label : this.activeSort.colKey;
+          if (this.activeSort.colKey === 'nama') name = 'Nama Lengkap';
+          if (this.activeSort.colKey === 'nip') name = 'NIP';
+          if (this.activeSort.colKey === 'unitKerja') name = 'Unit Sekolah';
+          parts.push(`Urut: ${name} (${this.activeSort.direction === 'asc' ? 'A-Z' : 'Z-A'})`);
+        }
+        const filteredColCount = Object.keys(this.columnFilters).length;
+        if (filteredColCount > 0) {
+          parts.push(`${filteredColCount} kolom difilter`);
+        }
+        return parts.join(', ');
+      },
+
+      isColumnFilteredOrSorted(key) {
+        const isSorted = this.activeSort.colKey === key;
+        const isFiltered = this.columnFilters[key] !== undefined && this.columnFilters[key] !== null;
+        return isSorted || isFiltered;
+      },
+
+      isSortActive(key, direction) {
+        return this.activeSort.colKey === key && this.activeSort.direction === direction;
+      },
+
+      openFilterDropdown(colKey, colLabel, event) {
+        if (this.activeFilterCol === colKey) {
+          this.activeFilterCol = null;
+          return;
+        }
+        this.activeFilterCol = colKey;
+        this.activeFilterLabel = colLabel || colKey;
+        this.filterSearchText = '';
+
+        const btn = event.currentTarget;
+        const rect = btn.getBoundingClientRect();
+        const popoverWidth = 280;
+        
+        let left = rect.left;
+        if (left + popoverWidth > window.innerWidth - 16) {
+          left = window.innerWidth - popoverWidth - 16;
+        }
+        if (left < 16) left = 16;
+
+        this.filterDropdownPos = {
+          top: Math.round(rect.bottom + 6),
+          left: Math.round(left)
+        };
+
+        this.$nextTick(() => {
+          if (window.lucide) window.lucide.createIcons();
         });
+      },
+
+      applySort(colKey, direction) {
+        this.activeSort = { colKey, direction };
+        this.currentPage = 1;
+        this.$nextTick(() => {
+          if (window.lucide) window.lucide.createIcons();
+        });
+      },
+
+      clearSort() {
+        this.activeSort = { colKey: null, direction: 'asc' };
+        this.currentPage = 1;
+        this.$nextTick(() => {
+          if (window.lucide) window.lucide.createIcons();
+        });
+      },
+
+      get currentColumnDistinctValues() {
+        if (!this.activeFilterCol) return [];
+        const key = this.activeFilterCol;
+        const counts = new Map();
+        
+        for (const r of this.rows) {
+          const val = String(this.getCellValue(r, key) || '').trim();
+          counts.set(val, (counts.get(val) || 0) + 1);
+        }
+
+        let list = Array.from(counts.entries()).map(([value, count]) => ({ value, count }));
+        
+        list.sort((a, b) => {
+          if (!a.value) return 1;
+          if (!b.value) return -1;
+          return a.value.localeCompare(b.value, undefined, { numeric: true, sensitivity: 'base' });
+        });
+
+        if (this.filterSearchText.trim()) {
+          const q = this.filterSearchText.toLowerCase();
+          list = list.filter(item => (item.value || '(kosong / belum diisi)').toLowerCase().includes(q));
+        }
+
+        return list;
+      },
+
+      isFilterValueSelected(val) {
+        if (!this.activeFilterCol) return true;
+        const selected = this.columnFilters[this.activeFilterCol];
+        if (!selected) return true;
+        return selected.includes(val);
+      },
+
+      toggleFilterValue(val) {
+        if (!this.activeFilterCol) return;
+        const key = this.activeFilterCol;
+        
+        if (!this.columnFilters[key]) {
+          const allVals = this.currentColumnDistinctValues.map(i => i.value);
+          this.columnFilters[key] = allVals.filter(v => v !== val);
+        } else {
+          if (this.columnFilters[key].includes(val)) {
+            this.columnFilters[key] = this.columnFilters[key].filter(v => v !== val);
+          } else {
+            this.columnFilters[key].push(val);
+          }
+        }
+        this.currentPage = 1;
+      },
+
+      selectAllFilterValues() {
+        if (!this.activeFilterCol) return;
+        delete this.columnFilters[this.activeFilterCol];
+        this.currentPage = 1;
+      },
+
+      clearFilterValuesSelection() {
+        if (!this.activeFilterCol) return;
+        this.columnFilters[this.activeFilterCol] = [];
+        this.currentPage = 1;
+      },
+
+      resetColumnFilter(key) {
+        if (key) {
+          delete this.columnFilters[key];
+          if (this.activeSort.colKey === key) {
+            this.activeSort = { colKey: null, direction: 'asc' };
+          }
+        }
+        this.currentPage = 1;
+      },
+
+      resetAllFilters() {
+        this.columnFilters = {};
+        this.activeSort = { colKey: null, direction: 'asc' };
+        this.searchQuery = '';
+        this.currentPage = 1;
+      },
+
+      get filteredRows() {
+        let result = this.rows;
+
+        // 1. Global Search Query
+        if (this.searchQuery && this.searchQuery.trim()) {
+          const q = this.searchQuery.toLowerCase();
+          result = result.filter(r => {
+            if (r.label && r.label.toLowerCase().includes(q)) return true;
+            if (r.identifier && r.identifier.toLowerCase().includes(q)) return true;
+            if (r.subLabel && r.subLabel.toLowerCase().includes(q)) return true;
+            const d = r.data || {};
+            return Object.values(d).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(q));
+          });
+        }
+
+        // 2. Column-specific value filters
+        for (const [colKey, selectedValues] of Object.entries(this.columnFilters)) {
+          if (selectedValues && Array.isArray(selectedValues)) {
+            result = result.filter(r => {
+              const cellVal = String(this.getCellValue(r, colKey) || '').trim();
+              return selectedValues.includes(cellVal);
+            });
+          }
+        }
+
+        // 3. Active Column Sorting
+        if (this.activeSort && this.activeSort.colKey) {
+          const key = this.activeSort.colKey;
+          const dir = this.activeSort.direction === 'desc' ? -1 : 1;
+
+          result = [...result].sort((a, b) => {
+            let valA = this.getCellValue(a, key);
+            let valB = this.getCellValue(b, key);
+
+            if (valA === undefined || valA === null) valA = '';
+            if (valB === undefined || valB === null) valB = '';
+
+            valA = String(valA).trim();
+            valB = String(valB).trim();
+
+            if (!valA && !valB) return 0;
+            if (!valA) return 1;
+            if (!valB) return -1;
+
+            const numA = Number(valA.replace(/[^0-9.-]+/g, ''));
+            const numB = Number(valB.replace(/[^0-9.-]+/g, ''));
+            if (!isNaN(numA) && !isNaN(numB) && valA.match(/\d/) && valB.match(/\d/)) {
+              return (numA - numB) * dir;
+            }
+
+            return valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' }) * dir;
+          });
+        }
+
+        return result;
       },
 
       get totalPages() {
@@ -720,28 +1213,52 @@
       },
 
       getCellValue(row, key) {
+        if (!row) return '';
+        // 1. Direct match in row.data if non-empty
+        if (row.data && row.data[key] !== undefined && row.data[key] !== null && String(row.data[key]).trim() !== '') {
+          return row.data[key];
+        }
+
+        // 2. Case-insensitive key match in row.data if non-empty
+        if (row.data && typeof row.data === 'object') {
+          const lKey = String(key || '').toLowerCase();
+          for (const [k, v] of Object.entries(row.data)) {
+            if (k.toLowerCase() === lKey && v !== undefined && v !== null && String(v).trim() !== '') {
+              return v;
+            }
+          }
+        }
+
+        // 3. Fallback to entity row fields
+        const lk = String(key || '').toLowerCase();
+        if (['nama', 'label', 'namalengkap', 'namapegawai', 'nama_lengkap', 'namaunit'].includes(lk)) {
+          return row.label || (row.data && (row.data.nama || row.data.namaUnit || row.data.label)) || '';
+        }
+        if (['nip', 'identifier', 'kode', 'nip_baru', 'nik'].includes(lk)) {
+          return row.identifier || (row.data && (row.data.nip || row.data.identifier)) || '';
+        }
+        if (['unitkerja', 'sublabel', 'unit', 'instansi', 'sekolah', 'unitsekolah', 'jabatan'].includes(lk)) {
+          return row.subLabel || (row.data && (row.data.unitKerja || row.data.jabatan || row.data.subLabel)) || '';
+        }
+
+        // 4. Return raw row.data[key] if present even if empty
         if (row.data && row.data[key] !== undefined && row.data[key] !== null) {
           return row.data[key];
         }
-        if (key === 'nama' || key === 'label') return row.label || '';
-        if (key === 'nip' || key === 'identifier') return row.identifier || '';
-        if (key === 'unitKerja' || key === 'subLabel') return row.subLabel || '';
+
         return '';
       },
 
       isRowFilled(row) {
         const d = row.data || {};
         return this.columns.some(col => {
-          if (['nama', 'nip', 'unitKerja', 'label', 'identifier', 'subLabel'].includes(col.key)) return false;
-          const val = d[col.key];
+          if (col.isProtected) return false;
+          const val = this.getCellValue(row, col.key);
           return val !== undefined && val !== null && String(val).trim() !== '' && String(val).trim() !== '-';
         });
       },
 
       isCellFilled(row, colKey) {
-        if (['nama', 'nip', 'unitKerja', 'label', 'identifier', 'subLabel'].includes(colKey)) {
-          return false;
-        }
         const val = this.getCellValue(row, colKey);
         if (val === undefined || val === null) return false;
         if (typeof val === 'boolean') return val;
@@ -757,6 +1274,11 @@
         return false;
       },
 
+      canEditCell(row, col) {
+        if (col && col.isProtected) return false;
+        return this.canEditRow(row);
+      },
+
       isRowUnlocked(row) {
         return this.accessMode === 'PROTECTED_NIP' && row.id === this.currentUnlockedRowId;
       },
@@ -766,6 +1288,86 @@
         this.verifyError = '';
         this.showVerifyModal = true;
         this.$nextTick(() => window.lucide?.createIcons());
+      },
+
+      startSessionTimer(durationSeconds = 180) {
+        this.stopSessionTimer();
+        this.sessionTimerSeconds = durationSeconds;
+        this.sessionTimerInterval = setInterval(() => {
+          if (this.sessionTimerSeconds > 0) {
+            this.sessionTimerSeconds--;
+            if (this.sessionTimerSeconds === 0) {
+              this.stopSessionTimer();
+              this.handleSessionExpired();
+            }
+          }
+        }, 1000);
+      },
+
+      stopSessionTimer() {
+        if (this.sessionTimerInterval) {
+          clearInterval(this.sessionTimerInterval);
+          this.sessionTimerInterval = null;
+        }
+      },
+
+      extendSession(extraSeconds = 120) {
+        this.sessionTimerSeconds = Math.min(600, this.sessionTimerSeconds + extraSeconds);
+        this.$nextTick(() => window.lucide?.createIcons());
+      },
+
+      formatTimer(sec) {
+        const m = Math.floor(sec / 60);
+        const s = sec % 60;
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      },
+
+      async handleSessionExpired() {
+        const currentId = this.currentUnlockedRowId;
+        const targetRow = this.rows.find(r => r.id === currentId);
+        const empName = targetRow ? (targetRow.label || targetRow.identifier) : 'Anda';
+
+        await this.lockRow(true);
+
+        alert(`Sesi pengisian untuk ${empName} telah berakhir. Baris Anda telah otomatis dikunci kembali demi keamanan data. Silakan masukkan NIP kembali jika ingin melihat atau mengedit data.`);
+      },
+
+      async lockRow(isExpired = false) {
+        this.stopSessionTimer();
+        const lockedId = this.currentUnlockedRowId;
+        this.currentUnlockedRowId = '';
+
+        if (lockedId) {
+          const row = this.rows.find(r => r.id === lockedId);
+          if (row && row.data && this.accessMode === 'PROTECTED_NIP') {
+            for (const c of this.columns) {
+              if (!c.isProtected && !this.isIdentityColumn(c)) {
+                if (row.data[c.key] !== undefined && row.data[c.key] !== null && String(row.data[c.key]).trim() !== '' && String(row.data[c.key]).trim() !== '-') {
+                  row.data[c.key] = '__FILLED__';
+                }
+              }
+            }
+          }
+        }
+
+        this.$nextTick(() => window.lucide?.createIcons());
+
+        try {
+          await fetch(`/sheet/${this.slug}/lock-row`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+        } catch (e) {
+          console.error('Failed to notify server of lock-row:', e);
+        }
+      },
+
+      scrollToUnlockedRow() {
+        if (!this.currentUnlockedRowId) return;
+        const el = document.getElementById(`row-${this.currentUnlockedRowId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       },
 
       async submitVerifyNip() {
@@ -784,9 +1386,17 @@
 
           const result = await res.json();
           if (result.success) {
+            // Update row data with actual unmasked data from server
+            const targetRow = this.rows.find(r => r.id === result.rowId);
+            if (targetRow && result.data) {
+              targetRow.data = { ...(targetRow.data || {}), ...result.data };
+            }
+
             this.currentUnlockedRowId = result.rowId;
             this.showVerifyModal = false;
+            this.startSessionTimer(180); // 3 menit countdown
             this.jumpToRow(result.rowId);
+            this.$nextTick(() => window.lucide?.createIcons());
           } else {
             this.verifyError = result.message || 'NIP tidak ditemukan dalam spreadsheet ini.';
           }
@@ -798,20 +1408,15 @@
         }
       },
 
-      lockRow() {
-        this.currentUnlockedRowId = '';
-      },
-
-      scrollToUnlockedRow() {
-        if (!this.currentUnlockedRowId) return;
-        const el = document.getElementById(`row-${this.currentUnlockedRowId}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      },
-
       async updateCell(row, key, value) {
+        const colObj = this.columns.find(c => c.key === key);
+        if (colObj && colObj.isProtected) return;
         if (!this.canEditRow(row)) return;
+
+        // Keep session active for at least 2 more minutes on edit
+        if (this.accessMode === 'PROTECTED_NIP' && this.sessionTimerSeconds < 60) {
+          this.sessionTimerSeconds = 120;
+        }
 
         if (!row.data) row.data = {};
         row.data[key] = value;
@@ -881,6 +1486,7 @@
           for (let cIdx = 0; cIdx < cellValues.length; cIdx++) {
             const targetCol = this.visibleColumns[startColIndex + cIdx];
             if (!targetCol) break;
+            if (targetCol.isProtected) continue; // Kolom terproteksi tidak boleh di-overwrite via paste
 
             let val = cellValues[cIdx].trim();
             if (targetCol.type === 'number' || targetCol.type === 'currency') {

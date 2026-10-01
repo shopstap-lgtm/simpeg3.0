@@ -120,13 +120,28 @@
   <!-- Table Toolbar -->
   <div class="bg-white p-3 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
     <!-- Search & Filters -->
-    <div class="relative flex-1 max-w-md">
-      <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
-      <input type="text"
-             x-model="searchQuery"
-             @input="currentPage = 1"
-             placeholder="Cari nama, NIP, sekolah, atau data lainnya..."
-             class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none">
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 max-w-2xl">
+      <div class="relative flex-1">
+        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+        <input type="text"
+               x-model="searchQuery"
+               @input="currentPage = 1"
+               placeholder="Cari nama, NIP, sekolah, atau data lainnya..."
+               class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition-all outline-none">
+      </div>
+
+      <!-- Active Filter / Sort Indicator Pill -->
+      <template x-if="hasActiveFiltersOrSort">
+        <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-semibold text-indigo-900 shadow-2xs shrink-0">
+          <div class="flex items-center gap-1.5">
+            <i data-lucide="filter" class="w-3.5 h-3.5 text-indigo-600"></i>
+            <span class="font-extrabold text-indigo-800" x-text="activeFilterSummary"></span>
+          </div>
+          <button type="button" @click="resetAllFilters()" class="text-[11px] font-bold text-rose-600 hover:text-rose-800 hover:underline cursor-pointer ml-1" title="Hapus seluruh filter & pengurutan kolom">
+            Reset
+          </button>
+        </div>
+      </template>
     </div>
 
     <!-- Controls: Column Visibility, Add Column, Add Row, Page Size -->
@@ -251,26 +266,62 @@
 
             <!-- Standard Fallback Identitas Columns (Only shown if NOT already covered in columns) -->
             <template x-if="!isFieldDefinedInSheet('nama') && !isFieldDefinedInSheet('label')">
-              <th class="py-3 px-4 min-w-[200px] border-r border-slate-200 bg-slate-100">
-                <div class="flex items-center justify-between">
-                  <span>Nama Lengkap</span>
-                  <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-mono">IDENTITAS</span>
+              <th class="py-2.5 px-3 min-w-[200px] border-r border-slate-200 bg-slate-100">
+                <div class="flex items-center justify-between gap-1.5">
+                  <div class="flex items-center gap-1.5 truncate">
+                    <span class="font-bold text-slate-800 truncate">Nama Lengkap</span>
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-mono shrink-0">IDENTITAS</span>
+                  </div>
+                  <button type="button"
+                          @click.stop="openFilterDropdown('nama', 'Nama Lengkap', $event)"
+                          class="p-1 rounded transition-colors cursor-pointer relative shrink-0"
+                          :class="isColumnFilteredOrSorted('nama') ? 'bg-indigo-600 text-white shadow-xs' : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'"
+                          title="Filter & Urutkan kolom Nama Lengkap">
+                    <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                    <template x-if="isColumnFilteredOrSorted('nama')">
+                      <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white"></span>
+                    </template>
+                  </button>
                 </div>
               </th>
             </template>
 
             <template x-if="!isFieldDefinedInSheet('nip') && !isFieldDefinedInSheet('identifier') && ('<%= sheet.targetType %>' === 'PEGAWAI' || '<%= sheet.targetType %>' === 'UNIT')">
-              <th class="py-3 px-4 min-w-[150px] border-r border-slate-200 bg-slate-100">
-                <div class="flex items-center justify-between">
-                  <span><%= sheet.targetType === 'PEGAWAI' ? 'NIP' : 'Kode Unit' %></span>
-                  <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-mono">KUNCI</span>
+              <th class="py-2.5 px-3 min-w-[150px] border-r border-slate-200 bg-slate-100">
+                <div class="flex items-center justify-between gap-1.5">
+                  <div class="flex items-center gap-1.5 truncate">
+                    <span class="font-bold text-slate-800 truncate"><%= sheet.targetType === 'PEGAWAI' ? 'NIP' : 'Kode Unit' %></span>
+                    <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-mono shrink-0">KUNCI</span>
+                  </div>
+                  <button type="button"
+                          @click.stop="openFilterDropdown('nip', '<%= sheet.targetType === 'PEGAWAI' ? 'NIP' : 'Kode Unit' %>', $event)"
+                          class="p-1 rounded transition-colors cursor-pointer relative shrink-0"
+                          :class="isColumnFilteredOrSorted('nip') ? 'bg-indigo-600 text-white shadow-xs' : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'"
+                          title="Filter & Urutkan kolom ini">
+                    <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                    <template x-if="isColumnFilteredOrSorted('nip')">
+                      <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white"></span>
+                    </template>
+                  </button>
                 </div>
               </th>
             </template>
 
             <template x-if="!isFieldDefinedInSheet('unitKerja') && !isFieldDefinedInSheet('subLabel') && !isFieldDefinedInSheet('jabatan')">
-              <th class="py-3 px-4 min-w-[160px] border-r border-slate-200 bg-slate-100">
-                <span><%= sheet.targetType === 'PEGAWAI' ? 'Unit / Jabatan' : 'Keterangan' %></span>
+              <th class="py-2.5 px-3 min-w-[160px] border-r border-slate-200 bg-slate-100">
+                <div class="flex items-center justify-between gap-1.5">
+                  <span class="font-bold text-slate-800 truncate"><%= sheet.targetType === 'PEGAWAI' ? 'Unit / Jabatan' : 'Keterangan' %></span>
+                  <button type="button"
+                          @click.stop="openFilterDropdown('unitKerja', '<%= sheet.targetType === 'PEGAWAI' ? 'Unit / Jabatan' : 'Keterangan' %>', $event)"
+                          class="p-1 rounded transition-colors cursor-pointer relative shrink-0"
+                          :class="isColumnFilteredOrSorted('unitKerja') ? 'bg-indigo-600 text-white shadow-xs' : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'"
+                          title="Filter & Urutkan kolom ini">
+                    <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                    <template x-if="isColumnFilteredOrSorted('unitKerja')">
+                      <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white"></span>
+                    </template>
+                  </button>
+                </div>
               </th>
             </template>
 
@@ -282,14 +333,20 @@
                 <div class="flex items-center justify-between gap-1.5">
                   <div class="flex items-center gap-1.5 truncate">
                     <div class="truncate font-bold text-slate-800" :title="col.label" x-text="col.label"></div>
+                    <template x-if="col.isProtected">
+                      <span class="text-[9px] px-1.5 py-0.5 rounded font-extrabold bg-amber-100 text-amber-800 border border-amber-300 shrink-0 flex items-center gap-0.5" title="Kolom ini DIPROTEKSI (Hanya Admin yang dapat mengedit)">
+                        <i data-lucide="lock" class="w-2.5 h-2.5 text-amber-700"></i>
+                        <span>Protected</span>
+                      </span>
+                    </template>
                     <template x-if="col.hidden">
-                      <span class="text-[9px] px-1.5 py-0.5 rounded font-extrabold bg-amber-100 text-amber-800 border border-amber-300 shrink-0" title="Kolom ini disembunyikan dari pengisian publik">
-                        Hidden Publik
+                      <span class="text-[9px] px-1.5 py-0.5 rounded font-extrabold bg-rose-100 text-rose-800 border border-rose-300 shrink-0" title="Kolom ini disembunyikan dari pengisian publik">
+                        Hidden
                       </span>
                     </template>
                   </div>
                   
-                  <!-- Type Badge & Header Actions -->
+                  <!-- Type Badge & Single Compact Menu / Filter Button -->
                   <div class="flex items-center gap-1 shrink-0">
                     <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase"
                           :class="{
@@ -302,21 +359,18 @@
                           x-text="col.type">
                     </span>
 
-                    <!-- Quick Toggle Public Visibility -->
+                    <!-- TOMBOL FILTER & PENGATURAN KOLOM (Satu tombol ringkas) -->
                     <button type="button"
-                            @click="toggleColumnVisibility(col.key)"
-                            class="p-1 rounded transition-colors cursor-pointer"
-                            :class="col.hidden ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'"
-                            :title="col.hidden ? 'Kolom tersembunyi dari publik. Klik untuk menampilkan kembali ke publik' : 'Sembunyikan kolom ini dari tampilan publik'">
-                      <i :data-lucide="col.hidden ? 'eye-off' : 'eye'" class="w-3.5 h-3.5"></i>
-                    </button>
-
-                    <!-- Quick Delete Column Icon -->
-                    <button type="button"
-                            @click="confirmDeleteColumn(col)"
-                            class="p-1 hover:bg-rose-100 rounded text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
-                            title="Hapus kolom ini dari spreadsheet">
-                      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            @click.stop="openFilterDropdown(col.key, col.label, $event)"
+                            class="p-1.5 rounded-lg transition-colors cursor-pointer relative"
+                            :class="isColumnFilteredOrSorted(col.key) 
+                              ? 'bg-indigo-600 text-white shadow-xs' 
+                              : 'hover:bg-slate-200 text-slate-500 hover:text-slate-800'"
+                            :title="isColumnFilteredOrSorted(col.key) ? 'Filter aktif. Klik untuk kelola filter & pengaturan kolom.' : 'Filter, urutkan, dan opsi kolom ini'">
+                      <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+                      <template x-if="isColumnFilteredOrSorted(col.key)">
+                        <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white"></span>
+                      </template>
                     </button>
                   </div>
                 </div>
@@ -562,6 +616,24 @@
                  placeholder="Contoh: Lengkap, Belum Lengkap, Perbaikan"
                  class="w-full px-3 py-1.5 bg-white border border-purple-200 rounded-lg text-slate-900 text-xs outline-none">
         </div>
+
+        <!-- Protect & Filter Settings -->
+        <div class="pt-2 border-t border-slate-100 space-y-2">
+          <label class="flex items-center gap-2 cursor-pointer select-none" title="Nilai kolom tetap ditampilkan ke publik, namun hanya Admin yang dapat mengubah isinya">
+            <input type="checkbox" x-model="newCol.isProtected" class="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer">
+            <span class="font-bold text-slate-700 flex items-center gap-1.5">
+              <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-600"></i>
+              <span>Proteksi Kolom (Nilai Tetap Tampil, Read-Only Publik)</span>
+            </span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" x-model="newCol.filterable" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer">
+            <span class="font-bold text-slate-700 flex items-center gap-1.5">
+              <i data-lucide="filter" class="w-3.5 h-3.5 text-indigo-600"></i>
+              <span>Sediakan Tombol Filter di Header</span>
+            </span>
+          </label>
+        </div>
       </div>
 
       <div class="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
@@ -708,6 +780,176 @@
     </div>
   </div>
 
+  <!-- FLOATING FILTER & SORT DROPDOWN (Fixed position to never get clipped by table bounds) -->
+  <div x-show="activeFilterCol"
+       x-cloak
+       @click.away="activeFilterCol = null"
+       :style="`position: fixed; top: ${filterDropdownPos.top}px; left: ${filterDropdownPos.left}px; width: 310px; z-index: 9999;`"
+       class="bg-white rounded-2xl shadow-2xl border border-slate-200 p-3.5 space-y-3 text-xs animate-in fade-in zoom-in-95 duration-100 max-h-[85vh] overflow-y-auto scrollbar-thin">
+    
+    <!-- Popover Header -->
+    <div class="flex items-center justify-between pb-2 border-b border-slate-100">
+      <div class="truncate pr-2">
+        <span class="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Opsi Kolom & Filter</span>
+        <span class="font-extrabold text-slate-900 text-xs truncate block" x-text="activeFilterLabel"></span>
+      </div>
+      <button type="button" @click="activeFilterCol = null" class="p-1 text-slate-400 hover:text-slate-600 rounded-lg cursor-pointer">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <!-- PENGATURAN KOLOM ADMIN (Hapus, Mata/Visibilitas, Gembok/Proteksi) -->
+    <template x-if="activeColObject">
+      <div class="space-y-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+        <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+          <span>Pengaturan Kolom</span>
+          <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase bg-slate-200 text-slate-700" x-text="activeColObject.type"></span>
+        </div>
+
+        <div class="space-y-1.5">
+          <!-- 1. Tombol Gembok / Proteksi Kolom -->
+          <button type="button"
+                  @click="toggleColumnProtect(activeFilterCol)"
+                  class="w-full py-1.5 px-2.5 rounded-xl border flex items-center justify-between font-bold text-xs transition-colors cursor-pointer"
+                  :class="activeColObject.isProtected 
+                    ? 'bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100' 
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'"
+                  :title="activeColObject.isProtected ? 'Klik untuk membuka kunci (bisa diisi responden)' : 'Klik untuk memproteksi (hanya admin yang dapat mengedit)'">
+            <div class="flex items-center gap-2">
+              <template x-if="activeColObject.isProtected">
+                <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-600"></i>
+              </template>
+              <template x-if="!activeColObject.isProtected">
+                <i data-lucide="unlock" class="w-3.5 h-3.5 text-slate-400"></i>
+              </template>
+              <span x-text="activeColObject.isProtected ? 'Kolom Diproteksi' : 'Proteksi Kolom'"></span>
+            </div>
+            <span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded"
+                  :class="activeColObject.isProtected ? 'bg-amber-200 text-amber-900' : 'bg-slate-100 text-slate-500'"
+                  x-text="activeColObject.isProtected ? 'Hanya Admin' : 'Bebas Diisi'">
+            </span>
+          </button>
+
+          <!-- 2. Tombol Mata / Visibilitas Publik -->
+          <button type="button"
+                  @click="toggleColumnVisibility(activeFilterCol)"
+                  class="w-full py-1.5 px-2.5 rounded-xl border flex items-center justify-between font-bold text-xs transition-colors cursor-pointer"
+                  :class="activeColObject.hidden 
+                    ? 'bg-rose-50 border-rose-200 text-rose-800 hover:bg-rose-100' 
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'"
+                  :title="activeColObject.hidden ? 'Klik untuk menampilkan kolom ke publik' : 'Klik untuk menyembunyikan kolom dari publik'">
+            <div class="flex items-center gap-2">
+              <template x-if="!activeColObject.hidden">
+                <i data-lucide="eye" class="w-3.5 h-3.5 text-emerald-600"></i>
+              </template>
+              <template x-if="activeColObject.hidden">
+                <i data-lucide="eye-off" class="w-3.5 h-3.5 text-rose-500"></i>
+              </template>
+              <span x-text="activeColObject.hidden ? 'Status: Tersembunyi' : 'Status: Ditampilkan'"></span>
+            </div>
+            <span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded"
+                  :class="activeColObject.hidden ? 'bg-rose-200 text-rose-900' : 'bg-emerald-100 text-emerald-800'"
+                  x-text="activeColObject.hidden ? 'Hidden' : 'Publik'">
+            </span>
+          </button>
+
+          <!-- 3. Tombol Hapus Kolom -->
+          <button type="button"
+                  @click="confirmDeleteColumn(activeColObject); activeFilterCol = null;"
+                  class="w-full py-1.5 px-2.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 flex items-center gap-2 font-bold text-xs transition-colors cursor-pointer"
+                  title="Hapus kolom ini dari spreadsheet">
+            <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-600"></i>
+            <span>Hapus Kolom Ini</span>
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <!-- 1. Sort Actions -->
+    <div class="space-y-1">
+      <div class="text-[10px] font-bold uppercase text-slate-400">Pengurutan (Sort)</div>
+      <div class="grid grid-cols-2 gap-1.5">
+        <button type="button"
+                @click="applySort(activeFilterCol, 'asc')"
+                class="py-1.5 px-2 rounded-xl border flex items-center justify-center gap-1.5 font-bold text-[11px] transition-colors cursor-pointer"
+                :class="isSortActive(activeFilterCol, 'asc') ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'">
+          <i data-lucide="arrow-up-a-z" class="w-3.5 h-3.5"></i>
+          <span>A → Z / 0 → 9</span>
+        </button>
+        <button type="button"
+                @click="applySort(activeFilterCol, 'desc')"
+                class="py-1.5 px-2 rounded-xl border flex items-center justify-center gap-1.5 font-bold text-[11px] transition-colors cursor-pointer"
+                :class="isSortActive(activeFilterCol, 'desc') ? 'bg-indigo-600 text-white border-indigo-600 shadow-2xs' : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'">
+          <i data-lucide="arrow-down-z-a" class="w-3.5 h-3.5"></i>
+          <span>Z → A / 9 → 0</span>
+        </button>
+      </div>
+      <template x-if="activeSort.colKey === activeFilterCol">
+        <button type="button"
+                @click="clearSort()"
+                class="w-full text-center text-[10px] font-bold text-slate-500 hover:text-rose-600 py-1 hover:underline cursor-pointer">
+          ✕ Hapus Pengurutan Kolom Ini
+        </button>
+      </template>
+    </div>
+
+    <!-- 2. Value Filters -->
+    <div class="space-y-1.5 pt-1.5 border-t border-slate-100">
+      <div class="flex items-center justify-between text-[10px] font-bold uppercase text-slate-400">
+        <span>Filter Nilai Sel</span>
+        <div class="flex items-center gap-1.5 text-indigo-600">
+          <button type="button" @click="selectAllFilterValues()" class="hover:underline cursor-pointer">Semua</button>
+          <span>•</span>
+          <button type="button" @click="clearFilterValuesSelection()" class="hover:underline cursor-pointer">Kosongkan</button>
+        </div>
+      </div>
+
+      <!-- Search in filter values -->
+      <div class="relative">
+        <input type="text"
+               x-model="filterSearchText"
+               placeholder="Cari nilai..."
+               class="w-full px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:bg-white focus:border-indigo-500">
+      </div>
+
+      <!-- Distinct Value Checkboxes List -->
+      <div class="max-h-40 overflow-y-auto space-y-1 scrollbar-thin border border-slate-100 rounded-xl p-1.5 bg-slate-50/50">
+        <template x-for="item in currentColumnDistinctValues" :key="item.value">
+          <label class="flex items-center justify-between p-1 hover:bg-white rounded-lg cursor-pointer text-xs select-none">
+            <div class="flex items-center gap-2 truncate pr-1">
+              <input type="checkbox"
+                     :checked="isFilterValueSelected(item.value)"
+                     @change="toggleFilterValue(item.value)"
+                     class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5 cursor-pointer">
+              <span class="truncate font-semibold text-slate-800" x-text="item.value || '(Kosong / Belum Diisi)'"></span>
+            </div>
+            <span class="text-[10px] font-mono text-slate-400 bg-slate-100 px-1.5 py-0.2 rounded" x-text="item.count"></span>
+          </label>
+        </template>
+        <template x-if="currentColumnDistinctValues.length === 0">
+          <div class="text-[11px] text-slate-400 text-center py-2 italic">
+            Tidak ada nilai cocok
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Popover Footer Action Buttons -->
+    <div class="pt-2 border-t border-slate-100 flex items-center justify-between gap-2">
+      <button type="button"
+              @click="resetColumnFilter(activeFilterCol)"
+              class="text-xs font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer">
+        Reset Filter
+      </button>
+      <button type="button"
+              @click="activeFilterCol = null"
+              class="btn-primary py-1.5 px-3.5 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs cursor-pointer">
+        Tutup
+      </button>
+    </div>
+
+  </div>
+
 </main>
 
 <script>
@@ -725,7 +967,9 @@
     // Load columns and DB hidden status
     const initialColumns = (config.columns || []).map(c => ({
       ...c,
-      hidden: !!c.hidden
+      hidden: !!c.hidden,
+      isProtected: !!c.isProtected,
+      filterable: c.filterable !== undefined ? !!c.filterable : true
     }));
     const dbHidden = initialColumns.filter(c => c.hidden).map(c => c.key);
 
@@ -754,7 +998,15 @@
       rowToDelete: null,
       colToDelete: null,
       newRow: { label: '', identifier: '', subLabel: '' },
-      newCol: { label: '', type: 'text', rawOptions: '' },
+      newCol: { label: '', type: 'text', rawOptions: '', isProtected: false, filterable: true },
+
+      // Filter & Sort State
+      activeSort: { colKey: null, direction: 'asc' },
+      columnFilters: {}, // { [colKey]: string[] of allowed values }
+      activeFilterCol: null,
+      activeFilterLabel: '',
+      filterSearchText: '',
+      filterDropdownPos: { top: 0, left: 0 },
 
       init() {
         if (window.lucide) {
@@ -764,6 +1016,11 @@
 
       get allColumns() {
         return this.columns;
+      },
+
+      get activeColObject() {
+        if (!this.activeFilterCol) return null;
+        return this.columns.find(c => c.key === this.activeFilterCol) || null;
       },
 
       get visibleColumns() {
@@ -849,6 +1106,202 @@
         }
       },
 
+      // --- PROTECT COLUMN METHODS ---
+      async toggleColumnProtect(key) {
+        const col = this.columns.find(c => c.key === key);
+        if (!col) return;
+        col.isProtected = !col.isProtected;
+
+        this.$nextTick(() => {
+          if (window.lucide) window.lucide.createIcons();
+        });
+
+        await this.syncColumnsToServer(col.label, col.isProtected ? 'DIPROTEKSI (Hanya Admin)' : 'DIBUKA untuk responden');
+      },
+
+      async syncColumnsToServer(label = '', statusDesc = '') {
+        try {
+          this.isSaving = true;
+          this.saveStatus = 'Menyimpan kolom...';
+
+          const res = await fetch(`/admin/sheets/${this.sheetId}/columns/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ columns: this.columns })
+          });
+          const result = await res.json();
+          this.isSaving = false;
+
+          if (result.success) {
+            this.saveStatus = statusDesc ? `Kolom '${label}' ${statusDesc}!` : 'Kolom berhasil diperbarui!';
+            setTimeout(() => { this.saveStatus = ''; }, 3000);
+          } else {
+            this.saveStatus = 'Gagal menyimpan!';
+            alert(result.message || 'Gagal memperbarui konfigurasi kolom');
+          }
+        } catch (err) {
+          this.isSaving = false;
+          this.saveStatus = 'Error koneksi';
+          console.error('[syncColumnsToServer] Error:', err);
+        }
+      },
+
+      // --- FILTER & SORT METHODS ---
+      get hasActiveFiltersOrSort() {
+        return Object.keys(this.columnFilters).length > 0 || !!this.activeSort.colKey;
+      },
+
+      get activeFilterSummary() {
+        const parts = [];
+        if (this.activeSort.colKey) {
+          const col = this.columns.find(c => c.key === this.activeSort.colKey);
+          let name = col ? col.label : this.activeSort.colKey;
+          if (this.activeSort.colKey === 'nama') name = 'Nama Lengkap';
+          if (this.activeSort.colKey === 'nip') name = 'NIP';
+          if (this.activeSort.colKey === 'unitKerja') name = 'Unit Sekolah';
+          parts.push(`Urut: ${name} (${this.activeSort.direction === 'asc' ? 'A-Z' : 'Z-A'})`);
+        }
+        const filteredColCount = Object.keys(this.columnFilters).length;
+        if (filteredColCount > 0) {
+          parts.push(`${filteredColCount} kolom difilter`);
+        }
+        return parts.join(', ');
+      },
+
+      isColumnFilteredOrSorted(key) {
+        const isSorted = this.activeSort.colKey === key;
+        const isFiltered = this.columnFilters[key] !== undefined && this.columnFilters[key] !== null;
+        return isSorted || isFiltered;
+      },
+
+      isSortActive(key, direction) {
+        return this.activeSort.colKey === key && this.activeSort.direction === direction;
+      },
+
+      openFilterDropdown(colKey, colLabel, event) {
+        if (this.activeFilterCol === colKey) {
+          this.activeFilterCol = null;
+          return;
+        }
+        this.activeFilterCol = colKey;
+        this.activeFilterLabel = colLabel || colKey;
+        this.filterSearchText = '';
+
+        const btn = event.currentTarget;
+        const rect = btn.getBoundingClientRect();
+        const popoverWidth = 310;
+        
+        let left = rect.left;
+        if (left + popoverWidth > window.innerWidth - 16) {
+          left = window.innerWidth - popoverWidth - 16;
+        }
+        if (left < 16) left = 16;
+
+        this.filterDropdownPos = {
+          top: Math.round(rect.bottom + 6),
+          left: Math.round(left)
+        };
+
+        this.$nextTick(() => {
+          if (window.lucide) window.lucide.createIcons();
+        });
+      },
+
+      applySort(colKey, direction) {
+        this.activeSort = { colKey, direction };
+        this.currentPage = 1;
+        this.$nextTick(() => {
+          if (window.lucide) window.lucide.createIcons();
+        });
+      },
+
+      clearSort() {
+        this.activeSort = { colKey: null, direction: 'asc' };
+        this.currentPage = 1;
+        this.$nextTick(() => {
+          if (window.lucide) window.lucide.createIcons();
+        });
+      },
+
+      get currentColumnDistinctValues() {
+        if (!this.activeFilterCol) return [];
+        const key = this.activeFilterCol;
+        const counts = new Map();
+        
+        for (const r of this.rows) {
+          const val = String(this.getCellValue(r, key) || '').trim();
+          counts.set(val, (counts.get(val) || 0) + 1);
+        }
+
+        let list = Array.from(counts.entries()).map(([value, count]) => ({ value, count }));
+        
+        list.sort((a, b) => {
+          if (!a.value) return 1;
+          if (!b.value) return -1;
+          return a.value.localeCompare(b.value, undefined, { numeric: true, sensitivity: 'base' });
+        });
+
+        if (this.filterSearchText.trim()) {
+          const q = this.filterSearchText.toLowerCase();
+          list = list.filter(item => (item.value || '(kosong / belum diisi)').toLowerCase().includes(q));
+        }
+
+        return list;
+      },
+
+      isFilterValueSelected(val) {
+        if (!this.activeFilterCol) return true;
+        const selected = this.columnFilters[this.activeFilterCol];
+        if (!selected) return true;
+        return selected.includes(val);
+      },
+
+      toggleFilterValue(val) {
+        if (!this.activeFilterCol) return;
+        const key = this.activeFilterCol;
+        
+        if (!this.columnFilters[key]) {
+          const allVals = this.currentColumnDistinctValues.map(i => i.value);
+          this.columnFilters[key] = allVals.filter(v => v !== val);
+        } else {
+          if (this.columnFilters[key].includes(val)) {
+            this.columnFilters[key] = this.columnFilters[key].filter(v => v !== val);
+          } else {
+            this.columnFilters[key].push(val);
+          }
+        }
+        this.currentPage = 1;
+      },
+
+      selectAllFilterValues() {
+        if (!this.activeFilterCol) return;
+        delete this.columnFilters[this.activeFilterCol];
+        this.currentPage = 1;
+      },
+
+      clearFilterValuesSelection() {
+        if (!this.activeFilterCol) return;
+        this.columnFilters[this.activeFilterCol] = [];
+        this.currentPage = 1;
+      },
+
+      resetColumnFilter(key) {
+        if (key) {
+          delete this.columnFilters[key];
+          if (this.activeSort.colKey === key) {
+            this.activeSort = { colKey: null, direction: 'asc' };
+          }
+        }
+        this.currentPage = 1;
+      },
+
+      resetAllFilters() {
+        this.columnFilters = {};
+        this.activeSort = { colKey: null, direction: 'asc' };
+        this.searchQuery = '';
+        this.currentPage = 1;
+      },
+
       isFieldDefinedInSheet(field) {
         const q = field.toLowerCase();
         return this.columns.some(c => (c.key && c.key.toLowerCase() === q) || (c.label && c.label.toLowerCase() === q));
@@ -859,15 +1312,60 @@
       },
 
       get filteredRows() {
-        if (!this.searchQuery.trim()) return this.rows;
-        const q = this.searchQuery.toLowerCase();
-        return this.rows.filter(r => {
-          if (r.label && r.label.toLowerCase().includes(q)) return true;
-          if (r.identifier && r.identifier.toLowerCase().includes(q)) return true;
-          if (r.subLabel && r.subLabel.toLowerCase().includes(q)) return true;
-          const d = r.data || {};
-          return Object.values(d).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(q));
-        });
+        let result = this.rows;
+
+        // 1. Global Search Query
+        if (this.searchQuery && this.searchQuery.trim()) {
+          const q = this.searchQuery.toLowerCase();
+          result = result.filter(r => {
+            if (r.label && r.label.toLowerCase().includes(q)) return true;
+            if (r.identifier && r.identifier.toLowerCase().includes(q)) return true;
+            if (r.subLabel && r.subLabel.toLowerCase().includes(q)) return true;
+            const d = r.data || {};
+            return Object.values(d).some(v => v !== null && v !== undefined && String(v).toLowerCase().includes(q));
+          });
+        }
+
+        // 2. Column-specific value filters
+        for (const [colKey, selectedValues] of Object.entries(this.columnFilters)) {
+          if (selectedValues && Array.isArray(selectedValues)) {
+            result = result.filter(r => {
+              const cellVal = String(this.getCellValue(r, colKey) || '').trim();
+              return selectedValues.includes(cellVal);
+            });
+          }
+        }
+
+        // 3. Active Column Sorting
+        if (this.activeSort && this.activeSort.colKey) {
+          const key = this.activeSort.colKey;
+          const dir = this.activeSort.direction === 'desc' ? -1 : 1;
+
+          result = [...result].sort((a, b) => {
+            let valA = this.getCellValue(a, key);
+            let valB = this.getCellValue(b, key);
+
+            if (valA === undefined || valA === null) valA = '';
+            if (valB === undefined || valB === null) valB = '';
+
+            valA = String(valA).trim();
+            valB = String(valB).trim();
+
+            if (!valA && !valB) return 0;
+            if (!valA) return 1;
+            if (!valB) return -1;
+
+            const numA = Number(valA.replace(/[^0-9.-]+/g, ''));
+            const numB = Number(valB.replace(/[^0-9.-]+/g, ''));
+            if (!isNaN(numA) && !isNaN(numB) && valA.match(/\d/) && valB.match(/\d/)) {
+              return (numA - numB) * dir;
+            }
+
+            return valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' }) * dir;
+          });
+        }
+
+        return result;
       },
 
       get totalPages() {
@@ -925,28 +1423,52 @@
       },
 
       getCellValue(row, key) {
+        if (!row) return '';
+        // 1. Direct match in row.data if non-empty
+        if (row.data && row.data[key] !== undefined && row.data[key] !== null && String(row.data[key]).trim() !== '') {
+          return row.data[key];
+        }
+
+        // 2. Case-insensitive key match in row.data if non-empty
+        if (row.data && typeof row.data === 'object') {
+          const lKey = String(key || '').toLowerCase();
+          for (const [k, v] of Object.entries(row.data)) {
+            if (k.toLowerCase() === lKey && v !== undefined && v !== null && String(v).trim() !== '') {
+              return v;
+            }
+          }
+        }
+
+        // 3. Fallback to entity row fields
+        const lk = String(key || '').toLowerCase();
+        if (['nama', 'label', 'namalengkap', 'namapegawai', 'nama_lengkap', 'namaunit'].includes(lk)) {
+          return row.label || (row.data && (row.data.nama || row.data.namaUnit || row.data.label)) || '';
+        }
+        if (['nip', 'identifier', 'kode', 'nip_baru', 'nik'].includes(lk)) {
+          return row.identifier || (row.data && (row.data.nip || row.data.identifier)) || '';
+        }
+        if (['unitkerja', 'sublabel', 'unit', 'instansi', 'sekolah', 'unitsekolah', 'jabatan'].includes(lk)) {
+          return row.subLabel || (row.data && (row.data.unitKerja || row.data.jabatan || row.data.subLabel)) || '';
+        }
+
+        // 4. Return raw row.data[key] if present even if empty
         if (row.data && row.data[key] !== undefined && row.data[key] !== null) {
           return row.data[key];
         }
-        if (key === 'nama' || key === 'label') return row.label || '';
-        if (key === 'nip' || key === 'identifier') return row.identifier || '';
-        if (key === 'unitKerja' || key === 'subLabel') return row.subLabel || '';
+
         return '';
       },
 
       isRowFilled(row) {
         const d = row.data || {};
         return this.columns.some(col => {
-          if (['nama', 'nip', 'unitKerja', 'label', 'identifier', 'subLabel'].includes(col.key)) return false;
-          const val = d[col.key];
+          if (col.isProtected) return false;
+          const val = this.getCellValue(row, col.key);
           return val !== undefined && val !== '' && val !== null && String(val).trim() !== '-';
         });
       },
 
       isCellFilled(row, colKey) {
-        if (['nama', 'nip', 'unitKerja', 'label', 'identifier', 'subLabel'].includes(colKey)) {
-          return false;
-        }
         const val = this.getCellValue(row, colKey);
         if (val === undefined || val === null) return false;
         if (typeof val === 'boolean') return val;
@@ -1017,7 +1539,7 @@
 
       // --- COLUMN MANAGEMENT ---
       openAddColumnModal() {
-        this.newCol = { label: '', type: 'text', rawOptions: '' };
+        this.newCol = { label: '', type: 'text', rawOptions: '', isProtected: false, filterable: true };
         this.showAddColModal = true;
         this.$nextTick(() => window.lucide?.createIcons());
       },
@@ -1037,7 +1559,9 @@
             body: JSON.stringify({
               label: this.newCol.label.trim(),
               type: this.newCol.type,
-              options: options
+              options: options,
+              isProtected: !!this.newCol.isProtected,
+              filterable: this.newCol.filterable !== undefined ? !!this.newCol.filterable : true
             })
           });
 
