@@ -17,6 +17,7 @@ import { ncrAdminController } from '../controllers/admin/ncrAdminController';
 import { formController } from '../controllers/admin/formController';
 import { sheetAdminController } from '../controllers/admin/sheetAdminController';
 import { requireAdmin, requireSuperAdmin, requireSuperAdminOrDinas, requireNonDinas } from '../middleware/requireAdmin';
+import { presenceService } from '../services/presenceService';
 
 const router = Router();
 
@@ -202,5 +203,13 @@ router.post('/sheets/:id/columns', requireNonDinas, sheetAdminController.addColu
 router.post('/sheets/:id/columns/:colKey/delete', requireNonDinas, sheetAdminController.deleteColumn);
 router.post('/sheets/:id/columns/update', requireNonDinas, sheetAdminController.updateColumns);
 router.post('/sheets/:id/columns/visibility', requireNonDinas, sheetAdminController.updateColumnsVisibility);
+
+// 11. Real-time Online Users Stats (Admin Only)
+router.get('/api/online-users', requireAdmin, (_req, res) => {
+  res.json({
+    success: true,
+    ...presenceService.getOnlineStats()
+  });
+});
 
 export default router;

@@ -10,6 +10,7 @@ import { ncrPublicController } from '../controllers/ncrPublicController';
 import { publicFormController } from '../controllers/publicFormController';
 import { sheetPublicController } from '../controllers/sheetPublicController';
 import { checkMaintenance } from '../middleware/maintenanceMiddleware';
+import { presenceService } from '../services/presenceService';
 
 const router = Router();
 
@@ -89,5 +90,22 @@ router.post('/sheet/:slug/lock-row', sheetPublicController.lockRow);
 router.post('/sheet/:slug/save-row', sheetPublicController.saveRow);
 router.post('/sheet/:slug/bulk-save', sheetPublicController.bulkSave);
 router.get('/sheet/:slug/export', sheetPublicController.exportXlsx);
+
+// Real-time Presence Heartbeat
+router.post('/api/presence/ping', (req, res) => {
+  const clientId = req.body?.clientId || (req.session as any)?.id || req.ip || 'anonymous';
+  const isAdmin = !!(req.session as any)?.user;
+  const path = req.body?.path || '/';
+  presenceService.recordPing(clientId, isAdmin ? 'ADMIN' : 'PUBLIC', path);
+  res.json({ ok: true });
+});
+
+router.post('/api/presence/leave', (req, res) => {
+  const clientId = req.body?.clientId || (req.session as any)?.id || req.ip;
+  if (clientId) {
+    presenceService.recordLeave(clientId);
+  }
+  res.json({ ok: true });
+});
 
 export default router;

@@ -7,6 +7,7 @@ import session from 'express-session';
 import dotenv from 'dotenv';
 import publicRoutes from './routes/publicRoutes';
 import adminRoutes from './routes/adminRoutes';
+import { presenceService } from './services/presenceService';
 
 dotenv.config();
 
@@ -98,6 +99,21 @@ export function createApp(): Express {
 
   app.set('views', viewsPath);
   app.set('view engine', 'ejs');
+
+  // 5b. Lightweight Real-time Presence Tracking Middleware
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    if (
+      req.method === 'GET' &&
+      !req.path.startsWith('/api') &&
+      !req.path.startsWith('/uploads') &&
+      !req.path.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|map)$/i)
+    ) {
+      const isUserAdmin = !!(req.session as any)?.user;
+      const clientId = (req.session as any)?.id || req.ip || 'visitor';
+      presenceService.recordPing(clientId, isUserAdmin ? 'ADMIN' : 'PUBLIC', req.path);
+    }
+    next();
+  });
 
   // 6. Mount Application Routes
   app.use('/', publicRoutes);

@@ -731,8 +731,25 @@
         </div>
       </div>
 
-      <!-- Right: Web Link & Profile Pill -->
-      <div class="flex items-center gap-3">
+      <!-- Right: Online Users & Web Link & Profile Pill -->
+      <div class="flex items-center gap-2 sm:gap-3">
+        <!-- Live Online Visitors Counter (Khusus Role Admin) -->
+        <div x-data="adminOnlineTracker()"
+             x-init="initTracker()"
+             class="flex items-center gap-1.5 sm:gap-2 px-2.5 py-1.5 rounded-xl border border-emerald-200 bg-emerald-50/90 text-emerald-800 text-xs font-semibold shadow-2xs select-none transition-all cursor-default"
+             :title="`Pengguna Aktif: ${online.total} Total (${online.admin} Admin, ${online.public} Publik/Tamu)`">
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <div class="flex items-center gap-1.5">
+            <span class="text-[11px] font-black text-emerald-950" x-text="`${online.total} Online`"></span>
+            <span class="hidden md:inline-block text-[10px] font-bold text-emerald-700 bg-white/90 px-1.5 py-0.5 rounded-md border border-emerald-200/70"
+                  x-text="online.admin > 0 ? `${online.admin} Admin · ${online.public} Tamu` : `${online.public} Tamu`">
+            </span>
+          </div>
+        </div>
+
         <a href="/" target="_blank" class="px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors flex items-center gap-1.5 border border-slate-200 bg-white shadow-2xs">
           <i data-lucide="globe" class="w-3.5 h-3.5 text-slate-500"></i>
           <span class="hidden sm:inline">Lihat Web Publik</span>
@@ -779,3 +796,33 @@
       </div>
 
     </header>
+
+    <script>
+      function adminOnlineTracker() {
+        return {
+          online: { total: 1, admin: 1, public: 0 },
+          initTracker() {
+            this.fetchOnline();
+            // Polling setiap 15 detik untuk update real-time
+            setInterval(() => this.fetchOnline(), 15000);
+          },
+          async fetchOnline() {
+            try {
+              const res = await fetch('/admin/api/online-users');
+              if (res.ok) {
+                const data = await res.json();
+                if (data.success) {
+                  this.online = {
+                    total: data.total ?? 1,
+                    admin: data.admin ?? 1,
+                    public: data.public ?? 0
+                  };
+                }
+              }
+            } catch (e) {
+              // ignore network hiccups
+            }
+          }
+        };
+      }
+    </script>
