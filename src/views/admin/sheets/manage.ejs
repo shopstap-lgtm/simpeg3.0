@@ -272,13 +272,42 @@
           </template>
         </span>
       </div>
-      <div class="text-[11px] text-slate-400">
-        Klik kolom mana saja untuk mengetik. Anda juga bisa menyembunyikan kolom atau menghapusnya langsung dari header.
+      <div class="flex items-center gap-3">
+        <!-- Tombol Geser Kolom Horizontal -->
+        <div class="flex items-center gap-1 bg-slate-200/80 p-0.5 rounded-xl border border-slate-300" title="Geser tabel ke kiri / kanan">
+          <button type="button"
+                  @click="scrollTableHorizontally(-300)"
+                  class="p-1 rounded-lg hover:bg-white text-slate-600 hover:text-slate-900 transition shadow-2xs cursor-pointer"
+                  title="Geser ke kiri">
+            <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i>
+          </button>
+          <span class="text-[9px] font-bold text-slate-500 px-0.5 uppercase tracking-wider">Geser</span>
+          <button type="button"
+                  @click="scrollTableHorizontally(300)"
+                  class="p-1 rounded-lg hover:bg-white text-slate-600 hover:text-slate-900 transition shadow-2xs cursor-pointer"
+                  title="Geser ke kanan">
+            <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+        <div class="text-[11px] text-slate-400 hidden sm:block">
+          Klik kolom mana saja untuk mengetik.
+        </div>
       </div>
     </div>
 
+    <!-- TOP HORIZONTAL SCROLLBAR: Scroll horizontal di atas di bawah header -->
+    <div x-show="tableScrollWidth > tableClientWidth"
+         x-ref="topScroll"
+         @scroll="syncScroll('top')"
+         class="overflow-x-auto overflow-y-hidden bg-slate-100/90 border-b border-slate-200/90 py-1 px-1 scrollbar-thin shrink-0 select-none z-10"
+         title="Scroll horizontal tabel">
+      <div :style="`width: ${tableScrollWidth}px; height: 6px;`"></div>
+    </div>
+
     <!-- Scrollable Table Grid -->
-    <div class="overflow-x-auto max-h-[650px] relative scrollbar-thin">
+    <div x-ref="tableScroll"
+         @scroll="syncScroll('bottom')"
+         class="overflow-x-auto max-h-[650px] relative scrollbar-thin">
       <table class="w-full border-collapse text-left text-xs" @paste="handleGridPaste($event)">
         <!-- Table Column Headers -->
         <thead class="bg-slate-100/90 sticky top-0 z-20 text-[11px] font-black text-slate-600 uppercase tracking-wider border-b border-slate-300 select-none shadow-2xs">
@@ -1057,10 +1086,19 @@
       filterSearchText: '',
       filterDropdownPos: { top: 0, left: 0, maxHeight: '480px' },
 
+      // Horizontal Scroll Metrics
+      tableScrollWidth: 0,
+      tableClientWidth: 0,
+      _isSyncingScroll: false,
+
       init() {
         if (window.lucide) {
           this.$nextTick(() => window.lucide.createIcons());
         }
+
+        this.updateScrollMetrics();
+        setTimeout(() => this.updateScrollMetrics(), 300);
+        setTimeout(() => this.updateScrollMetrics(), 1000);
 
         // Reposition filter popover dynamically on scroll (window or table container) and window resize
         window.addEventListener('scroll', () => {
@@ -1068,8 +1106,37 @@
         }, { passive: true, capture: true });
 
         window.addEventListener('resize', () => {
+          this.updateScrollMetrics();
           if (this.activeFilterCol) this.repositionFilterDropdown();
         }, { passive: true });
+      },
+
+      updateScrollMetrics() {
+        this.$nextTick(() => {
+          if (this.$refs.tableScroll) {
+            this.tableScrollWidth = this.$refs.tableScroll.scrollWidth || 0;
+            this.tableClientWidth = this.$refs.tableScroll.clientWidth || 0;
+          }
+        });
+      },
+
+      syncScroll(source) {
+        if (this._isSyncingScroll) return;
+        this._isSyncingScroll = true;
+        if (source === 'top' && this.$refs.topScroll && this.$refs.tableScroll) {
+          this.$refs.tableScroll.scrollLeft = this.$refs.topScroll.scrollLeft;
+        } else if (source === 'bottom' && this.$refs.topScroll && this.$refs.tableScroll) {
+          this.$refs.topScroll.scrollLeft = this.$refs.tableScroll.scrollLeft;
+        }
+        requestAnimationFrame(() => {
+          this._isSyncingScroll = false;
+        });
+      },
+
+      scrollTableHorizontally(delta) {
+        if (this.$refs.tableScroll) {
+          this.$refs.tableScroll.scrollBy({ left: delta, behavior: 'smooth' });
+        }
       },
 
       get allColumns() {
@@ -1492,6 +1559,19 @@
             }
 
             return valA.localeCompare(valB, 'id', { numeric: true, sensitivity: 'base' }) * dir;
+          });
+        } else {
+          // Default Sort: Utamakan Unit Kerja terlebih dahulu, baru kemudian Nama Pegawai (A-Z)
+          result = [...result].sort((a, b) => {
+            const unitA = String(this.getCellValue(a, 'unitKerja') || a.subLabel || '').trim();
+            const unitB = String(this.getCellValue(b, 'unitKerja') || b.subLabel || '').trim();
+
+            const unitCmp = unitA.localeCompare(unitB, 'id', { numeric: true, sensitivity: 'base' });
+            if (unitCmp !== 0) return unitCmp;
+
+            const namaA = String(this.getCellValue(a, 'nama') || a.label || '').trim();
+            const namaB = String(this.getCellValue(b, 'nama') || b.label || '').trim();
+            return namaA.localeCompare(namaB, 'id', { numeric: true, sensitivity: 'base' });
           });
         }
 
