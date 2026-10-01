@@ -1192,6 +1192,7 @@
             }
 
             return valA.localeCompare(valB, 'id', { numeric: true, sensitivity: 'base' }) * dir;
+          });
         } else {
           // Default Sort: Utamakan Unit Kerja terlebih dahulu, baru kemudian Nama Pegawai (A-Z)
           result = [...result].sort((a, b) => {
