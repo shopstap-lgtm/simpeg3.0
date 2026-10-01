@@ -16,7 +16,7 @@ import { fileManagerController } from '../controllers/admin/fileManagerControlle
 import { ncrAdminController } from '../controllers/admin/ncrAdminController';
 import { formController } from '../controllers/admin/formController';
 import { sheetAdminController } from '../controllers/admin/sheetAdminController';
-import { requireAdmin, requireSuperAdmin, requireSuperAdminOrDinas, requireNonDinas } from '../middleware/requireAdmin';
+import { requireAdmin, requireSuperAdmin, requireSuperAdminOrDinas, requireNonDinas, requireMenuAccess } from '../middleware/requireAdmin';
 import { presenceService } from '../services/presenceService';
 
 const router = Router();
@@ -81,19 +81,19 @@ router.post('/klarifikasi/:id/approve', klarifikasiController.approve);
 router.post('/klarifikasi/:id/reject', klarifikasiController.reject);
 router.post('/klarifikasi/:id/delete', klarifikasiController.delete);
 
-// Upload Rekap Absensi (SUPER_ADMIN & ADMIN_DINAS Only)
-router.get('/upload-absensi', requireSuperAdminOrDinas, uploadAbsensiController.show);
-router.post('/upload-absensi', requireSuperAdminOrDinas, diskUpload.array('excelFiles', 60), uploadAbsensiController.processUpload);
-router.post('/upload-absensi/reset', requireSuperAdminOrDinas, uploadAbsensiController.resetAttendance);
+// Upload Rekap Absensi
+router.get('/upload-absensi', requireMenuAccess('upload_absensi'), uploadAbsensiController.show);
+router.post('/upload-absensi', requireMenuAccess('upload_absensi'), diskUpload.array('excelFiles', 60), uploadAbsensiController.processUpload);
+router.post('/upload-absensi/reset', requireMenuAccess('upload_absensi'), uploadAbsensiController.resetAttendance);
 
-// Ekinerja Review (SUPER_ADMIN & ADMIN_KORWIL Only - ADMIN_DINAS excluded)
+// Ekinerja Review
 // ⚠️ Export routes MUST be before :id routes, otherwise Express treats "export" as :id value
-router.get('/ekinerja-review/export/excel', requireNonDinas, ekinerjaReviewController.exportExcel);
-router.get('/ekinerja-review/export/pdf', requireNonDinas, ekinerjaReviewController.exportPdf);
-router.get('/ekinerja-review', requireNonDinas, ekinerjaReviewController.show);
-router.post('/ekinerja-review/:id/review', requireNonDinas, ekinerjaReviewController.review);
-router.post('/ekinerja-review/:id/score', requireNonDinas, ekinerjaReviewController.review);
-router.post('/ekinerja-review/:id/delete', requireNonDinas, ekinerjaReviewController.deleteReview);
+router.get('/ekinerja-review/export/excel', requireMenuAccess('ekinerja'), ekinerjaReviewController.exportExcel);
+router.get('/ekinerja-review/export/pdf', requireMenuAccess('ekinerja'), ekinerjaReviewController.exportPdf);
+router.get('/ekinerja-review', requireMenuAccess('ekinerja'), ekinerjaReviewController.show);
+router.post('/ekinerja-review/:id/review', requireMenuAccess('ekinerja'), ekinerjaReviewController.review);
+router.post('/ekinerja-review/:id/score', requireMenuAccess('ekinerja'), ekinerjaReviewController.review);
+router.post('/ekinerja-review/:id/delete', requireMenuAccess('ekinerja'), ekinerjaReviewController.deleteReview);
 
 // Bulk Download seluruh berkas fisik uploads dalam satu file .tar.gz
 router.get('/backup/uploads-zip', (req, res) => {
@@ -119,24 +119,24 @@ router.get('/backup/uploads-zip', (req, res) => {
 });
 
 // Master Data Pegawai Import (Excel / CSV)
-router.get('/employees/template', employeeController.downloadTemplate);
-router.post('/employees/import', memoryUpload.single('employeeFile'), employeeController.importExcel);
+router.get('/employees/template', requireMenuAccess('pegawai'), employeeController.downloadTemplate);
+router.post('/employees/import', requireMenuAccess('pegawai'), memoryUpload.single('employeeFile'), employeeController.importExcel);
 
-// 3. Super Admin Only Protected Routes
+// 3. Dynamic Menu Protected Routes (Based on Menu Permissions Matrix)
 // Master Data Pegawai CRUD
-router.get('/pegawai', requireSuperAdmin, pegawaiAdminController.show);
-router.post('/pegawai/create', requireSuperAdmin, pegawaiAdminController.create);
-router.post('/pegawai/bulk-status', requireSuperAdmin, pegawaiAdminController.bulkStatus);
-router.post('/pegawai/bulk-delete', requireSuperAdmin, pegawaiAdminController.bulkDelete);
-router.post('/pegawai/:id/update', requireSuperAdmin, pegawaiAdminController.update);
-router.post('/pegawai/:id/toggle', requireSuperAdmin, pegawaiAdminController.toggleActive);
-router.post('/pegawai/:id/delete', requireSuperAdmin, pegawaiAdminController.delete);
+router.get('/pegawai', requireMenuAccess('pegawai'), pegawaiAdminController.show);
+router.post('/pegawai/create', requireMenuAccess('pegawai'), pegawaiAdminController.create);
+router.post('/pegawai/bulk-status', requireMenuAccess('pegawai'), pegawaiAdminController.bulkStatus);
+router.post('/pegawai/bulk-delete', requireMenuAccess('pegawai'), pegawaiAdminController.bulkDelete);
+router.post('/pegawai/:id/update', requireMenuAccess('pegawai'), pegawaiAdminController.update);
+router.post('/pegawai/:id/toggle', requireMenuAccess('pegawai'), pegawaiAdminController.toggleActive);
+router.post('/pegawai/:id/delete', requireMenuAccess('pegawai'), pegawaiAdminController.delete);
 
 // CMS Config
-router.get('/cms', requireSuperAdmin, cmsController.show);
-router.post('/cms', requireSuperAdmin, cmsController.update);
-router.post('/cms/maintenance', requireSuperAdmin, cmsController.updateMaintenance);
-router.post('/cms/klarifikasi-policy', requireSuperAdmin, cmsController.updateKlarifikasiPolicy);
+router.get('/cms', requireMenuAccess('cms'), cmsController.show);
+router.post('/cms', requireMenuAccess('cms'), cmsController.update);
+router.post('/cms/maintenance', requireMenuAccess('cms'), cmsController.updateMaintenance);
+router.post('/cms/klarifikasi-policy', requireMenuAccess('cms'), cmsController.updateKlarifikasiPolicy);
 
 // User Management
 router.get('/users', requireSuperAdmin, usersController.show);
@@ -147,62 +147,62 @@ router.post('/users/:id/update', requireSuperAdmin, usersController.updateUser);
 router.post('/users/:id/toggle', requireSuperAdmin, usersController.toggleActive);
 router.post('/users/:id/delete', requireSuperAdmin, usersController.deleteUser);
 
-// Data Unit Kerja / Sekolah (SUPER_ADMIN only)
-router.get('/unit-kerja', requireSuperAdmin, unitKerjaController.show);
-router.post('/unit-kerja/create', requireSuperAdmin, unitKerjaController.create);
-router.post('/unit-kerja/bulk-delete', requireSuperAdmin, unitKerjaController.bulkDelete);
-router.post('/unit-kerja/bulk-kategori', requireSuperAdmin, unitKerjaController.bulkKategori);
-router.post('/unit-kerja/:id/update', requireSuperAdmin, unitKerjaController.update);
-router.post('/unit-kerja/:id/delete', requireSuperAdmin, unitKerjaController.delete);
+// Data Unit Kerja / Sekolah
+router.get('/unit-kerja', requireMenuAccess('unit_kerja'), unitKerjaController.show);
+router.post('/unit-kerja/create', requireMenuAccess('unit_kerja'), unitKerjaController.create);
+router.post('/unit-kerja/bulk-delete', requireMenuAccess('unit_kerja'), unitKerjaController.bulkDelete);
+router.post('/unit-kerja/bulk-kategori', requireMenuAccess('unit_kerja'), unitKerjaController.bulkKategori);
+router.post('/unit-kerja/:id/update', requireMenuAccess('unit_kerja'), unitKerjaController.update);
+router.post('/unit-kerja/:id/delete', requireMenuAccess('unit_kerja'), unitKerjaController.delete);
 
-// Manajemen Berkas Upload (SUPER_ADMIN only)
-router.get('/files', requireSuperAdmin, fileManagerController.show);
-router.post('/files/upload', requireSuperAdmin, diskUpload.array('files', 50), fileManagerController.uploadFile);
-router.post('/files/rename', requireSuperAdmin, fileManagerController.renameFile);
-router.post('/files/delete', requireSuperAdmin, fileManagerController.deleteFile);
-router.post('/files/bulk-delete', requireSuperAdmin, fileManagerController.bulkDeleteFiles);
-router.get('/files/download-all', requireSuperAdmin, fileManagerController.downloadAll);
-router.get('/files/download-month', requireSuperAdmin, fileManagerController.downloadByMonth);
-router.post('/files/download-selected', requireSuperAdmin, fileManagerController.downloadSelected);
-router.post('/files/standardize-names', requireSuperAdmin, fileManagerController.standardizeNames);
+// Manajemen Berkas Upload
+router.get('/files', requireMenuAccess('files'), fileManagerController.show);
+router.post('/files/upload', requireMenuAccess('files'), diskUpload.array('files', 50), fileManagerController.uploadFile);
+router.post('/files/rename', requireMenuAccess('files'), fileManagerController.renameFile);
+router.post('/files/delete', requireMenuAccess('files'), fileManagerController.deleteFile);
+router.post('/files/bulk-delete', requireMenuAccess('files'), fileManagerController.bulkDeleteFiles);
+router.get('/files/download-all', requireMenuAccess('files'), fileManagerController.downloadAll);
+router.get('/files/download-month', requireMenuAccess('files'), fileManagerController.downloadByMonth);
+router.post('/files/download-selected', requireMenuAccess('files'), fileManagerController.downloadSelected);
+router.post('/files/standardize-names', requireMenuAccess('files'), fileManagerController.standardizeNames);
 
-// 8. Kelola Master NCR Gaji (Admin Korwil & Super Admin - ADMIN_DINAS excluded)
-router.get('/ncr-gaji', requireNonDinas, ncrAdminController.show);
-router.post('/ncr-gaji/upload', requireNonDinas, ncrDiskUpload.single('file'), ncrAdminController.uploadMaster);
-router.get('/ncr-gaji/:id/detail', requireNonDinas, ncrAdminController.detail);
-router.post('/ncr-gaji/update-npwp', requireNonDinas, ncrAdminController.updateNpwp);
-router.post('/ncr-gaji/:id/delete', requireNonDinas, ncrAdminController.deletePeriod);
+// 8. Kelola Master NCR Gaji
+router.get('/ncr-gaji', requireMenuAccess('ncr_gaji'), ncrAdminController.show);
+router.post('/ncr-gaji/upload', requireMenuAccess('ncr_gaji'), ncrDiskUpload.single('file'), ncrAdminController.uploadMaster);
+router.get('/ncr-gaji/:id/detail', requireMenuAccess('ncr_gaji'), ncrAdminController.detail);
+router.post('/ncr-gaji/update-npwp', requireMenuAccess('ncr_gaji'), ncrAdminController.updateNpwp);
+router.post('/ncr-gaji/:id/delete', requireMenuAccess('ncr_gaji'), ncrAdminController.deletePeriod);
 
-// 9. Kelola Formulir Dinamis (Form Builder - Super Admin & Admin Korwil)
-router.get('/forms', requireNonDinas, formController.list);
-router.get('/forms/create', requireNonDinas, formController.renderCreate);
-router.post('/forms/create', requireNonDinas, formController.create);
-router.get('/forms/:id/edit', requireNonDinas, formController.renderEdit);
-router.post('/forms/:id/edit', requireNonDinas, formController.update);
-router.post('/forms/:id/toggle-status', requireNonDinas, formController.toggleStatus);
-router.post('/forms/:id/delete', requireNonDinas, formController.delete);
-router.get('/forms/:id/responses', requireNonDinas, formController.responses);
-router.post('/forms/:id/responses/:responseId/delete', requireNonDinas, formController.deleteResponse);
-router.get('/forms/:id/export-excel', requireNonDinas, formController.exportExcel);
+// 9. Kelola Formulir Dinamis (Form Builder)
+router.get('/forms', requireMenuAccess('forms'), formController.list);
+router.get('/forms/create', requireMenuAccess('forms'), formController.renderCreate);
+router.post('/forms/create', requireMenuAccess('forms'), formController.create);
+router.get('/forms/:id/edit', requireMenuAccess('forms'), formController.renderEdit);
+router.post('/forms/:id/edit', requireMenuAccess('forms'), formController.update);
+router.post('/forms/:id/toggle-status', requireMenuAccess('forms'), formController.toggleStatus);
+router.post('/forms/:id/delete', requireMenuAccess('forms'), formController.delete);
+router.get('/forms/:id/responses', requireMenuAccess('forms'), formController.responses);
+router.post('/forms/:id/responses/:responseId/delete', requireMenuAccess('forms'), formController.deleteResponse);
+router.get('/forms/:id/export-excel', requireMenuAccess('forms'), formController.exportExcel);
 
-// 10. Kelola Spreadsheet Dinamis (Google Sheet Builder - Super Admin & Admin Korwil)
-router.get('/sheets', requireNonDinas, sheetAdminController.list);
-router.get('/sheets/create', requireNonDinas, sheetAdminController.renderCreate);
-router.post('/sheets/create', requireNonDinas, sheetAdminController.create);
-router.get('/sheets/:id/edit', requireNonDinas, sheetAdminController.renderEdit);
-router.post('/sheets/:id/edit', requireNonDinas, sheetAdminController.update);
-router.get('/sheets/:id/manage', requireNonDinas, sheetAdminController.manage);
-router.post('/sheets/:id/rows', requireNonDinas, sheetAdminController.addRow);
-router.post('/sheets/:id/rows/:rowId', requireNonDinas, sheetAdminController.saveRow);
-router.post('/sheets/:id/rows/:rowId/delete', requireNonDinas, sheetAdminController.deleteRow);
-router.post('/sheets/:id/bulk-save', requireNonDinas, sheetAdminController.bulkSave);
-router.get('/sheets/:id/export', requireNonDinas, sheetAdminController.exportXlsx);
-router.post('/sheets/:id/toggle-status', requireNonDinas, sheetAdminController.toggleStatus);
-router.post('/sheets/:id/delete', requireNonDinas, sheetAdminController.deleteSheet);
-router.post('/sheets/:id/columns', requireNonDinas, sheetAdminController.addColumn);
-router.post('/sheets/:id/columns/:colKey/delete', requireNonDinas, sheetAdminController.deleteColumn);
-router.post('/sheets/:id/columns/update', requireNonDinas, sheetAdminController.updateColumns);
-router.post('/sheets/:id/columns/visibility', requireNonDinas, sheetAdminController.updateColumnsVisibility);
+// 10. Kelola Spreadsheet Dinamis (Google Sheet Builder)
+router.get('/sheets', requireMenuAccess('forms'), sheetAdminController.list);
+router.get('/sheets/create', requireMenuAccess('forms'), sheetAdminController.renderCreate);
+router.post('/sheets/create', requireMenuAccess('forms'), sheetAdminController.create);
+router.get('/sheets/:id/edit', requireMenuAccess('forms'), sheetAdminController.renderEdit);
+router.post('/sheets/:id/edit', requireMenuAccess('forms'), sheetAdminController.update);
+router.get('/sheets/:id/manage', requireMenuAccess('forms'), sheetAdminController.manage);
+router.post('/sheets/:id/rows', requireMenuAccess('forms'), sheetAdminController.addRow);
+router.post('/sheets/:id/rows/:rowId', requireMenuAccess('forms'), sheetAdminController.saveRow);
+router.post('/sheets/:id/rows/:rowId/delete', requireMenuAccess('forms'), sheetAdminController.deleteRow);
+router.post('/sheets/:id/bulk-save', requireMenuAccess('forms'), sheetAdminController.bulkSave);
+router.get('/sheets/:id/export', requireMenuAccess('forms'), sheetAdminController.exportXlsx);
+router.post('/sheets/:id/toggle-status', requireMenuAccess('forms'), sheetAdminController.toggleStatus);
+router.post('/sheets/:id/delete', requireMenuAccess('forms'), sheetAdminController.deleteSheet);
+router.post('/sheets/:id/columns', requireMenuAccess('forms'), sheetAdminController.addColumn);
+router.post('/sheets/:id/columns/:colKey/delete', requireMenuAccess('forms'), sheetAdminController.deleteColumn);
+router.post('/sheets/:id/columns/update', requireMenuAccess('forms'), sheetAdminController.updateColumns);
+router.post('/sheets/:id/columns/visibility', requireMenuAccess('forms'), sheetAdminController.updateColumnsVisibility);
 
 // 11. Real-time Online Users Stats (Admin Only)
 router.get('/api/online-users', requireAdmin, (_req, res) => {

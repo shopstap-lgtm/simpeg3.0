@@ -168,8 +168,8 @@ export function canRoleAccessMenu(
   menuId: string
 ): boolean {
   if (!userRole) return false;
-  // If role is SUPER_ADMIN and looking at 'users', always true
-  if (userRole === 'SUPER_ADMIN' && menuId === 'users') return true;
+  // If role is SUPER_ADMIN, always has access to all menus
+  if (userRole === 'SUPER_ADMIN') return true;
 
   const allowedMenus = permissions[userRole] || [];
   return allowedMenus.includes(menuId);
