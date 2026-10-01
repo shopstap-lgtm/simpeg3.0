@@ -160,40 +160,6 @@
           </select>
         </div>
 
-        <!-- ATUR KOLOM (Sembunyikan / Tampilkan Kolom) -->
-        <div class="relative" x-data="{ openCols: false }">
-          <button type="button"
-                  @click="openCols = !openCols"
-                  class="py-1.5 px-3 text-xs font-bold gap-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center transition-colors">
-            <i data-lucide="eye" class="w-3.5 h-3.5 text-indigo-600"></i>
-            <span>Atur Kolom (<span x-text="visibleColumns.length"></span>/<span x-text="columns.length"></span>)</span>
-            <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
-          </button>
-
-          <div x-show="openCols"
-               x-cloak
-               @click.away="openCols = false"
-               class="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-3 z-30 space-y-2">
-            <div class="flex items-center justify-between pb-1.5 border-b border-slate-100">
-              <span class="text-xs font-black text-slate-900">Kolom Ditampilkan</span>
-              <button type="button" @click="showAllColumns()" class="text-[10px] font-bold text-indigo-600 hover:underline">Semua</button>
-            </div>
-            <div class="max-h-56 overflow-y-auto space-y-1 scrollbar-thin">
-              <template x-for="col in columns" :key="col.key">
-                <label class="flex items-center justify-between p-1 hover:bg-slate-50 rounded-lg cursor-pointer text-xs select-none">
-                  <div class="flex items-center gap-2 truncate">
-                    <input type="checkbox"
-                           :checked="isColumnVisible(col.key)"
-                           @change="toggleColumnVisibility(col.key)"
-                           class="rounded text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5">
-                    <span class="font-semibold text-slate-800 truncate" x-text="col.label"></span>
-                  </div>
-                  <span class="text-[9px] font-mono text-slate-400 uppercase" x-text="col.type"></span>
-                </label>
-              </template>
-            </div>
-          </div>
-        </div>
 
         <span>Menampilkan <b class="text-slate-800" x-text="startRowNumber"></b> - <b class="text-slate-800" x-text="endRowNumber"></b> dari <b class="text-slate-800" x-text="filteredRows.length"></b></span>
       </div>
