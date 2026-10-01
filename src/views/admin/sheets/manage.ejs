@@ -1355,13 +1355,18 @@
             if (!valA) return 1;
             if (!valB) return -1;
 
-            const numA = Number(valA.replace(/[^0-9.-]+/g, ''));
-            const numB = Number(valB.replace(/[^0-9.-]+/g, ''));
-            if (!isNaN(numA) && !isNaN(numB) && valA.match(/\d/) && valB.match(/\d/)) {
-              return (numA - numB) * dir;
+            // Check if both values are pure numbers or currency (e.g. "123", "Rp 50.000", "10%") without full words
+            const isPureNumA = /^[+-]?(Rp\.?\s*)?[\d.,]+%?$/i.test(valA);
+            const isPureNumB = /^[+-]?(Rp\.?\s*)?[\d.,]+%?$/i.test(valB);
+            if (isPureNumA && isPureNumB) {
+              const cleanA = Number(valA.replace(/[^0-9.-]+/g, ''));
+              const cleanB = Number(valB.replace(/[^0-9.-]+/g, ''));
+              if (!isNaN(cleanA) && !isNaN(cleanB)) {
+                return (cleanA - cleanB) * dir;
+              }
             }
 
-            return valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' }) * dir;
+            return valA.localeCompare(valB, 'id', { numeric: true, sensitivity: 'base' }) * dir;
           });
         }
 
