@@ -64,6 +64,22 @@ const memoryUpload = multer({
   limits: { fileSize: 1 * 1024 * 1024 } // 1MB
 });
 
+// Sheet cell file upload (up to 50MB ceiling)
+const sheetCellUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, getUploadDir());
+    },
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      const cleanBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e6);
+      cb(null, `sheet-${uniqueSuffix}-${cleanBase}${ext}`);
+    }
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 }
+});
+
 // 1. Public Admin Auth Routes
 router.get('/login', authController.showLogin);
 router.post('/login', authController.login);
@@ -195,6 +211,7 @@ router.get('/sheets/:id/manage', requireMenuAccess('forms'), sheetAdminControlle
 router.post('/sheets/:id/rows', requireMenuAccess('forms'), sheetAdminController.addRow);
 router.post('/sheets/:id/rows/:rowId', requireMenuAccess('forms'), sheetAdminController.saveRow);
 router.post('/sheets/:id/rows/:rowId/delete', requireMenuAccess('forms'), sheetAdminController.deleteRow);
+router.post('/sheets/:id/upload-cell', requireMenuAccess('forms'), sheetCellUpload.single('file'), sheetAdminController.uploadCellFile);
 router.post('/sheets/:id/bulk-save', requireMenuAccess('forms'), sheetAdminController.bulkSave);
 router.get('/sheets/:id/export', requireMenuAccess('forms'), sheetAdminController.exportXlsx);
 router.post('/sheets/:id/toggle-status', requireMenuAccess('forms'), sheetAdminController.toggleStatus);

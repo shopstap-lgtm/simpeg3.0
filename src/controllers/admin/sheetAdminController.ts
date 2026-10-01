@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import * as XLSX from 'xlsx';
+import path from 'path';
+import fs from 'fs';
 import prisma from '../../lib/prisma';
 
 // Helper to generate URL-friendly slug
@@ -102,8 +104,10 @@ export const sheetAdminController = {
       const sanitizedColumns = parsedColumns.map((col: any, index: number) => ({
         key: col.key || `col_${Date.now()}_${index}`,
         label: col.label?.trim() || `Kolom ${index + 1}`,
-        type: ['text', 'number', 'select', 'date', 'checkbox', 'currency', 'textarea'].includes(col.type) ? col.type : 'text',
+        type: ['text', 'number', 'select', 'date', 'checkbox', 'currency', 'textarea', 'file'].includes(col.type) ? col.type : 'text',
         options: Array.isArray(col.options) ? col.options.filter(Boolean) : (typeof col.options === 'string' ? col.options.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
+        allowedExtensions: col.allowedExtensions ? String(col.allowedExtensions).trim() : (col.type === 'file' ? '.pdf,.jpg,.jpeg,.png' : undefined),
+        maxFileSizeMb: col.maxFileSizeMb ? parseInt(col.maxFileSizeMb, 10) : (col.type === 'file' ? 10 : undefined),
         required: !!col.required,
         hidden: !!col.hidden,
         isProtected: !!col.isProtected,
@@ -280,8 +284,10 @@ export const sheetAdminController = {
       const sanitizedColumns = parsedColumns.map((col: any, index: number) => ({
         key: col.key || `col_${Date.now()}_${index}`,
         label: col.label?.trim() || `Kolom ${index + 1}`,
-        type: ['text', 'number', 'select', 'date', 'checkbox', 'currency', 'textarea'].includes(col.type) ? col.type : 'text',
+        type: ['text', 'number', 'select', 'date', 'checkbox', 'currency', 'textarea', 'file'].includes(col.type) ? col.type : 'text',
         options: Array.isArray(col.options) ? col.options.filter(Boolean) : (typeof col.options === 'string' ? col.options.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
+        allowedExtensions: col.allowedExtensions ? String(col.allowedExtensions).trim() : (col.type === 'file' ? '.pdf,.jpg,.jpeg,.png' : undefined),
+        maxFileSizeMb: col.maxFileSizeMb ? parseInt(col.maxFileSizeMb, 10) : (col.type === 'file' ? 10 : undefined),
         required: !!col.required,
         hidden: !!col.hidden,
         isProtected: !!col.isProtected,
@@ -548,6 +554,14 @@ export const sheetAdminController = {
           const val = rowData[c.key];
           if (c.type === 'checkbox') {
             entry[c.label] = val === true || val === 'true' ? 'YA' : 'TIDAK';
+          } else if (c.type === 'file') {
+            const fileUrl = typeof val === 'object' && val !== null ? val.url : (typeof val === 'string' ? val : '');
+            if (fileUrl) {
+              const fullUrl = fileUrl.startsWith('http') ? fileUrl : `${req.protocol}://${req.get('host')}${fileUrl}`;
+              entry[c.label] = fullUrl;
+            } else {
+              entry[c.label] = '-';
+            }
           } else {
             entry[c.label] = val !== undefined && val !== null ? val : '';
           }
@@ -635,8 +649,10 @@ export const sheetAdminController = {
       const newCol = {
         key: newKey,
         label: label?.trim() || `Kolom ${cols.length + 1}`,
-        type: ['text', 'number', 'select', 'date', 'checkbox', 'currency', 'textarea'].includes(type) ? type : 'text',
+        type: ['text', 'number', 'select', 'date', 'checkbox', 'currency', 'textarea', 'file'].includes(type) ? type : 'text',
         options: Array.isArray(options) ? options.filter(Boolean) : (typeof options === 'string' ? options.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
+        allowedExtensions: req.body.allowedExtensions ? String(req.body.allowedExtensions).trim() : (type === 'file' ? '.pdf,.jpg,.jpeg,.png' : undefined),
+        maxFileSizeMb: req.body.maxFileSizeMb ? parseInt(req.body.maxFileSizeMb, 10) : (type === 'file' ? 10 : undefined),
         placeholder: placeholder?.trim() || '',
         required: !!required,
         hidden: false,
@@ -739,6 +755,107 @@ export const sheetAdminController = {
     } catch (error) {
       console.error('[sheetAdminController.updateColumnsVisibility] Error:', error);
       res.status(500).json({ success: false, message: 'Gagal memperbarui visibilitas kolom' });
+    }
+  },
+
+  // 18. Upload Cell File (Admin)
+  uploadCellFile: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { rowId, colKey } = req.body;
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ success: false, message: 'Tidak ada berkas yang diunggah.' });
+      }
+
+      if (!rowId || !colKey) {
+        if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(400).json({ success: false, message: 'ID baris dan kolom wajib disertakan.' });
+      }
+
+      const sheet = await prisma.dataSheet.findUnique({ where: { id } });
+      if (!sheet) {
+        if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(404).json({ success: false, message: 'Spreadsheet tidak ditemukan.' });
+      }
+
+      const cols = (sheet.columns as any[]) || [];
+      const targetCol = cols.find((c: any) => c.key === colKey);
+      if (!targetCol) {
+        if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(404).json({ success: false, message: 'Kolom tidak ditemukan pada spreadsheet ini.' });
+      }
+
+      // Validate extension
+      const allowedExtensions = targetCol.allowedExtensions?.trim();
+      if (allowedExtensions && allowedExtensions !== '*' && allowedExtensions !== '') {
+        const ext = path.extname(file.originalname).toLowerCase();
+        const allowedList = allowedExtensions.split(',').map((s: string) => {
+          let str = s.trim().toLowerCase();
+          return str.startsWith('.') ? str : `.${str}`;
+        }).filter(Boolean);
+
+        if (allowedList.length > 0 && !allowedList.includes(ext)) {
+          if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+          return res.status(400).json({
+            success: false,
+            message: `Format berkas '${ext}' tidak diizinkan. Ketentuan format: ${allowedExtensions}`
+          });
+        }
+      }
+
+      // Validate max size
+      const maxMb = targetCol.maxFileSizeMb ? parseInt(targetCol.maxFileSizeMb, 10) : 10;
+      if (file.size > maxMb * 1024 * 1024) {
+        if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(400).json({
+          success: false,
+          message: `Ukuran berkas (${(file.size / (1024 * 1024)).toFixed(1)} MB) melebihi batas maksimal ${maxMb} MB.`
+        });
+      }
+
+      const targetRow = await prisma.dataSheetRow.findUnique({ where: { id: rowId } });
+      if (!targetRow || targetRow.sheetId !== sheet.id) {
+        if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(404).json({ success: false, message: 'Baris tidak ditemukan.' });
+      }
+
+      let rowData = (targetRow.data as Record<string, any>) || {};
+      if (typeof rowData === 'string') {
+        try { rowData = JSON.parse(rowData); } catch (e) { rowData = {}; }
+      }
+
+      const fileInfo = {
+        url: `/uploads/${file.filename}`,
+        name: file.originalname,
+        size: file.size,
+        uploadedAt: new Date().toISOString()
+      };
+
+      rowData[colKey] = fileInfo;
+
+      const updatedRow = await prisma.dataSheetRow.update({
+        where: { id: rowId },
+        data: {
+          data: rowData,
+          lastUpdatedAt: new Date(),
+          lastUpdatedBy: (req as any).session?.user?.namaLengkap || 'Admin'
+        }
+      });
+
+      return res.json({
+        success: true,
+        message: 'Berkas berhasil diunggah!',
+        file: fileInfo,
+        row: updatedRow
+      });
+    } catch (error: any) {
+      console.error('[sheetAdminController.uploadCellFile] Error:', error);
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        try { fs.unlinkSync(req.file.path); } catch (e) {}
+      }
+      return res.status(500).json({ success: false, message: error.message || 'Gagal mengunggah berkas.' });
     }
   }
 };

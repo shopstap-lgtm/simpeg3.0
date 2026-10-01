@@ -363,6 +363,7 @@
                   <option value="date">Tanggal</option>
                   <option value="checkbox">Centang (Ya / Tidak)</option>
                   <option value="textarea">Area Teks Panjang</option>
+                  <option value="file">Unggah Berkas / Dokumen</option>
                 </select>
               </div>
 
@@ -405,6 +406,63 @@
                 <template x-if="getParsedOptions(col).length === 0">
                   <span class="text-[10px] text-purple-400 italic">Belum ada pilihan diketik</span>
                 </template>
+              </div>
+            </div>
+
+            <!-- File Upload Options Box (shown if type === file) -->
+            <div x-show="col.type === 'file'" class="p-3.5 bg-blue-50/70 rounded-2xl border border-blue-200/80 space-y-3">
+              <div class="flex items-center justify-between">
+                <label class="block text-[10px] font-bold uppercase text-blue-900">
+                  Ketentuan Format Ekstensi Berkas (Accept)
+                </label>
+                <span class="text-[10px] text-blue-600 font-semibold">Tentukan jenis file yang boleh diunggah</span>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                <div class="sm:col-span-8">
+                  <input type="text" 
+                         x-model="col.allowedExtensions"
+                         placeholder="Contoh: .pdf,.jpg,.jpeg,.png (atau * untuk semua file)" 
+                         class="form-input text-xs py-2 px-3 rounded-xl w-full bg-white border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                </div>
+                <div class="sm:col-span-4 flex items-center gap-2">
+                  <label class="text-[10px] font-bold uppercase text-blue-900 shrink-0">Maks (MB):</label>
+                  <input type="number" 
+                         x-model="col.maxFileSizeMb"
+                         min="1"
+                         max="50"
+                         placeholder="10" 
+                         class="form-input text-xs py-2 px-3 rounded-xl w-full bg-white border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20">
+                </div>
+              </div>
+
+              <!-- Quick preset buttons -->
+              <div class="flex flex-wrap items-center gap-1.5 pt-1">
+                <span class="text-[10px] font-bold text-blue-800">Pilihan Cepat:</span>
+                <button type="button" 
+                        @click="col.allowedExtensions = '.pdf'" 
+                        class="px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer"
+                        :class="col.allowedExtensions === '.pdf' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-100'">
+                  Hanya PDF (.pdf)
+                </button>
+                <button type="button" 
+                        @click="col.allowedExtensions = '.jpg,.jpeg,.png'" 
+                        class="px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer"
+                        :class="col.allowedExtensions === '.jpg,.jpeg,.png' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-100'">
+                  Foto / Gambar (.jpg, .png)
+                </button>
+                <button type="button" 
+                        @click="col.allowedExtensions = '.pdf,.doc,.docx,.xls,.xlsx'" 
+                        class="px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer"
+                        :class="col.allowedExtensions === '.pdf,.doc,.docx,.xls,.xlsx' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-100'">
+                  Dokumen Office & PDF (.pdf, .docx, .xlsx)
+                </button>
+                <button type="button" 
+                        @click="col.allowedExtensions = '*'" 
+                        class="px-2 py-1 rounded-lg text-[10px] font-bold border transition-colors cursor-pointer"
+                        :class="col.allowedExtensions === '*' ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-blue-700 border-blue-200 hover:bg-blue-100'">
+                  Semua Format File (*)
+                </button>
               </div>
             </div>
 
@@ -513,6 +571,8 @@ function sheetBuilderApp() {
       hidden: !!c.hidden,
       isProtected: !!c.isProtected,
       filterable: c.filterable !== undefined ? !!c.filterable : true,
+      allowedExtensions: c.allowedExtensions || (c.type === 'file' ? '.pdf,.jpg,.jpeg,.png' : ''),
+      maxFileSizeMb: c.maxFileSizeMb || 10,
       rawOptions: Array.isArray(c.options) ? c.options.join(', ') : (c.rawOptions || '')
     }));
   } else {
@@ -574,6 +634,8 @@ function sheetBuilderApp() {
         type: 'text',
         options: [],
         rawOptions: '',
+        allowedExtensions: '.pdf,.jpg,.jpeg,.png',
+        maxFileSizeMb: 10,
         required: false,
         hidden: false,
         isProtected: false,
@@ -621,6 +683,10 @@ function sheetBuilderApp() {
           if (copy.rawOptions !== undefined) {
             copy.options = copy.rawOptions.split(',').map(s => s.trim()).filter(Boolean);
           }
+        }
+        if (copy.type === 'file') {
+          copy.allowedExtensions = copy.allowedExtensions ? copy.allowedExtensions.trim() : '.pdf,.jpg,.jpeg,.png';
+          copy.maxFileSizeMb = copy.maxFileSizeMb ? parseInt(copy.maxFileSizeMb, 10) : 10;
         }
         copy.hidden = !!copy.hidden;
         copy.isProtected = !!copy.isProtected;

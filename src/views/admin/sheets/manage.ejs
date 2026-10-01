@@ -404,6 +404,7 @@
                             'bg-purple-100 text-purple-700': col.type === 'select',
                             'bg-emerald-100 text-emerald-700': col.type === 'checkbox',
                             'bg-amber-100 text-amber-700': col.type === 'date',
+                            'bg-indigo-100 text-indigo-700': col.type === 'file',
                             'bg-slate-200 text-slate-700': col.type === 'text' || col.type === 'textarea'
                           }"
                           x-text="col.type">
@@ -531,8 +532,65 @@
                              : 'bg-transparent border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white text-slate-800'">
                   </template>
 
+                  <!-- Type: FILE / BERKAS -->
+                  <template x-if="col.type === 'file'">
+                    <div class="py-1 px-1 flex items-center gap-1.5 w-full min-h-[32px]">
+                      <!-- File exists -->
+                      <template x-if="getCellValue(row, col.key) && getFileUrl(getCellValue(row, col.key))">
+                        <div class="flex items-center justify-between gap-1 w-full bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg px-2 py-1 transition-colors text-xs">
+                          <a :href="getFileUrl(getCellValue(row, col.key))"
+                             target="_blank"
+                             class="flex items-center gap-1.5 min-w-0 flex-1 text-indigo-600 hover:text-indigo-800 font-semibold truncate"
+                             :title="getFileName(getCellValue(row, col.key))">
+                            <span class="shrink-0 text-slate-500">
+                              <template x-if="isPdfFile(getCellValue(row, col.key))">
+                                <i data-lucide="file-text" class="w-3.5 h-3.5 text-rose-500 inline"></i>
+                              </template>
+                              <template x-if="isImageFile(getCellValue(row, col.key))">
+                                <i data-lucide="image" class="w-3.5 h-3.5 text-blue-500 inline"></i>
+                              </template>
+                              <template x-if="!isPdfFile(getCellValue(row, col.key)) && !isImageFile(getCellValue(row, col.key))">
+                                <i data-lucide="file" class="w-3.5 h-3.5 text-emerald-500 inline"></i>
+                              </template>
+                            </span>
+                            <span class="truncate text-[11px]" x-text="getFileName(getCellValue(row, col.key))"></span>
+                          </a>
+
+                          <div class="flex items-center gap-0.5 shrink-0">
+                            <a :href="getFileUrl(getCellValue(row, col.key))"
+                               target="_blank"
+                               class="p-1 rounded text-slate-400 hover:text-indigo-600 transition"
+                               title="Lihat / Unduh Berkas">
+                              <i data-lucide="external-link" class="w-3 h-3"></i>
+                            </a>
+                            <button type="button"
+                                    @click="removeCellFile(row, col)"
+                                    class="p-1 rounded text-slate-400 hover:text-rose-600 transition cursor-pointer"
+                                    title="Hapus berkas dari baris ini">
+                              <i data-lucide="trash-2" class="w-3 h-3"></i>
+                            </button>
+                          </div>
+                        </div>
+                      </template>
+
+                      <!-- No file yet -->
+                      <template x-if="!getCellValue(row, col.key) || !getFileUrl(getCellValue(row, col.key))">
+                        <div class="w-full">
+                          <label class="inline-flex items-center justify-center gap-1.5 w-full py-1 px-2 rounded-lg border border-dashed border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/50 text-slate-500 hover:text-indigo-600 text-xs font-semibold cursor-pointer transition select-none">
+                            <i data-lucide="paperclip" class="w-3.5 h-3.5"></i>
+                            <span class="text-[11px]">Upload</span>
+                            <input type="file"
+                                   class="hidden"
+                                   :accept="col.allowedExtensions || '*'"
+                                   @change="uploadCellFile($event, row, col)">
+                          </label>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+
                   <!-- Type: TEXT / TEXTAREA / DEFAULT -->
-                  <template x-if="col.type === 'text' || col.type === 'textarea' || !['checkbox','select','number','currency','date'].includes(col.type)">
+                  <template x-if="col.type === 'text' || col.type === 'textarea' || !['checkbox','select','number','currency','date','file'].includes(col.type)">
                     <input type="text"
                            :value="getCellValue(row, col.key) || ''"
                            @change="updateCell(row, col.key, $event.target.value)"
@@ -655,6 +713,7 @@
             <option value="select">Pilihan Dropdown (Select)</option>
             <option value="date">Tanggal</option>
             <option value="checkbox">Centang (Ya / Tidak)</option>
+            <option value="file">Unggah Berkas / Dokumen</option>
           </select>
         </div>
 
@@ -665,6 +724,35 @@
                  x-model="newCol.rawOptions"
                  placeholder="Contoh: Lengkap, Belum Lengkap, Perbaikan"
                  class="w-full px-3 py-1.5 bg-white border border-purple-200 rounded-lg text-slate-900 text-xs outline-none">
+        </div>
+
+        <!-- Options for file upload -->
+        <div x-show="newCol.type === 'file'" class="p-3 bg-blue-50/70 rounded-xl border border-blue-200 space-y-2">
+          <div class="flex items-center justify-between">
+            <label class="block font-bold text-blue-900 text-[11px]">Ketentuan Format Berkas (Accept):</label>
+            <span class="text-[10px] text-blue-600">Pisahkan dengan koma</span>
+          </div>
+          <input type="text"
+                 x-model="newCol.allowedExtensions"
+                 placeholder="Contoh: .pdf,.jpg,.jpeg,.png (atau * untuk semua)"
+                 class="w-full px-3 py-1.5 bg-white border border-blue-200 rounded-lg text-slate-900 text-xs outline-none">
+          
+          <div class="flex items-center gap-2">
+            <label class="font-bold text-blue-900 text-[11px] shrink-0">Batas Ukuran (MB):</label>
+            <input type="number"
+                   x-model="newCol.maxFileSizeMb"
+                   min="1"
+                   max="50"
+                   placeholder="10"
+                   class="w-20 px-2 py-1 bg-white border border-blue-200 rounded-lg text-slate-900 text-xs outline-none font-bold">
+          </div>
+
+          <div class="flex flex-wrap items-center gap-1 pt-1">
+            <button type="button" @click="newCol.allowedExtensions = '.pdf'" class="px-2 py-0.5 rounded text-[10px] font-bold border bg-white text-blue-700 border-blue-200 hover:bg-blue-100 cursor-pointer">PDF Only</button>
+            <button type="button" @click="newCol.allowedExtensions = '.jpg,.jpeg,.png'" class="px-2 py-0.5 rounded text-[10px] font-bold border bg-white text-blue-700 border-blue-200 hover:bg-blue-100 cursor-pointer">Gambar/Foto</button>
+            <button type="button" @click="newCol.allowedExtensions = '.pdf,.doc,.docx,.xls,.xlsx'" class="px-2 py-0.5 rounded text-[10px] font-bold border bg-white text-blue-700 border-blue-200 hover:bg-blue-100 cursor-pointer">PDF & Office</button>
+            <button type="button" @click="newCol.allowedExtensions = '*'" class="px-2 py-0.5 rounded text-[10px] font-bold border bg-white text-blue-700 border-blue-200 hover:bg-blue-100 cursor-pointer">Semua (*)</button>
+          </div>
         </div>
 
         <!-- Protect & Filter Settings -->
@@ -1682,8 +1770,102 @@
         const val = this.getCellValue(row, colKey);
         if (val === undefined || val === null) return false;
         if (typeof val === 'boolean') return val;
+        if (typeof val === 'object') return !!val.url;
         const str = String(val).trim();
         return str !== '' && str !== '-';
+      },
+
+      getFileUrl(val) {
+        if (!val) return '';
+        if (typeof val === 'object' && val.url) return val.url;
+        if (typeof val === 'string' && (val.startsWith('/') || val.startsWith('http'))) return val;
+        return '';
+      },
+
+      getFileName(val) {
+        if (!val) return '';
+        if (typeof val === 'object' && val.name) return val.name;
+        const url = this.getFileUrl(val);
+        if (url) {
+          return url.split('/').pop() || 'Berkas';
+        }
+        return typeof val === 'string' ? val : 'Berkas';
+      },
+
+      isPdfFile(val) {
+        const name = (this.getFileName(val) || this.getFileUrl(val)).toLowerCase();
+        return name.endsWith('.pdf');
+      },
+
+      isImageFile(val) {
+        const name = (this.getFileName(val) || this.getFileUrl(val)).toLowerCase();
+        return name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp') || name.endsWith('.gif');
+      },
+
+      async uploadCellFile(event, row, col) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        // Client-side extension validation
+        if (col.allowedExtensions && col.allowedExtensions.trim() && col.allowedExtensions.trim() !== '*') {
+          const ext = '.' + file.name.split('.').pop().toLowerCase();
+          const allowed = col.allowedExtensions.split(',').map(s => {
+            let str = s.trim().toLowerCase();
+            return str.startsWith('.') ? str : `.${str}`;
+          });
+          if (!allowed.includes(ext)) {
+            alert(`Format file '${ext}' tidak diizinkan. Format yang diperbolehkan: ${col.allowedExtensions}`);
+            event.target.value = '';
+            return;
+          }
+        }
+
+        // Client-side size validation
+        const maxMb = col.maxFileSizeMb || 10;
+        if (file.size > maxMb * 1024 * 1024) {
+          alert(`Ukuran berkas (${(file.size / (1024 * 1024)).toFixed(1)} MB) melebihi batas maksimal ${maxMb} MB.`);
+          event.target.value = '';
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('rowId', row.id);
+        formData.append('colKey', col.key);
+
+        this.isSaving = true;
+        this.saveStatus = 'Mengunggah berkas...';
+
+        try {
+          const res = await fetch(`/admin/sheets/${this.sheetId}/upload-cell`, {
+            method: 'POST',
+            body: formData
+          });
+          const result = await res.json();
+          if (result.success && result.file) {
+            if (!row.data) row.data = {};
+            row.data[col.key] = result.file;
+            row.lastUpdatedAt = new Date().toISOString();
+            row.lastUpdatedBy = 'Admin';
+            this.saveStatus = 'Berkas tersimpan!';
+            setTimeout(() => { this.saveStatus = ''; }, 2500);
+            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+          } else {
+            alert('Gagal mengunggah berkas: ' + (result.message || 'Kesalahan server'));
+          }
+        } catch (err) {
+          console.error('Upload error:', err);
+          alert('Terjadi kesalahan koneksi saat mengunggah berkas.');
+        } finally {
+          this.isSaving = false;
+          event.target.value = '';
+        }
+      },
+
+      async removeCellFile(row, col) {
+        if (!confirm(`Hapus berkas pada kolom '${col.label}'?`)) return;
+        await this.updateCell(row, col.key, null);
+        this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
       },
 
       isRowComplete(row) {
@@ -1749,7 +1931,15 @@
 
       // --- COLUMN MANAGEMENT ---
       openAddColumnModal() {
-        this.newCol = { label: '', type: 'text', rawOptions: '', isProtected: false, filterable: true };
+        this.newCol = {
+          label: '',
+          type: 'text',
+          rawOptions: '',
+          allowedExtensions: '.pdf,.jpg,.jpeg,.png',
+          maxFileSizeMb: 10,
+          isProtected: false,
+          filterable: true
+        };
         this.showAddColModal = true;
         this.$nextTick(() => window.lucide?.createIcons());
       },
@@ -1770,6 +1960,8 @@
               label: this.newCol.label.trim(),
               type: this.newCol.type,
               options: options,
+              allowedExtensions: this.newCol.allowedExtensions,
+              maxFileSizeMb: this.newCol.maxFileSizeMb,
               isProtected: !!this.newCol.isProtected,
               filterable: this.newCol.filterable !== undefined ? !!this.newCol.filterable : true
             })

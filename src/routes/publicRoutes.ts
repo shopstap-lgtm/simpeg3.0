@@ -52,6 +52,22 @@ const formDiskUpload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }
 });
 
+// Configure multer for sheet cell file uploads (disk storage, up to 50MB ceiling)
+const sheetCellUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, getUploadDir());
+    },
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      const cleanBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 40);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e6);
+      cb(null, `sheet-${uniqueSuffix}-${cleanBase}${ext}`);
+    }
+  }),
+  limits: { fileSize: 50 * 1024 * 1024 }
+});
+
 // Public Menus
 router.get('/ping', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString(), env: process.env.NODE_ENV });
@@ -88,6 +104,7 @@ router.get('/sheet/:slug', sheetPublicController.show);
 router.post('/sheet/:slug/verify-nip', sheetPublicController.verifyNip);
 router.post('/sheet/:slug/lock-row', sheetPublicController.lockRow);
 router.post('/sheet/:slug/save-row', sheetPublicController.saveRow);
+router.post('/sheet/:slug/upload-cell', sheetCellUpload.single('file'), sheetPublicController.uploadCellFile);
 router.post('/sheet/:slug/bulk-save', sheetPublicController.bulkSave);
 router.get('/sheet/:slug/export', sheetPublicController.exportXlsx);
 

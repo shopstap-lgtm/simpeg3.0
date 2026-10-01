@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import * as XLSX from 'xlsx';
+import path from 'path';
+import fs from 'fs';
 import prisma from '../lib/prisma';
 
 export const sheetPublicController = {
@@ -300,6 +302,129 @@ export const sheetPublicController = {
     }
   },
 
+  // 3b. Upload cell file (AJAX)
+  uploadCellFile: async (req: Request, res: Response) => {
+    try {
+      const { slug } = req.params;
+      const { rowId, colKey } = req.body;
+      const file = req.file;
+
+      if (!file) {
+        return res.status(400).json({ success: false, message: 'Tidak ada berkas yang diunggah.' });
+      }
+
+      if (!rowId || !colKey) {
+        if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(400).json({ success: false, message: 'ID baris dan kolom wajib disertakan.' });
+      }
+
+      const sheet = await prisma.dataSheet.findUnique({ where: { slug } });
+      if (!sheet) {
+        if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(404).json({ success: false, message: 'Spreadsheet tidak ditemukan.' });
+      }
+
+      if (sheet.status === 'CLOSED') {
+        if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(403).json({ success: false, message: 'Pengisian spreadsheet ini sudah DITUTUP oleh admin.' });
+      }
+
+      const cols = (sheet.columns as any[]) || [];
+      const targetCol = cols.find((c: any) => c.key === colKey);
+      if (!targetCol) {
+        if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(404).json({ success: false, message: 'Kolom tidak ditemukan pada spreadsheet ini.' });
+      }
+
+      if (targetCol.isProtected) {
+        if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(403).json({ success: false, message: 'Kolom ini dilindungi dan hanya dapat diubah oleh Admin.' });
+      }
+
+      // Verify authorization
+      if (sheet.accessMode === 'PROTECTED_NIP') {
+        const sessionUnlocked = (req as any).session?.unlockedSheetRows?.[sheet.id];
+        if (sessionUnlocked !== rowId) {
+          if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+          return res.status(403).json({ success: false, message: 'Sesi Anda tidak valid atau telah terkunci. Buka kunci baris terlebih dahulu.' });
+        }
+      } else if (sheet.accessMode === 'PUBLIC_VIEW') {
+        if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(403).json({ success: false, message: 'Spreadsheet dalam mode Hanya Lihat.' });
+      }
+
+      // Validate extension
+      const allowedExtensions = targetCol.allowedExtensions?.trim();
+      if (allowedExtensions && allowedExtensions !== '*' && allowedExtensions !== '') {
+        const ext = path.extname(file.originalname).toLowerCase();
+        const allowedList = allowedExtensions.split(',').map((s: string) => {
+          let str = s.trim().toLowerCase();
+          return str.startsWith('.') ? str : `.${str}`;
+        }).filter(Boolean);
+
+        if (allowedList.length > 0 && !allowedList.includes(ext)) {
+          if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+          return res.status(400).json({
+            success: false,
+            message: `Format berkas '${ext}' tidak diizinkan. Ketentuan format: ${allowedExtensions}`
+          });
+        }
+      }
+
+      // Validate max size
+      const maxMb = targetCol.maxFileSizeMb ? parseInt(targetCol.maxFileSizeMb, 10) : 10;
+      if (file.size > maxMb * 1024 * 1024) {
+        if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(400).json({
+          success: false,
+          message: `Ukuran berkas (${(file.size / (1024 * 1024)).toFixed(1)} MB) melebihi batas maksimal ${maxMb} MB.`
+        });
+      }
+
+      const targetRow = await prisma.dataSheetRow.findUnique({ where: { id: rowId } });
+      if (!targetRow || targetRow.sheetId !== sheet.id) {
+        if (file.path && fs.existsSync(file.path)) fs.unlinkSync(file.path);
+        return res.status(404).json({ success: false, message: 'Baris tidak ditemukan.' });
+      }
+
+      let rowData = (targetRow.data as Record<string, any>) || {};
+      if (typeof rowData === 'string') {
+        try { rowData = JSON.parse(rowData); } catch (e) { rowData = {}; }
+      }
+
+      const fileInfo = {
+        url: `/uploads/${file.filename}`,
+        name: file.originalname,
+        size: file.size,
+        uploadedAt: new Date().toISOString()
+      };
+
+      rowData[colKey] = fileInfo;
+
+      const updatedRow = await prisma.dataSheetRow.update({
+        where: { id: rowId },
+        data: {
+          data: rowData,
+          lastUpdatedAt: new Date(),
+          lastUpdatedBy: targetRow.label || targetRow.identifier || 'Pengisi Publik'
+        }
+      });
+
+      return res.json({
+        success: true,
+        message: 'Berkas berhasil diunggah!',
+        file: fileInfo,
+        row: updatedRow
+      });
+    } catch (error: any) {
+      console.error('[sheetPublicController.uploadCellFile] Error:', error);
+      if (req.file?.path && fs.existsSync(req.file.path)) {
+        try { fs.unlinkSync(req.file.path); } catch (e) {}
+      }
+      return res.status(500).json({ success: false, message: error.message || 'Gagal mengunggah berkas.' });
+    }
+  },
+
   // 4. Bulk save (if allowed)
   bulkSave: async (req: Request, res: Response) => {
     try {
@@ -416,10 +541,18 @@ export const sheetPublicController = {
           const isIdentityCol = ['nama', 'label', 'namalengkap', 'namapegawai', 'nama_lengkap', 'nip', 'identifier', 'kode', 'unitkerja', 'sublabel', 'jabatan'].includes((c.key || '').toLowerCase());
 
           if (sheet.accessMode === 'PROTECTED_NIP' && !isProtectedCol && !isIdentityCol) {
-            const isFilled = val !== undefined && val !== null && String(val).trim() !== '' && String(val).trim() !== '-';
+            const isFilled = val !== undefined && val !== null && (typeof val === 'object' ? !!val.url : (String(val).trim() !== '' && String(val).trim() !== '-'));
             entry[c.label] = isFilled ? '✓ Terisi' : '-';
           } else if (c.type === 'checkbox') {
             entry[c.label] = val === true || val === 'true' ? 'YA' : 'TIDAK';
+          } else if (c.type === 'file') {
+            const fileUrl = typeof val === 'object' && val !== null ? val.url : (typeof val === 'string' ? val : '');
+            if (fileUrl) {
+              const fullUrl = fileUrl.startsWith('http') ? fileUrl : `${req.protocol}://${req.get('host')}${fileUrl}`;
+              entry[c.label] = fullUrl;
+            } else {
+              entry[c.label] = '-';
+            }
           } else {
             entry[c.label] = val !== undefined && val !== null ? val : '';
           }
