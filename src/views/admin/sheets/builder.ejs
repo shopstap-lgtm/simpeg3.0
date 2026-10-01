@@ -597,9 +597,8 @@ function sheetBuilderApp() {
     moveColumn(index, direction) {
       const targetIndex = index + direction;
       if (targetIndex < 0 || targetIndex >= this.columns.length) return;
-      const temp = this.columns[index];
-      this.columns[index] = this.columns[targetIndex];
-      this.columns[targetIndex] = temp;
+      const item = this.columns.splice(index, 1)[0];
+      this.columns.splice(targetIndex, 0, item);
       this.$nextTick(() => {
         if (window.lucide) lucide.createIcons();
       });
