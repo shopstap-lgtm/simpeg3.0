@@ -694,10 +694,10 @@ export const sheetAdminController = {
           message: `Status spreadsheet '${current.title}' diubah menjadi: ${newStatus === 'ACTIVE' ? 'DIBUKA (AKTIF)' : 'DITUTUP'}`
         };
       }
-      res.redirect('/admin/sheets');
+      return res.redirect(req.headers.referer || '/admin/sheets');
     } catch (error) {
       console.error('[sheetAdminController.toggleStatus] Error:', error);
-      res.redirect('/admin/sheets');
+      return res.redirect(req.headers.referer || '/admin/sheets');
     }
   },
 
