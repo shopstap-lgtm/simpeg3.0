@@ -12,9 +12,9 @@
     columns: columns,
     allSheetColumns: (sheet.columns || []).map(c => ({ key: c.key, label: c.label, hidden: !!c.hidden })),
     hiddenIdentityKeys: [
-      <%- typeof isNipExplicitlyHidden !== 'undefined' && isNipExplicitlyHidden ? "'nip', 'identifier'," : "" %>
-      <%- typeof isNamaExplicitlyHidden !== 'undefined' && isNamaExplicitlyHidden ? "'nama', 'label'," : "" %>
-      <%- typeof isUnitExplicitlyHidden !== 'undefined' && isUnitExplicitlyHidden ? "'unitkerja', 'sublabel', 'unit', 'jabatan'," : "" %>
+      ...(typeof isNipExplicitlyHidden !== 'undefined' && isNipExplicitlyHidden ? ['nip', 'identifier'] : []),
+      ...(typeof isNamaExplicitlyHidden !== 'undefined' && isNamaExplicitlyHidden ? ['nama', 'label'] : []),
+      ...(typeof isUnitExplicitlyHidden !== 'undefined' && isUnitExplicitlyHidden ? ['unitkerja', 'sublabel', 'unit', 'jabatan'] : [])
     ],
     initialRows: rows
   }).replace(/</g, '\\u003c') %>
