@@ -846,7 +846,12 @@
       <div>
         <h3 class="font-extrabold text-slate-900 text-base">Hapus Kolom Ini?</h3>
         <p class="text-xs text-slate-500 mt-1">
-          Kolom <b class="text-slate-800" x-text="colToDelete?.label"></b> akan dihapus secara permanen dari spreadsheet ini.
+          <template x-if="colToDelete?.isIdentity">
+            <span>Kolom <b class="text-slate-800" x-text="colToDelete?.label"></b> adalah kolom bawaan identitas. Menghapus kolom ini akan menghilangkannya dari tampilan tabel dan form responden (data master tetap aman).</span>
+          </template>
+          <template x-if="!colToDelete?.isIdentity">
+            <span>Kolom <b class="text-slate-800" x-text="colToDelete?.label"></b> akan dihapus secara permanen dari spreadsheet ini beserta seluruh data di dalamnya.</span>
+          </template>
         </p>
       </div>
       <div class="pt-2 flex items-center justify-center gap-2">
@@ -1078,33 +1083,17 @@
             </div>
           </template>
 
-          <!-- 4. Tombol Hapus / Nonaktifkan Kolom -->
-          <template x-if="!activeColObject.isIdentity">
-            <button type="button"
-                    @click="confirmDeleteColumn(activeColObject); activeFilterCol = null;"
-                    class="w-full py-1.5 px-2.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 flex items-center gap-2 font-bold text-xs transition-colors cursor-pointer"
-                    title="Hapus kolom ini dari spreadsheet">
+          <!-- 4. Tombol Hapus / Nonaktifkan Kolom (Untuk semua kolom) -->
+          <button type="button"
+                  @click="confirmDeleteColumn(activeColObject); activeFilterCol = null;"
+                  class="w-full py-1.5 px-2.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 flex items-center justify-between font-bold text-xs transition-colors cursor-pointer"
+                  title="Hapus kolom ini dari spreadsheet">
+            <div class="flex items-center gap-2">
               <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-600"></i>
               <span>Hapus Kolom Ini</span>
-            </button>
-          </template>
-
-          <template x-if="activeColObject.isIdentity">
-            <button type="button"
-                    @click="toggleColumnVisibility(activeColObject.key); activeFilterCol = null;"
-                    class="w-full py-1.5 px-2.5 rounded-xl border flex items-center justify-between font-bold text-xs transition-colors cursor-pointer"
-                    :class="isColumnHidden(activeColObject.key) ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-rose-200 bg-rose-50/70 text-rose-700 hover:bg-rose-100'"
-                    :title="isColumnHidden(activeColObject.key) ? 'Tampilkan kembali kolom identitas ini' : 'Sembunyikan kolom identitas ini dari tabel spreadsheet'">
-              <div class="flex items-center gap-1.5">
-                <i :data-lucide="isColumnHidden(activeColObject.key) ? 'eye' : 'eye-off'" class="w-3.5 h-3.5"></i>
-                <span x-text="isColumnHidden(activeColObject.key) ? 'Tampilkan Kolom Ini' : 'Sembunyikan / Hilangkan Kolom Ini'"></span>
-              </div>
-              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded font-extrabold"
-                    :class="isColumnHidden(activeColObject.key) ? 'bg-emerald-200 text-emerald-900' : 'bg-rose-200 text-rose-900'"
-                    x-text="isColumnHidden(activeColObject.key) ? 'Tampilkan' : 'Hilangkan'">
-              </span>
-            </button>
-          </template>
+            </div>
+            <span class="text-[9px] px-1.5 py-0.5 rounded font-mono font-bold bg-rose-200/80 text-rose-900" x-text="activeColObject.isIdentity ? 'Bawaan' : 'Kustom'"></span>
+          </button>
         </div>
       </div>
     </template>
@@ -2174,6 +2163,21 @@
       async submitDeleteColumn() {
         if (!this.colToDelete) return;
         this.isSaving = true;
+
+        if (this.colToDelete.isIdentity) {
+          const keyToDelete = this.colToDelete.key;
+          const labelToDelete = this.colToDelete.label;
+          if (!this.isColumnHidden(keyToDelete)) {
+            await this.toggleColumnVisibility(keyToDelete);
+          }
+          this.showDeleteColModal = false;
+          this.colToDelete = null;
+          this.isSaving = false;
+          this.saveStatus = `Kolom '${labelToDelete}' berhasil dihapus dari tampilan tabel!`;
+          setTimeout(() => { this.saveStatus = ''; }, 3000);
+          this.$nextTick(() => window.lucide?.createIcons());
+          return;
+        }
 
         try {
           const res = await fetch(`/admin/sheets/${this.sheetId}/columns/${this.colToDelete.key}/delete`, {

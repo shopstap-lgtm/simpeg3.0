@@ -573,22 +573,53 @@ export const sheetAdminController = {
           'No': idx + 1
         };
 
+        // 1. Resolve identity values from rowData or fallback to row columns
+        const resolvedNip = (rowData.nip && String(rowData.nip).trim() !== '' && String(rowData.nip).trim() !== '-')
+          ? String(rowData.nip).trim()
+          : (r.identifier ? String(r.identifier).trim() : '-');
+
+        const resolvedNama = (rowData.nama && String(rowData.nama).trim() !== '')
+          ? String(rowData.nama).trim()
+          : (r.label ? String(r.label).trim() : '-');
+
+        const resolvedUnit = (rowData.unitKerja && String(rowData.unitKerja).trim() !== '')
+          ? String(rowData.unitKerja).trim()
+          : (r.subLabel ? String(r.subLabel).trim() : '-');
+
+        // Check which identity columns are already present in dynamic columns
+        const hasNipInCols = columns.some((c: any) => c.key === 'nip' || c.key === 'identifier' || (c.label || '').trim().toUpperCase() === 'NIP');
+        const hasNamaInCols = columns.some((c: any) => c.key === 'nama' || c.key === 'label' || (c.label || '').toLowerCase().includes('nama'));
+        const hasUnitInCols = columns.some((c: any) => c.key === 'unitKerja' || c.key === 'subLabel' || (c.label || '').toLowerCase().includes('unit'));
+
         if (sheet.targetType === 'UNIT') {
-          entry['Nama Unit / Sekolah'] = r.label || '-';
-          entry['NPSN / Kode'] = r.identifier || '-';
+          if (!hasNamaInCols) entry['Nama Unit / Sekolah'] = resolvedNama;
+          if (!hasNipInCols) entry['NPSN / Kode'] = resolvedNip;
         } else if (sheet.targetType === 'PEGAWAI') {
-          entry['NIP'] = r.identifier || '-';
-          entry['Nama Pegawai'] = r.label || '-';
-          entry['Unit Kerja'] = r.subLabel || '-';
+          if (!hasNipInCols) entry['NIP'] = resolvedNip;
+          if (!hasNamaInCols) entry['Nama Pegawai'] = resolvedNama;
+          if (!hasUnitInCols) entry['Unit Kerja'] = resolvedUnit;
         } else {
-          if (r.label || r.identifier) {
-            entry['Identitas / Nama'] = r.label || r.identifier || '-';
+          if (!hasNamaInCols && !hasNipInCols) {
+            entry['Identitas / Nama'] = resolvedNama !== '-' ? resolvedNama : resolvedNip;
           }
         }
 
         // Dynamic columns
         columns.forEach(c => {
-          const val = rowData[c.key];
+          let val = rowData[c.key];
+
+          // Automatic fallback if rowData has not synced identity keys
+          const isValEmpty = val === undefined || val === null || String(val).trim() === '' || String(val).trim() === '-';
+          if (isValEmpty) {
+            if (c.key === 'nip' || c.key === 'identifier' || (c.label || '').trim().toUpperCase() === 'NIP') {
+              val = resolvedNip;
+            } else if (c.key === 'nama' || c.key === 'label' || (c.label || '').toLowerCase().includes('nama')) {
+              val = resolvedNama;
+            } else if (c.key === 'unitKerja' || c.key === 'subLabel') {
+              val = resolvedUnit;
+            }
+          }
+
           if (c.type === 'checkbox') {
             entry[c.label] = val === true || val === 'true' ? 'YA' : 'TIDAK';
           } else if (c.type === 'file') {
@@ -600,7 +631,7 @@ export const sheetAdminController = {
               entry[c.label] = '-';
             }
           } else {
-            entry[c.label] = val !== undefined && val !== null ? val : '';
+            entry[c.label] = val !== undefined && val !== null ? String(val) : '';
           }
         });
 
@@ -609,6 +640,25 @@ export const sheetAdminController = {
       });
 
       const worksheet = XLSX.utils.json_to_sheet(excelRows);
+
+      // Ensure long digit strings (NIP, NIK, NPSN) are explicitly treated as string in Excel
+      if (worksheet['!ref']) {
+        const range = XLSX.utils.decode_range(worksheet['!ref']);
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+          for (let C = range.s.c; C <= range.e.c; ++C) {
+            const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+            const cell = worksheet[cellRef];
+            if (cell && cell.v !== undefined && cell.v !== null) {
+              const strVal = String(cell.v).trim();
+              if (/^\d{8,}$/.test(strVal)) {
+                cell.t = 's';
+                cell.v = strVal;
+                cell.z = '@';
+              }
+            }
+          }
+        }
+      }
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Data Rekap');
 
