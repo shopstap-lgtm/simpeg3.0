@@ -166,7 +166,7 @@
                 @click="open = !open"
                 class="py-2 px-3 text-xs font-bold gap-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 flex items-center transition-colors">
           <i data-lucide="eye" class="w-3.5 h-3.5 text-indigo-600"></i>
-          <span>Atur Kolom Publik (<span x-text="publicColumnsCount"></span>/<span x-text="columns.length"></span>)</span>
+          <span>Atur Kolom Publik (<span x-text="publicColumnsCount"></span>/<span x-text="allToggleableColumns.length"></span>)</span>
           <i data-lucide="chevron-down" class="w-3 h-3 text-slate-400"></i>
         </button>
 
@@ -192,42 +192,49 @@
           </label>
 
           <div class="max-h-64 overflow-y-auto space-y-1.5 scrollbar-thin">
-            <template x-for="col in columns" :key="col.key">
+            <template x-for="col in allToggleableColumns" :key="col.key">
               <div class="flex items-center justify-between p-2 hover:bg-slate-50 rounded-xl text-xs select-none border transition"
-                   :class="!col.hidden ? 'border-slate-100 bg-white' : 'border-amber-200 bg-amber-50/60'">
+                   :class="!isColumnHidden(col.key) ? 'border-slate-100 bg-white' : 'border-amber-200 bg-amber-50/60'">
                 <label class="flex items-center gap-2.5 truncate cursor-pointer flex-1 mr-2">
                   <input type="checkbox"
-                         :checked="!col.hidden"
+                         :checked="!isColumnHidden(col.key)"
                          @change="toggleColumnVisibility(col.key)"
                          class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer">
                   <div class="truncate">
-                    <span class="font-bold text-slate-800 truncate block" x-text="col.label"></span>
+                    <div class="flex items-center gap-1.5 truncate">
+                      <span class="font-bold text-slate-800 truncate block" x-text="col.label"></span>
+                      <template x-if="col.isIdentity">
+                        <span class="text-[8px] font-extrabold uppercase px-1 py-0.2 rounded bg-indigo-100 text-indigo-700 border border-indigo-200 shrink-0">Bawaan</span>
+                      </template>
+                    </div>
                     <span class="text-[10px] font-semibold"
-                          :class="!col.hidden ? 'text-emerald-600' : 'text-amber-700'"
-                          x-text="!col.hidden ? '✓ Tampil di Publik' : '✕ Tersembunyi dari Publik'"></span>
+                          :class="!isColumnHidden(col.key) ? 'text-emerald-600' : 'text-amber-700'"
+                          x-text="!isColumnHidden(col.key) ? '✓ Tampil di Publik' : '✕ Tersembunyi dari Publik'"></span>
                   </div>
                 </label>
 
                 <div class="flex items-center gap-1 shrink-0">
                   <span class="text-[9px] font-mono text-slate-400 uppercase bg-slate-100 px-1.5 py-0.5 rounded" x-text="col.type"></span>
 
-                  <!-- Tombol Pindah Posisi Kolom -->
-                  <div class="flex items-center ml-1 border-l border-slate-200 pl-1">
-                    <button type="button"
-                            @click="moveColumn(col.key, -1)"
-                            :disabled="isFirstColumn(col.key)"
-                            class="p-1 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-800 disabled:opacity-20 cursor-pointer"
-                            title="Geser posisi kolom ke atas / kiri">
-                      <i data-lucide="chevron-up" class="w-3.5 h-3.5"></i>
-                    </button>
-                    <button type="button"
-                            @click="moveColumn(col.key, 1)"
-                            :disabled="isLastColumn(col.key)"
-                            class="p-1 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-800 disabled:opacity-20 cursor-pointer"
-                            title="Geser posisi kolom ke bawah / kanan">
-                      <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
-                    </button>
-                  </div>
+                  <!-- Tombol Pindah Posisi Kolom (hanya kolom kustom) -->
+                  <template x-if="!col.isIdentity">
+                    <div class="flex items-center ml-1 border-l border-slate-200 pl-1">
+                      <button type="button"
+                              @click="moveColumn(col.key, -1)"
+                              :disabled="isFirstColumn(col.key)"
+                              class="p-1 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-800 disabled:opacity-20 cursor-pointer"
+                              title="Geser posisi kolom ke atas / kiri">
+                        <i data-lucide="chevron-up" class="w-3.5 h-3.5"></i>
+                      </button>
+                      <button type="button"
+                              @click="moveColumn(col.key, 1)"
+                              :disabled="isLastColumn(col.key)"
+                              class="p-1 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-800 disabled:opacity-20 cursor-pointer"
+                              title="Geser posisi kolom ke bawah / kanan">
+                        <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                      </button>
+                    </div>
+                  </template>
                 </div>
               </div>
             </template>
@@ -314,21 +321,25 @@
           <tr>
             <th class="py-3 px-3 w-12 text-center border-r border-slate-200 bg-slate-100">#</th>
 
-            <!-- Standard Fallback Identitas Columns (Only shown if NOT already covered in columns) -->
-            <template x-if="!isFieldDefinedInSheet('nama') && !isFieldDefinedInSheet('label')">
-              <th class="py-2.5 px-3 min-w-[200px] border-r border-slate-200 bg-slate-100">
+            <!-- Standard Fallback Identitas Columns (Only shown if NOT already covered in columns and visible) -->
+            <template x-if="!isFieldDefinedInSheet('nama') && !isFieldDefinedInSheet('label') && isIdentColVisible('label')">
+              <th class="py-2.5 px-3 min-w-[200px] border-r border-slate-200 transition-colors"
+                  :class="isColumnHidden('label') ? 'bg-amber-50/70 border-amber-200' : 'bg-slate-100'">
                 <div class="flex items-center justify-between gap-1.5">
                   <div class="flex items-center gap-1.5 truncate">
-                    <span class="font-bold text-slate-800 truncate">Nama Lengkap</span>
+                    <span class="font-bold text-slate-800 truncate"><%= sheet.targetType === 'UNIT' ? 'Nama Unit Sekolah' : (sheet.targetType === 'PEGAWAI' ? 'Nama Pegawai' : 'Nama Lengkap') %></span>
                     <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-mono shrink-0">IDENTITAS</span>
+                    <template x-if="isColumnHidden('label')">
+                      <span class="text-[9px] px-1.5 py-0.5 rounded font-extrabold bg-rose-100 text-rose-800 border border-rose-300 shrink-0">Hidden</span>
+                    </template>
                   </div>
                   <button type="button"
-                          @click.stop="openFilterDropdown('nama', 'Nama Lengkap', $event)"
+                          @click.stop="openFilterDropdown('label', '<%= sheet.targetType === 'UNIT' ? 'Nama Unit Sekolah' : (sheet.targetType === 'PEGAWAI' ? 'Nama Pegawai' : 'Nama Lengkap') %>', $event)"
                           class="p-1 rounded transition-colors cursor-pointer relative shrink-0"
-                          :class="isColumnFilteredOrSorted('nama') ? 'bg-indigo-600 text-white shadow-xs' : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'"
-                          title="Filter & Urutkan kolom Nama Lengkap">
+                          :class="isColumnFilteredOrSorted('label') ? 'bg-indigo-600 text-white shadow-xs' : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'"
+                          title="Filter & Pengaturan kolom Nama">
                     <i data-lucide="filter" class="w-3.5 h-3.5"></i>
-                    <template x-if="isColumnFilteredOrSorted('nama')">
+                    <template x-if="isColumnFilteredOrSorted('label')">
                       <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white"></span>
                     </template>
                   </button>
@@ -336,20 +347,24 @@
               </th>
             </template>
 
-            <template x-if="!isFieldDefinedInSheet('nip') && !isFieldDefinedInSheet('identifier') && ('<%= sheet.targetType %>' === 'PEGAWAI' || '<%= sheet.targetType %>' === 'UNIT')">
-              <th class="py-2.5 px-3 min-w-[150px] border-r border-slate-200 bg-slate-100">
+            <template x-if="!isFieldDefinedInSheet('nip') && !isFieldDefinedInSheet('identifier') && isIdentColVisible('identifier') && ('<%= sheet.targetType %>' === 'PEGAWAI' || '<%= sheet.targetType %>' === 'UNIT')">
+              <th class="py-2.5 px-3 min-w-[150px] border-r border-slate-200 transition-colors"
+                  :class="isColumnHidden('identifier') ? 'bg-amber-50/70 border-amber-200' : 'bg-slate-100'">
                 <div class="flex items-center justify-between gap-1.5">
                   <div class="flex items-center gap-1.5 truncate">
                     <span class="font-bold text-slate-800 truncate"><%= sheet.targetType === 'PEGAWAI' ? 'NIP' : 'Kode Unit' %></span>
                     <span class="text-[9px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-700 font-mono shrink-0">KUNCI</span>
+                    <template x-if="isColumnHidden('identifier')">
+                      <span class="text-[9px] px-1.5 py-0.5 rounded font-extrabold bg-rose-100 text-rose-800 border border-rose-300 shrink-0">Hidden</span>
+                    </template>
                   </div>
                   <button type="button"
-                          @click.stop="openFilterDropdown('nip', '<%= sheet.targetType === 'PEGAWAI' ? 'NIP' : 'Kode Unit' %>', $event)"
+                          @click.stop="openFilterDropdown('identifier', '<%= sheet.targetType === 'PEGAWAI' ? 'NIP' : 'Kode Unit' %>', $event)"
                           class="p-1 rounded transition-colors cursor-pointer relative shrink-0"
-                          :class="isColumnFilteredOrSorted('nip') ? 'bg-indigo-600 text-white shadow-xs' : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'"
-                          title="Filter & Urutkan kolom ini">
+                          :class="isColumnFilteredOrSorted('identifier') ? 'bg-indigo-600 text-white shadow-xs' : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'"
+                          title="Filter & Pengaturan kolom ini">
                     <i data-lucide="filter" class="w-3.5 h-3.5"></i>
-                    <template x-if="isColumnFilteredOrSorted('nip')">
+                    <template x-if="isColumnFilteredOrSorted('identifier')">
                       <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white"></span>
                     </template>
                   </button>
@@ -357,17 +372,23 @@
               </th>
             </template>
 
-            <template x-if="!isFieldDefinedInSheet('unitKerja') && !isFieldDefinedInSheet('subLabel') && !isFieldDefinedInSheet('jabatan')">
-              <th class="py-2.5 px-3 min-w-[160px] border-r border-slate-200 bg-slate-100">
+            <template x-if="!isFieldDefinedInSheet('unitKerja') && !isFieldDefinedInSheet('subLabel') && !isFieldDefinedInSheet('jabatan') && isIdentColVisible('subLabel')">
+              <th class="py-2.5 px-3 min-w-[160px] border-r border-slate-200 transition-colors"
+                  :class="isColumnHidden('subLabel') ? 'bg-amber-50/70 border-amber-200' : 'bg-slate-100'">
                 <div class="flex items-center justify-between gap-1.5">
-                  <span class="font-bold text-slate-800 truncate"><%= sheet.targetType === 'PEGAWAI' ? 'Unit / Jabatan' : 'Keterangan' %></span>
+                  <div class="flex items-center gap-1.5 truncate">
+                    <span class="font-bold text-slate-800 truncate"><%= sheet.targetType === 'PEGAWAI' ? 'Unit / Jabatan' : 'Status Unit (SD/Swasta)' %></span>
+                    <template x-if="isColumnHidden('subLabel')">
+                      <span class="text-[9px] px-1.5 py-0.5 rounded font-extrabold bg-rose-100 text-rose-800 border border-rose-300 shrink-0">Hidden</span>
+                    </template>
+                  </div>
                   <button type="button"
-                          @click.stop="openFilterDropdown('unitKerja', '<%= sheet.targetType === 'PEGAWAI' ? 'Unit / Jabatan' : 'Keterangan' %>', $event)"
+                          @click.stop="openFilterDropdown('subLabel', '<%= sheet.targetType === 'PEGAWAI' ? 'Unit / Jabatan' : 'Status Unit (SD/Swasta)' %>', $event)"
                           class="p-1 rounded transition-colors cursor-pointer relative shrink-0"
-                          :class="isColumnFilteredOrSorted('unitKerja') ? 'bg-indigo-600 text-white shadow-xs' : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'"
-                          title="Filter & Urutkan kolom ini">
+                          :class="isColumnFilteredOrSorted('subLabel') ? 'bg-indigo-600 text-white shadow-xs' : 'hover:bg-slate-200 text-slate-400 hover:text-slate-600'"
+                          title="Filter & Pengaturan kolom ini">
                     <i data-lucide="filter" class="w-3.5 h-3.5"></i>
-                    <template x-if="isColumnFilteredOrSorted('unitKerja')">
+                    <template x-if="isColumnFilteredOrSorted('subLabel')">
                       <span class="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400 ring-2 ring-white"></span>
                     </template>
                   </button>
@@ -449,8 +470,9 @@
               </td>
 
               <!-- Fallback Fixed Columns if not in columns -->
-              <template x-if="!isFieldDefinedInSheet('nama') && !isFieldDefinedInSheet('label')">
-                <td class="py-1 px-2 border-r border-slate-200">
+              <template x-if="!isFieldDefinedInSheet('nama') && !isFieldDefinedInSheet('label') && isIdentColVisible('label')">
+                <td class="py-1 px-2 border-r border-slate-200"
+                    :class="isColumnHidden('label') ? 'bg-amber-50/40' : ''">
                   <input type="text"
                          x-model="row.label"
                          @change="saveRowMeta(row)"
@@ -458,8 +480,9 @@
                 </td>
               </template>
 
-              <template x-if="!isFieldDefinedInSheet('nip') && !isFieldDefinedInSheet('identifier') && ('<%= sheet.targetType %>' === 'PEGAWAI' || '<%= sheet.targetType %>' === 'UNIT')">
-                <td class="py-1 px-2 border-r border-slate-200 font-mono">
+              <template x-if="!isFieldDefinedInSheet('nip') && !isFieldDefinedInSheet('identifier') && isIdentColVisible('identifier') && ('<%= sheet.targetType %>' === 'PEGAWAI' || '<%= sheet.targetType %>' === 'UNIT')">
+                <td class="py-1 px-2 border-r border-slate-200 font-mono"
+                    :class="isColumnHidden('identifier') ? 'bg-amber-50/40' : ''">
                   <input type="text"
                          x-model="row.identifier"
                          @change="saveRowMeta(row)"
@@ -467,8 +490,9 @@
                 </td>
               </template>
 
-              <template x-if="!isFieldDefinedInSheet('unitKerja') && !isFieldDefinedInSheet('subLabel') && !isFieldDefinedInSheet('jabatan')">
-                <td class="py-1 px-2 border-r border-slate-200">
+              <template x-if="!isFieldDefinedInSheet('unitKerja') && !isFieldDefinedInSheet('subLabel') && !isFieldDefinedInSheet('jabatan') && isIdentColVisible('subLabel')">
+                <td class="py-1 px-2 border-r border-slate-200"
+                    :class="isColumnHidden('subLabel') ? 'bg-amber-50/40' : ''">
                   <input type="text"
                          x-model="row.subLabel"
                          @change="saveRowMeta(row)"
@@ -962,90 +986,125 @@
       <div class="space-y-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
         <div class="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center justify-between">
           <span>Pengaturan Kolom</span>
-          <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase bg-slate-200 text-slate-700" x-text="activeColObject.type"></span>
+          <span class="text-[9px] px-1.5 py-0.2 rounded font-mono uppercase bg-slate-200 text-slate-700" x-text="activeColObject.isIdentity ? 'BAWAAN' : activeColObject.type"></span>
         </div>
 
         <div class="space-y-1.5">
           <!-- 1. Tombol Gembok / Proteksi Kolom -->
-          <button type="button"
-                  @click="toggleColumnProtect(activeFilterCol)"
-                  class="w-full py-1.5 px-2.5 rounded-xl border flex items-center justify-between font-bold text-xs transition-colors cursor-pointer"
-                  :class="activeColObject.isProtected 
-                    ? 'bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100' 
-                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'"
-                  :title="activeColObject.isProtected ? 'Klik untuk membuka kunci (bisa diisi responden)' : 'Klik untuk memproteksi (hanya admin yang dapat mengedit)'">
-            <div class="flex items-center gap-2">
-              <template x-if="activeColObject.isProtected">
-                <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-600"></i>
-              </template>
-              <template x-if="!activeColObject.isProtected">
-                <i data-lucide="unlock" class="w-3.5 h-3.5 text-slate-400"></i>
-              </template>
-              <span x-text="activeColObject.isProtected ? 'Kolom Diproteksi' : 'Proteksi Kolom'"></span>
+          <template x-if="!activeColObject.isIdentity">
+            <button type="button"
+                    @click="toggleColumnProtect(activeFilterCol)"
+                    class="w-full py-1.5 px-2.5 rounded-xl border flex items-center justify-between font-bold text-xs transition-colors cursor-pointer"
+                    :class="activeColObject.isProtected 
+                      ? 'bg-amber-50 border-amber-300 text-amber-900 hover:bg-amber-100' 
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'"
+                    :title="activeColObject.isProtected ? 'Klik untuk membuka kunci (bisa diisi responden)' : 'Klik untuk memproteksi (hanya admin yang dapat mengedit)'">
+              <div class="flex items-center gap-2">
+                <template x-if="activeColObject.isProtected">
+                  <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-600"></i>
+                </template>
+                <template x-if="!activeColObject.isProtected">
+                  <i data-lucide="unlock" class="w-3.5 h-3.5 text-slate-400"></i>
+                </template>
+                <span x-text="activeColObject.isProtected ? 'Kolom Diproteksi' : 'Proteksi Kolom'"></span>
+              </div>
+              <span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded"
+                    :class="activeColObject.isProtected ? 'bg-amber-200 text-amber-900' : 'bg-slate-100 text-slate-500'"
+                    x-text="activeColObject.isProtected ? 'Hanya Admin' : 'Bebas Diisi'">
+              </span>
+            </button>
+          </template>
+
+          <template x-if="activeColObject.isIdentity">
+            <div class="w-full py-1.5 px-2.5 rounded-xl border border-slate-200 bg-white flex items-center justify-between font-bold text-xs text-slate-600">
+              <div class="flex items-center gap-2">
+                <i data-lucide="shield" class="w-3.5 h-3.5 text-indigo-600"></i>
+                <span>Kolom Identitas Bawaan</span>
+              </div>
+              <span class="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800">
+                Kunci Baris
+              </span>
             </div>
-            <span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded"
-                  :class="activeColObject.isProtected ? 'bg-amber-200 text-amber-900' : 'bg-slate-100 text-slate-500'"
-                  x-text="activeColObject.isProtected ? 'Hanya Admin' : 'Bebas Diisi'">
-            </span>
-          </button>
+          </template>
 
           <!-- 2. Tombol Mata / Visibilitas Publik -->
           <button type="button"
-                  @click="toggleColumnVisibility(activeFilterCol)"
+                  @click="toggleColumnVisibility(activeColObject.key)"
                   class="w-full py-1.5 px-2.5 rounded-xl border flex items-center justify-between font-bold text-xs transition-colors cursor-pointer"
-                  :class="activeColObject.hidden 
+                  :class="isColumnHidden(activeColObject.key) 
                     ? 'bg-rose-50 border-rose-200 text-rose-800 hover:bg-rose-100' 
                     : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'"
-                  :title="activeColObject.hidden ? 'Klik untuk menampilkan kolom ke publik' : 'Klik untuk menyembunyikan kolom dari publik'">
+                  :title="isColumnHidden(activeColObject.key) ? 'Klik untuk menampilkan kolom ke publik' : 'Klik untuk menyembunyikan kolom dari publik'">
             <div class="flex items-center gap-2">
-              <template x-if="!activeColObject.hidden">
+              <template x-if="!isColumnHidden(activeColObject.key)">
                 <i data-lucide="eye" class="w-3.5 h-3.5 text-emerald-600"></i>
               </template>
-              <template x-if="activeColObject.hidden">
+              <template x-if="isColumnHidden(activeColObject.key)">
                 <i data-lucide="eye-off" class="w-3.5 h-3.5 text-rose-500"></i>
               </template>
-              <span x-text="activeColObject.hidden ? 'Status: Tersembunyi' : 'Status: Ditampilkan'"></span>
+              <span x-text="isColumnHidden(activeColObject.key) ? 'Status: Tersembunyi' : 'Status: Ditampilkan'"></span>
             </div>
             <span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded"
-                  :class="activeColObject.hidden ? 'bg-rose-200 text-rose-900' : 'bg-emerald-100 text-emerald-800'"
-                  x-text="activeColObject.hidden ? 'Hidden' : 'Publik'">
+                  :class="isColumnHidden(activeColObject.key) ? 'bg-rose-200 text-rose-900' : 'bg-emerald-100 text-emerald-800'"
+                  x-text="isColumnHidden(activeColObject.key) ? 'Hidden' : 'Publik'">
             </span>
           </button>
 
-          <!-- 3. Pindah Posisi Kolom (Geser Kiri / Kanan) -->
-          <div class="pt-1.5 border-t border-slate-200/60">
-            <div class="text-[10px] font-bold text-slate-400 uppercase mb-1 flex items-center justify-between">
-              <span>Posisi Kolom</span>
-              <span class="text-[9px] text-slate-400 font-mono" x-text="`Urutan ${columns.findIndex(c => c.key === activeFilterCol) + 1} dari ${columns.length}`"></span>
+          <!-- 3. Pindah Posisi Kolom (Geser Kiri / Kanan, hanya kolom kustom) -->
+          <template x-if="!activeColObject.isIdentity">
+            <div class="pt-1.5 border-t border-slate-200/60">
+              <div class="text-[10px] font-bold text-slate-400 uppercase mb-1 flex items-center justify-between">
+                <span>Posisi Kolom</span>
+                <span class="text-[9px] text-slate-400 font-mono" x-text="`Urutan ${columns.findIndex(c => c.key === activeFilterCol) + 1} dari ${columns.length}`"></span>
+              </div>
+              <div class="grid grid-cols-2 gap-1.5">
+                <button type="button"
+                        @click="moveColumn(activeFilterCol, -1)"
+                        :disabled="isFirstColumn(activeFilterCol)"
+                        class="py-1.5 px-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white text-slate-700 flex items-center justify-center gap-1.5 font-bold text-xs transition-colors cursor-pointer"
+                        title="Geser kolom ini 1 posisi ke kiri">
+                  <i data-lucide="arrow-left" class="w-3.5 h-3.5 text-indigo-600"></i>
+                  <span>Geser Kiri</span>
+                </button>
+                <button type="button"
+                        @click="moveColumn(activeFilterCol, 1)"
+                        :disabled="isLastColumn(activeFilterCol)"
+                        class="py-1.5 px-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white text-slate-700 flex items-center justify-center gap-1.5 font-bold text-xs transition-colors cursor-pointer"
+                        title="Geser kolom ini 1 posisi ke kanan">
+                  <span>Geser Kanan</span>
+                  <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-indigo-600"></i>
+                </button>
+              </div>
             </div>
-            <div class="grid grid-cols-2 gap-1.5">
-              <button type="button"
-                      @click="moveColumn(activeFilterCol, -1)"
-                      :disabled="isFirstColumn(activeFilterCol)"
-                      class="py-1.5 px-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white text-slate-700 flex items-center justify-center gap-1.5 font-bold text-xs transition-colors cursor-pointer"
-                      title="Geser kolom ini 1 posisi ke kiri">
-                <i data-lucide="arrow-left" class="w-3.5 h-3.5 text-indigo-600"></i>
-                <span>Geser Kiri</span>
-              </button>
-              <button type="button"
-                      @click="moveColumn(activeFilterCol, 1)"
-                      :disabled="isLastColumn(activeFilterCol)"
-                      class="py-1.5 px-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-30 disabled:hover:bg-white text-slate-700 flex items-center justify-center gap-1.5 font-bold text-xs transition-colors cursor-pointer"
-                      title="Geser kolom ini 1 posisi ke kanan">
-                <span>Geser Kanan</span>
-                <i data-lucide="arrow-right" class="w-3.5 h-3.5 text-indigo-600"></i>
-              </button>
-            </div>
-          </div>
+          </template>
 
-          <!-- 4. Tombol Hapus Kolom -->
-          <button type="button"
-                  @click="confirmDeleteColumn(activeColObject); activeFilterCol = null;"
-                  class="w-full py-1.5 px-2.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 flex items-center gap-2 font-bold text-xs transition-colors cursor-pointer"
-                  title="Hapus kolom ini dari spreadsheet">
-            <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-600"></i>
-            <span>Hapus Kolom Ini</span>
-          </button>
+          <!-- 4. Tombol Hapus / Nonaktifkan Kolom -->
+          <template x-if="!activeColObject.isIdentity">
+            <button type="button"
+                    @click="confirmDeleteColumn(activeColObject); activeFilterCol = null;"
+                    class="w-full py-1.5 px-2.5 rounded-xl border border-rose-200 bg-rose-50/70 hover:bg-rose-100 text-rose-700 flex items-center gap-2 font-bold text-xs transition-colors cursor-pointer"
+                    title="Hapus kolom ini dari spreadsheet">
+              <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-600"></i>
+              <span>Hapus Kolom Ini</span>
+            </button>
+          </template>
+
+          <template x-if="activeColObject.isIdentity">
+            <button type="button"
+                    @click="toggleColumnVisibility(activeColObject.key); activeFilterCol = null;"
+                    class="w-full py-1.5 px-2.5 rounded-xl border flex items-center justify-between font-bold text-xs transition-colors cursor-pointer"
+                    :class="isColumnHidden(activeColObject.key) ? 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100' : 'border-rose-200 bg-rose-50/70 text-rose-700 hover:bg-rose-100'"
+                    :title="isColumnHidden(activeColObject.key) ? 'Tampilkan kembali kolom identitas ini' : 'Sembunyikan kolom identitas ini dari tabel spreadsheet'">
+              <div class="flex items-center gap-1.5">
+                <i :data-lucide="isColumnHidden(activeColObject.key) ? 'eye' : 'eye-off'" class="w-3.5 h-3.5"></i>
+                <span x-text="isColumnHidden(activeColObject.key) ? 'Tampilkan Kolom Ini' : 'Sembunyikan / Hilangkan Kolom Ini'"></span>
+              </div>
+              <span class="text-[9px] font-mono px-1.5 py-0.5 rounded font-extrabold"
+                    :class="isColumnHidden(activeColObject.key) ? 'bg-emerald-200 text-emerald-900' : 'bg-rose-200 text-rose-900'"
+                    x-text="isColumnHidden(activeColObject.key) ? 'Tampilkan' : 'Hilangkan'">
+              </span>
+            </button>
+          </template>
         </div>
       </div>
     </template>
@@ -1251,9 +1310,101 @@
         return this.columns;
       },
 
+      isColumnHidden(key) {
+        const aliases = {
+          'label': ['label', 'nama'],
+          'identifier': ['identifier', 'nip'],
+          'subLabel': ['subLabel', 'unitKerja', 'jabatan', 'kategori']
+        };
+        const keys = aliases[key] || [key];
+        return keys.some(k => this.hiddenColKeys.includes(k));
+      },
+
+      isIdentColVisible(key) {
+        if (this.showAllInAdmin) return true;
+        return !this.isColumnHidden(key);
+      },
+
+      get allToggleableColumns() {
+        const list = [...this.columns];
+        const sheetTarget = '<%= sheet.targetType %>';
+
+        // 1. Fallback Nama / Label
+        if (!this.isFieldDefinedInSheet('nama') && !this.isFieldDefinedInSheet('label')) {
+          list.unshift({
+            key: 'label',
+            label: sheetTarget === 'UNIT' ? 'Nama Unit Sekolah' : (sheetTarget === 'PEGAWAI' ? 'Nama Pegawai' : 'Nama Lengkap'),
+            type: 'text',
+            isIdentity: true,
+            hidden: this.isColumnHidden('label')
+          });
+        }
+
+        // 2. Fallback NIP / Identifier
+        if (!this.isFieldDefinedInSheet('nip') && !this.isFieldDefinedInSheet('identifier') && (sheetTarget === 'PEGAWAI' || sheetTarget === 'UNIT')) {
+          const insertIdx = list.findIndex(c => c.key === 'label') >= 0 ? 1 : 0;
+          list.splice(insertIdx, 0, {
+            key: 'identifier',
+            label: sheetTarget === 'PEGAWAI' ? 'NIP' : 'Kode Unit Kerja',
+            type: 'text',
+            isIdentity: true,
+            hidden: this.isColumnHidden('identifier')
+          });
+        }
+
+        // 3. Fallback SubLabel / UnitKerja / Keterangan
+        if (!this.isFieldDefinedInSheet('unitKerja') && !this.isFieldDefinedInSheet('subLabel') && !this.isFieldDefinedInSheet('jabatan')) {
+          const insertIdx = list.filter(c => c.isIdentity).length;
+          list.splice(insertIdx, 0, {
+            key: 'subLabel',
+            label: sheetTarget === 'PEGAWAI' ? 'Unit / Jabatan' : 'Status Unit (SD/Swasta)',
+            type: 'text',
+            isIdentity: true,
+            hidden: this.isColumnHidden('subLabel')
+          });
+        }
+
+        return list;
+      },
+
       get activeColObject() {
         if (!this.activeFilterCol) return null;
-        return this.columns.find(c => c.key === this.activeFilterCol) || null;
+        const col = this.columns.find(c => c.key === this.activeFilterCol);
+        if (col) return col;
+
+        const sheetTarget = '<%= sheet.targetType %>';
+        // Support identity fallback columns
+        if (['label', 'nama'].includes(this.activeFilterCol)) {
+          return {
+            key: 'label',
+            label: sheetTarget === 'UNIT' ? 'Nama Unit Sekolah' : (sheetTarget === 'PEGAWAI' ? 'Nama Pegawai' : 'Nama Lengkap'),
+            type: 'text',
+            isProtected: true,
+            hidden: this.isColumnHidden('label'),
+            isIdentity: true
+          };
+        }
+        if (['identifier', 'nip'].includes(this.activeFilterCol)) {
+          return {
+            key: 'identifier',
+            label: sheetTarget === 'PEGAWAI' ? 'NIP' : 'Kode Unit Kerja',
+            type: 'text',
+            isProtected: true,
+            hidden: this.isColumnHidden('identifier'),
+            isIdentity: true
+          };
+        }
+        if (['subLabel', 'unitKerja'].includes(this.activeFilterCol)) {
+          return {
+            key: 'subLabel',
+            label: sheetTarget === 'PEGAWAI' ? 'Unit / Jabatan' : 'Status Unit (SD/Swasta)',
+            type: 'text',
+            isProtected: true,
+            hidden: this.isColumnHidden('subLabel'),
+            isIdentity: true
+          };
+        }
+        return null;
       },
 
       get visibleColumns() {
@@ -1268,7 +1419,7 @@
       },
 
       get publicColumnsCount() {
-        return this.columns.filter(c => !this.hiddenColKeys.includes(c.key)).length;
+        return this.allToggleableColumns.filter(c => !this.isColumnHidden(c.key)).length;
       },
 
       isColumnVisible(key) {
@@ -1276,19 +1427,28 @@
       },
 
       async toggleColumnVisibility(key) {
-        const col = this.columns.find(c => c.key === key);
-        const colLabel = col ? col.label : key;
+        const aliases = {
+          'label': ['label', 'nama'],
+          'identifier': ['identifier', 'nip'],
+          'subLabel': ['subLabel', 'unitKerja', 'jabatan', 'kategori']
+        };
+        const relatedKeys = aliases[key] || [key];
+        const currentlyHidden = relatedKeys.some(k => this.hiddenColKeys.includes(k));
 
-        if (this.hiddenColKeys.includes(key)) {
-          this.hiddenColKeys = this.hiddenColKeys.filter(k => k !== key);
+        if (currentlyHidden) {
+          this.hiddenColKeys = this.hiddenColKeys.filter(k => !relatedKeys.includes(k));
         } else {
           this.hiddenColKeys.push(key);
         }
 
-        const isNowHidden = this.hiddenColKeys.includes(key);
+        const isNowHidden = !currentlyHidden;
         this.columns.forEach(c => {
           c.hidden = this.hiddenColKeys.includes(c.key);
         });
+
+        let colLabel = key;
+        const found = this.allToggleableColumns.find(c => c.key === key);
+        if (found) colLabel = found.label;
 
         this.$nextTick(() => {
           if (window.lucide) window.lucide.createIcons();
@@ -1414,11 +1574,11 @@
       get activeFilterSummary() {
         const parts = [];
         if (this.activeSort.colKey) {
-          const col = this.columns.find(c => c.key === this.activeSort.colKey);
+          const col = this.allToggleableColumns.find(c => c.key === this.activeSort.colKey);
           let name = col ? col.label : this.activeSort.colKey;
-          if (this.activeSort.colKey === 'nama') name = 'Nama Lengkap';
-          if (this.activeSort.colKey === 'nip') name = 'NIP';
-          if (this.activeSort.colKey === 'unitKerja') name = 'Unit Sekolah';
+          if (this.activeSort.colKey === 'nama' || this.activeSort.colKey === 'label') name = '<%= sheet.targetType === "UNIT" ? "Nama Unit Sekolah" : (sheet.targetType === "PEGAWAI" ? "Nama Pegawai" : "Nama Lengkap") %>';
+          if (this.activeSort.colKey === 'nip' || this.activeSort.colKey === 'identifier') name = '<%= sheet.targetType === "PEGAWAI" ? "NIP" : "Kode Unit" %>';
+          if (this.activeSort.colKey === 'unitKerja' || this.activeSort.colKey === 'subLabel') name = '<%= sheet.targetType === "PEGAWAI" ? "Unit / Jabatan" : "Status Unit (SD/Swasta)" %>';
           parts.push(`Urut: ${name} (${this.activeSort.direction === 'asc' ? 'A-Z' : 'Z-A'})`);
         }
         const filteredColCount = Object.keys(this.columnFilters).length;

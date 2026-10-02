@@ -11,6 +11,11 @@
     initialUnlockedRowId: unlockedRowId || "",
     columns: columns,
     allSheetColumns: (sheet.columns || []).map(c => ({ key: c.key, label: c.label, hidden: !!c.hidden })),
+    hiddenIdentityKeys: [
+      <%- typeof isNipExplicitlyHidden !== 'undefined' && isNipExplicitlyHidden ? "'nip', 'identifier'," : "" %>
+      <%- typeof isNamaExplicitlyHidden !== 'undefined' && isNamaExplicitlyHidden ? "'nama', 'label'," : "" %>
+      <%- typeof isUnitExplicitlyHidden !== 'undefined' && isUnitExplicitlyHidden ? "'unitkerja', 'sublabel', 'unit', 'jabatan'," : "" %>
+    ],
     initialRows: rows
   }).replace(/</g, '\\u003c') %>
 </script>
@@ -202,7 +207,7 @@
               <th class="py-3 px-3 w-12 text-center border-r border-slate-200 bg-slate-100">#</th>
               
               <!-- Fallback Identitas Columns if not explicitly defined in sheet -->
-              <template x-if="!isFieldDefinedInSheet('nama') && !isFieldDefinedInSheet('label')">
+              <template x-if="!isFieldDefinedInSheet('nama') && !isFieldDefinedInSheet('label') && isIdentColVisible('label')">
                 <th class="py-2.5 px-3 min-w-[200px] border-r border-slate-200 bg-slate-100">
                   <div class="flex items-center justify-between gap-1.5">
                     <span class="truncate font-bold text-slate-800"><%= sheet.targetType === 'UNIT' ? 'Nama Unit Sekolah' : (sheet.targetType === 'PEGAWAI' ? 'Nama Pegawai' : 'Label Baris') %></span>
@@ -220,7 +225,7 @@
                 </th>
               </template>
 
-              <template x-if="!isFieldDefinedInSheet('nip') && !isFieldDefinedInSheet('identifier') && ('<%= sheet.targetType %>' === 'PEGAWAI' || '<%= sheet.targetType %>' === 'UNIT')">
+              <template x-if="!isFieldDefinedInSheet('nip') && !isFieldDefinedInSheet('identifier') && isIdentColVisible('identifier') && ('<%= sheet.targetType %>' === 'PEGAWAI' || '<%= sheet.targetType %>' === 'UNIT')">
                 <th class="py-2.5 px-3 min-w-[150px] border-r border-slate-200 bg-slate-100">
                   <div class="flex items-center justify-between gap-1.5">
                     <span class="truncate font-bold text-slate-800"><%= sheet.targetType === 'PEGAWAI' ? 'NIP' : 'Kode' %></span>
@@ -238,7 +243,7 @@
                 </th>
               </template>
 
-              <template x-if="!isFieldDefinedInSheet('unitKerja') && !isFieldDefinedInSheet('subLabel') && !isFieldDefinedInSheet('jabatan')">
+              <template x-if="!isFieldDefinedInSheet('unitKerja') && !isFieldDefinedInSheet('subLabel') && !isFieldDefinedInSheet('jabatan') && isIdentColVisible('subLabel')">
                 <th class="py-2.5 px-3 min-w-[150px] border-r border-slate-200 bg-slate-100">
                   <div class="flex items-center justify-between gap-1.5">
                     <span class="truncate font-bold text-slate-800"><%= sheet.targetType === 'PEGAWAI' ? 'Jabatan / Instansi' : 'Keterangan' %></span>
@@ -325,19 +330,19 @@
                 </td>
 
                 <!-- Fallback Identitas Cells -->
-                <template x-if="!isFieldDefinedInSheet('nama') && !isFieldDefinedInSheet('label')">
+                <template x-if="!isFieldDefinedInSheet('nama') && !isFieldDefinedInSheet('label') && isIdentColVisible('label')">
                   <td class="py-2.5 px-4 border-r border-slate-200 font-bold text-slate-900"
                       x-text="row.label">
                   </td>
                 </template>
 
-                <template x-if="!isFieldDefinedInSheet('nip') && !isFieldDefinedInSheet('identifier') && ('<%= sheet.targetType %>' === 'PEGAWAI' || '<%= sheet.targetType %>' === 'UNIT')">
+                <template x-if="!isFieldDefinedInSheet('nip') && !isFieldDefinedInSheet('identifier') && isIdentColVisible('identifier') && ('<%= sheet.targetType %>' === 'PEGAWAI' || '<%= sheet.targetType %>' === 'UNIT')">
                   <td class="py-2.5 px-4 border-r border-slate-200 font-mono text-slate-600"
                       x-text="row.identifier || '-'">
                   </td>
                 </template>
 
-                <template x-if="!isFieldDefinedInSheet('unitKerja') && !isFieldDefinedInSheet('subLabel') && !isFieldDefinedInSheet('jabatan')">
+                <template x-if="!isFieldDefinedInSheet('unitKerja') && !isFieldDefinedInSheet('subLabel') && !isFieldDefinedInSheet('jabatan') && isIdentColVisible('subLabel')">
                   <td class="py-2.5 px-4 border-r border-slate-200 text-slate-500"
                       x-text="row.subLabel || '-'">
                   </td>
@@ -873,6 +878,7 @@
       currentUnlockedRowId: config.initialUnlockedRowId || '',
       columns: initialColumns,
       allDefinedColumns: config.allSheetColumns || [],
+      hiddenIdentityKeys: config.hiddenIdentityKeys || [],
       hiddenColKeys: Array.isArray(savedHidden) ? savedHidden : [],
       rows: (config.initialRows || []).map(r => {
         let d = r.data;
@@ -986,6 +992,24 @@
 
       isColumnVisible(key) {
         return !this.hiddenColKeys.includes(key);
+      },
+
+      isIdentColVisible(key) {
+        const aliases = {
+          'label': ['label', 'nama'],
+          'identifier': ['identifier', 'nip'],
+          'subLabel': ['sublabel', 'unitkerja', 'jabatan', 'kategori']
+        };
+        const keysToCheck = aliases[key] || [key];
+        // 1. Check if server flagged it as explicitly hidden
+        if (this.hiddenIdentityKeys && keysToCheck.some(k => this.hiddenIdentityKeys.includes(k.toLowerCase()))) {
+          return false;
+        }
+        // 2. Check local client-side hidden state
+        if (this.hiddenColKeys && keysToCheck.some(k => this.hiddenColKeys.includes(k))) {
+          return false;
+        }
+        return true;
       },
 
       toggleColumnVisibility(key) {

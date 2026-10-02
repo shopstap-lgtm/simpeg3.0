@@ -776,20 +776,67 @@ export const sheetAdminController = {
       const sheet = await prisma.dataSheet.findUnique({ where: { id } });
       if (!sheet) return res.status(404).json({ success: false, message: 'Spreadsheet tidak ditemukan' });
 
-      const cols = Array.isArray(sheet.columns) ? [...sheet.columns] : [];
+      let cols: any[] = Array.isArray(sheet.columns) ? [...(sheet.columns as any[])] : [];
       const hiddenSet = new Set(Array.isArray(hiddenKeys) ? hiddenKeys : []);
 
-      const updatedCols = cols.map((col: any) => ({
+      // 1. Update hidden flag on regular custom columns
+      cols = cols.map((col: any) => ({
         ...col,
         hidden: hiddenSet.has(col.key)
       }));
 
+      // 2. Track identity fallback columns visibility in sheet.columns
+      const identityDefinitions = [
+        {
+          key: 'identifier',
+          label: sheet.targetType === 'PEGAWAI' ? 'NIP' : 'Kode Unit Kerja',
+          type: 'text',
+          aliases: ['identifier', 'nip']
+        },
+        {
+          key: 'label',
+          label: sheet.targetType === 'UNIT' ? 'Nama Unit Sekolah' : (sheet.targetType === 'PEGAWAI' ? 'Nama Pegawai' : 'Nama Lengkap'),
+          type: 'text',
+          aliases: ['label', 'nama']
+        },
+        {
+          key: 'subLabel',
+          label: sheet.targetType === 'PEGAWAI' ? 'Unit / Jabatan' : 'Status Unit (SD/Swasta)',
+          type: 'text',
+          aliases: ['subLabel', 'unitKerja', 'jabatan', 'kategori']
+        }
+      ];
+
+      for (const ident of identityDefinitions) {
+        const isHiddenInRequest = ident.aliases.some(a => hiddenSet.has(a));
+        const existingIdx = cols.findIndex((c: any) => ident.aliases.includes(c.key));
+
+        if (isHiddenInRequest) {
+          if (existingIdx >= 0) {
+            (cols[existingIdx] as any).hidden = true;
+          } else {
+            cols.push({
+              key: ident.key,
+              label: ident.label,
+              type: ident.type,
+              isProtected: true,
+              hidden: true,
+              isIdentity: true
+            });
+          }
+        } else {
+          if (existingIdx >= 0 && (cols[existingIdx] as any).isIdentity) {
+            (cols[existingIdx] as any).hidden = false;
+          }
+        }
+      }
+
       await prisma.dataSheet.update({
         where: { id },
-        data: { columns: updatedCols }
+        data: { columns: cols }
       });
 
-      res.json({ success: true, columns: updatedCols });
+      res.json({ success: true, columns: cols });
     } catch (error) {
       console.error('[sheetAdminController.updateColumnsVisibility] Error:', error);
       res.status(500).json({ success: false, message: 'Gagal memperbarui visibilitas kolom' });

@@ -144,6 +144,9 @@ export const sheetPublicController = {
         columns: publicCols,
         rows: sanitizedRows,
         unlockedRowId: sessionUnlocked,
+        isNipExplicitlyHidden,
+        isNamaExplicitlyHidden,
+        isUnitExplicitlyHidden,
         stats: {
           totalRows,
           filledRowsCount,
