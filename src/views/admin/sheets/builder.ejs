@@ -500,6 +500,15 @@
                   </span>
                 </label>
 
+                <!-- Show Public Value in PROTECTED_NIP Mode -->
+                <label class="inline-flex items-center gap-2 cursor-pointer select-none" title="Nilai kolom diperlihatkan untuk umum pada mode proteksi NIP (bukan disamarkan tanda ✓ Terisi)">
+                  <input type="checkbox" x-model="col.showPublicValue" class="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer">
+                  <span class="font-bold text-slate-800 flex items-center gap-1.5">
+                    <i data-lucide="eye" class="w-3.5 h-3.5 text-emerald-600"></i>
+                    <span>Tampil Nilai Publik (Mode NIP)</span>
+                  </span>
+                </label>
+
                 <!-- Filterable Option -->
                 <label class="inline-flex items-center gap-2 cursor-pointer select-none" title="Aktifkan tombol filter & sort pada header kolom di spreadsheet">
                   <input type="checkbox" x-model="col.filterable" class="rounded text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer">
@@ -522,6 +531,12 @@
                   <span class="text-[10px] font-extrabold text-amber-800 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200 flex items-center gap-1 shadow-2xs">
                     <i data-lucide="lock" class="w-3 h-3 text-amber-600"></i>
                     <span>Protected</span>
+                  </span>
+                </template>
+                <template x-if="col.showPublicValue">
+                  <span class="text-[10px] font-extrabold text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 flex items-center gap-1 shadow-2xs">
+                    <i data-lucide="eye" class="w-3 h-3 text-emerald-600"></i>
+                    <span>Nilai Terbuka</span>
                   </span>
                 </template>
                 <template x-if="col.filterable !== false">
@@ -592,6 +607,7 @@ function sheetBuilderApp() {
       ...c,
       hidden: !!c.hidden,
       isProtected: !!c.isProtected,
+      showPublicValue: !!c.showPublicValue,
       filterable: c.filterable !== undefined ? !!c.filterable : true,
       allowedExtensions: c.allowedExtensions || (c.type === 'file' ? '.pdf,.jpg,.jpeg,.png' : ''),
       maxFileSizeMb: c.maxFileSizeMb || 10,
@@ -599,7 +615,7 @@ function sheetBuilderApp() {
     }));
   } else {
     // Default new sheet columns
-    initialCols = defaultEmployeeCols.map(c => ({ ...c, hidden: false }));
+    initialCols = defaultEmployeeCols.map(c => ({ ...c, hidden: false, showPublicValue: false }));
   }
 
   return {

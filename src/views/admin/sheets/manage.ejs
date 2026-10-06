@@ -244,6 +244,27 @@
             </template>
           </div>
 
+          <!-- Seksi Pulihkan Kolom Identitas Terhapus -->
+          <template x-if="deletedIdentityColumns.length > 0">
+            <div class="pt-2 border-t border-slate-200/80 space-y-1.5">
+              <span class="text-[10px] font-black text-rose-600 uppercase block tracking-wider">Kolom Identitas Terhapus</span>
+              <template x-for="delCol in deletedIdentityColumns" :key="delCol.key">
+                <div class="flex items-center justify-between p-2 rounded-xl bg-rose-50/70 border border-rose-200 text-xs">
+                  <div class="truncate mr-2">
+                    <span class="font-bold text-rose-900 block truncate" x-text="delCol.label"></span>
+                    <span class="text-[9px] text-rose-500 font-medium">Dihapus dari tabel &amp; publik</span>
+                  </div>
+                  <button type="button"
+                          @click="restoreColumn(delCol.key)"
+                          class="px-2 py-1 bg-white border border-rose-300 hover:bg-rose-100 text-rose-700 rounded-lg text-[10px] font-bold shrink-0 transition-colors cursor-pointer flex items-center gap-1 shadow-2xs">
+                    <i data-lucide="rotate-ccw" class="w-3 h-3 text-rose-600"></i>
+                    <span>Pulihkan</span>
+                  </button>
+                </div>
+              </template>
+            </div>
+          </template>
+
           <div class="pt-2 border-t border-slate-100 text-[10px] text-slate-400 flex items-center justify-between">
             <span>Perubahan langsung tersimpan ke server</span>
           </div>
@@ -819,6 +840,15 @@
               <span>Sediakan Tombol Filter di Header</span>
             </span>
           </label>
+          <% if (sheet.accessMode === 'PROTECTED_NIP') { %>
+          <label class="flex items-center gap-2 cursor-pointer select-none" title="Tampilkan nilai asli kolom ini secara terbuka untuk publik (tidak disamarkan tanda ✓ Terisi)">
+            <input type="checkbox" x-model="newCol.showPublicValue" class="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer">
+            <span class="font-bold text-slate-700 flex items-center gap-1.5">
+              <i data-lucide="eye" class="w-3.5 h-3.5 text-blue-600"></i>
+              <span>Perlihatkan Nilai ke Umum (Mode NIP: Bukan Tanda ✓ Terisi)</span>
+            </span>
+          </label>
+          <% } %>
         </div>
       </div>
 
@@ -1059,6 +1089,26 @@
             </span>
           </button>
 
+          <% if (sheet.accessMode === 'PROTECTED_NIP') { %>
+          <!-- 2b. Khusus PROTECTED_NIP: Tampilkan Nilai ke Umum vs Cukup Tanda Terisi -->
+          <button type="button"
+                  @click="toggleColumnPublicValue(activeColObject.key)"
+                  class="w-full py-1.5 px-2.5 rounded-xl border flex items-center justify-between font-bold text-xs transition-colors cursor-pointer"
+                  :class="activeColObject.showPublicValue 
+                    ? 'bg-blue-50 border-blue-300 text-blue-900 hover:bg-blue-100' 
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'"
+                  :title="activeColObject.showPublicValue ? 'Nilai asli diperlihatkan ke publik (tidak disamarkan)' : 'Nilai disamarkan sebagai tanda (✓ Terisi) untuk publik sampai NIP diverifikasi'">
+            <div class="flex items-center gap-2">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5" :class="activeColObject.showPublicValue ? 'text-blue-600' : 'text-slate-400'"></i>
+              <span x-text="activeColObject.showPublicValue ? 'Nilai Publik: Terbuka' : 'Nilai Publik: Tanda ✓ Terisi'"></span>
+            </div>
+            <span class="text-[10px] font-extrabold px-1.5 py-0.5 rounded"
+                  :class="activeColObject.showPublicValue ? 'bg-blue-200 text-blue-900' : 'bg-slate-100 text-slate-600'"
+                  x-text="activeColObject.showPublicValue ? 'Terbuka' : '✓ Terisi'">
+            </span>
+          </button>
+          <% } %>
+
           <!-- 3. Pindah Posisi Kolom (Geser Kiri / Kanan, hanya kolom kustom) -->
           <template x-if="!activeColObject.isIdentity">
             <div class="pt-1.5 border-t border-slate-200/60">
@@ -1205,6 +1255,8 @@
     const initialColumns = (config.columns || []).map(c => ({
       ...c,
       hidden: !!c.hidden,
+      deleted: !!c.deleted,
+      showPublicValue: !!c.showPublicValue,
       isProtected: !!c.isProtected,
       filterable: c.filterable !== undefined ? !!c.filterable : true
     }));
@@ -1235,7 +1287,7 @@
       rowToDelete: null,
       colToDelete: null,
       newRow: { label: '', identifier: '', subLabel: '' },
-      newCol: { label: '', type: 'text', rawOptions: '', allowedExtensions: '.pdf,.jpg,.jpeg,.png', maxFileSizeMb: 10, renamePattern: '{NIP}_{NAMA}_{NAMA_FILE}', isProtected: false, filterable: true },
+      newCol: { label: '', type: 'text', rawOptions: '', allowedExtensions: '.pdf,.jpg,.jpeg,.png', maxFileSizeMb: 10, renamePattern: '{NIP}_{NAMA}_{NAMA_FILE}', isProtected: false, filterable: true, showPublicValue: false },
 
       // Filter & Sort State
       activeSort: { colKey: null, direction: 'asc' },
@@ -1313,17 +1365,28 @@
         return keys.some(k => this.hiddenColKeys.includes(k));
       },
 
+      isIdentColDeleted(key) {
+        const aliases = {
+          'label': ['label', 'nama'],
+          'identifier': ['identifier', 'nip'],
+          'subLabel': ['subLabel', 'unitKerja', 'jabatan', 'kategori']
+        };
+        const keys = aliases[key] || [key];
+        return this.columns.some(c => (c.deleted || c.isDeleted) && keys.some(k => k.toLowerCase() === (c.key || '').toLowerCase()));
+      },
+
       isIdentColVisible(key) {
+        if (this.isIdentColDeleted(key)) return false;
         if (this.showAllInAdmin) return true;
         return !this.isColumnHidden(key);
       },
 
       get allToggleableColumns() {
-        const list = [...this.columns];
+        const list = this.columns.filter(c => !c.deleted && !c.isDeleted);
         const sheetTarget = '<%= sheet.targetType %>';
 
         // 1. Fallback Nama / Label
-        if (!this.isFieldDefinedInSheet('nama') && !this.isFieldDefinedInSheet('label')) {
+        if (!this.isFieldDefinedInSheet('nama') && !this.isFieldDefinedInSheet('label') && !this.isIdentColDeleted('label')) {
           list.unshift({
             key: 'label',
             label: sheetTarget === 'UNIT' ? 'Nama Unit Sekolah' : (sheetTarget === 'PEGAWAI' ? 'Nama Pegawai' : 'Nama Lengkap'),
@@ -1334,7 +1397,7 @@
         }
 
         // 2. Fallback NIP / Identifier
-        if (!this.isFieldDefinedInSheet('nip') && !this.isFieldDefinedInSheet('identifier') && (sheetTarget === 'PEGAWAI' || sheetTarget === 'UNIT')) {
+        if (!this.isFieldDefinedInSheet('nip') && !this.isFieldDefinedInSheet('identifier') && !this.isIdentColDeleted('identifier') && (sheetTarget === 'PEGAWAI' || sheetTarget === 'UNIT')) {
           const insertIdx = list.findIndex(c => c.key === 'label') >= 0 ? 1 : 0;
           list.splice(insertIdx, 0, {
             key: 'identifier',
@@ -1346,7 +1409,7 @@
         }
 
         // 3. Fallback SubLabel / UnitKerja / Keterangan
-        if (!this.isFieldDefinedInSheet('unitKerja') && !this.isFieldDefinedInSheet('subLabel') && !this.isFieldDefinedInSheet('jabatan')) {
+        if (!this.isFieldDefinedInSheet('unitKerja') && !this.isFieldDefinedInSheet('subLabel') && !this.isFieldDefinedInSheet('jabatan') && !this.isIdentColDeleted('subLabel')) {
           const insertIdx = list.filter(c => c.isIdentity).length;
           list.splice(insertIdx, 0, {
             key: 'subLabel',
@@ -1357,6 +1420,23 @@
           });
         }
 
+        return list;
+      },
+
+      get deletedIdentityColumns() {
+        const sheetTarget = '<%= sheet.targetType %>';
+        const list = [];
+        const identityDefs = [
+          { key: 'label', label: sheetTarget === 'UNIT' ? 'Nama Unit Sekolah' : (sheetTarget === 'PEGAWAI' ? 'Nama Pegawai' : 'Nama Lengkap') },
+          { key: 'identifier', label: sheetTarget === 'PEGAWAI' ? 'NIP' : 'Kode Unit Kerja', showIf: sheetTarget === 'PEGAWAI' || sheetTarget === 'UNIT' },
+          { key: 'subLabel', label: sheetTarget === 'PEGAWAI' ? 'Unit / Jabatan' : 'Status Unit (SD/Swasta)' }
+        ];
+        identityDefs.forEach(def => {
+          if (def.showIf === false) return;
+          if (this.isIdentColDeleted(def.key)) {
+            list.push(def);
+          }
+        });
         return list;
       },
 
@@ -1401,10 +1481,11 @@
       },
 
       get visibleColumns() {
+        const activeCols = this.columns.filter(c => !c.deleted && !c.isDeleted);
         if (this.showAllInAdmin) {
-          return this.columns;
+          return activeCols;
         }
-        return this.columns.filter(c => !this.hiddenColKeys.includes(c.key));
+        return activeCols.filter(c => !this.hiddenColKeys.includes(c.key));
       },
 
       get visibleColumnsCount() {
@@ -1757,7 +1838,7 @@
 
       isFieldDefinedInSheet(field) {
         const q = field.toLowerCase();
-        return this.columns.some(c => (c.key && c.key.toLowerCase() === q) || (c.label && c.label.toLowerCase() === q));
+        return this.columns.some(c => !c.deleted && !c.isDeleted && ((c.key && c.key.toLowerCase() === q) || (c.label && c.label.toLowerCase() === q)));
       },
 
       hasCustomColumnFor(field) {
@@ -2112,7 +2193,8 @@
           maxFileSizeMb: 10,
           renamePattern: '{NIP}_{NAMA}_{NAMA_FILE}',
           isProtected: false,
-          filterable: true
+          filterable: true,
+          showPublicValue: false
         };
         this.showAddColModal = true;
         this.$nextTick(() => window.lucide?.createIcons());
@@ -2138,7 +2220,8 @@
               maxFileSizeMb: this.newCol.maxFileSizeMb,
               renamePattern: this.newCol.renamePattern,
               isProtected: !!this.newCol.isProtected,
-              filterable: this.newCol.filterable !== undefined ? !!this.newCol.filterable : true
+              filterable: this.newCol.filterable !== undefined ? !!this.newCol.filterable : true,
+              showPublicValue: !!this.newCol.showPublicValue
             })
           });
 
@@ -2168,21 +2251,6 @@
         if (!this.colToDelete) return;
         this.isSaving = true;
 
-        if (this.colToDelete.isIdentity) {
-          const keyToDelete = this.colToDelete.key;
-          const labelToDelete = this.colToDelete.label;
-          if (!this.isColumnHidden(keyToDelete)) {
-            await this.toggleColumnVisibility(keyToDelete);
-          }
-          this.showDeleteColModal = false;
-          this.colToDelete = null;
-          this.isSaving = false;
-          this.saveStatus = `Kolom '${labelToDelete}' berhasil dihapus dari tampilan tabel!`;
-          setTimeout(() => { this.saveStatus = ''; }, 3000);
-          this.$nextTick(() => window.lucide?.createIcons());
-          return;
-        }
-
         try {
           const res = await fetch(`/admin/sheets/${this.sheetId}/columns/${this.colToDelete.key}/delete`, {
             method: 'POST',
@@ -2192,15 +2260,69 @@
           const result = await res.json();
           if (result.success && result.columns) {
             this.columns = result.columns;
-            this.hiddenColKeys = this.hiddenColKeys.filter(k => k !== this.colToDelete.key);
+            this.hiddenColKeys = this.columns.filter(c => c.hidden).map(c => c.key);
+            const deletedLabel = this.colToDelete.label;
             this.showDeleteColModal = false;
             this.colToDelete = null;
+            this.saveStatus = `Kolom '${deletedLabel}' berhasil dihapus dari tampilan tabel!`;
+            setTimeout(() => { this.saveStatus = ''; }, 3000);
             this.$nextTick(() => window.lucide?.createIcons());
           } else {
             alert('Gagal menghapus kolom: ' + (result.message || 'Kesalahan server'));
           }
         } catch (err) {
           console.error('Delete col error:', err);
+          alert('Gagal menghubungi server.');
+        } finally {
+          this.isSaving = false;
+        }
+      },
+
+      async restoreColumn(colKey) {
+        this.isSaving = true;
+        try {
+          const res = await fetch(`/admin/sheets/${this.sheetId}/columns/${colKey}/restore`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+
+          const result = await res.json();
+          if (result.success && result.columns) {
+            this.columns = result.columns;
+            this.hiddenColKeys = this.columns.filter(c => c.hidden).map(c => c.key);
+            this.saveStatus = 'Kolom berhasil dipulihkan!';
+            setTimeout(() => { this.saveStatus = ''; }, 3000);
+            this.$nextTick(() => window.lucide?.createIcons());
+          } else {
+            alert('Gagal memulihkan kolom: ' + (result.message || 'Kesalahan server'));
+          }
+        } catch (err) {
+          console.error('Restore col error:', err);
+          alert('Gagal menghubungi server.');
+        } finally {
+          this.isSaving = false;
+        }
+      },
+
+      async toggleColumnPublicValue(colKey) {
+        this.isSaving = true;
+        try {
+          const res = await fetch(`/admin/sheets/${this.sheetId}/columns/${colKey}/toggle-public-value`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
+
+          const result = await res.json();
+          if (result.success && result.columns) {
+            this.columns = result.columns;
+            this.saveStatus = result.message || 'Pengaturan tampilan publik berhasil disimpan!';
+            setTimeout(() => { this.saveStatus = ''; }, 3000);
+            this.$nextTick(() => window.lucide?.createIcons());
+          } else {
+            alert('Gagal mengubah pengaturan kolom: ' + (result.message || 'Kesalahan server'));
+          }
+        } catch (err) {
+          console.error('Toggle public value error:', err);
           alert('Gagal menghubungi server.');
         } finally {
           this.isSaving = false;

@@ -218,6 +218,8 @@ router.post('/sheets/:id/toggle-status', requireMenuAccess('forms'), sheetAdminC
 router.post('/sheets/:id/delete', requireMenuAccess('forms'), sheetAdminController.deleteSheet);
 router.post('/sheets/:id/columns', requireMenuAccess('forms'), sheetAdminController.addColumn);
 router.post('/sheets/:id/columns/:colKey/delete', requireMenuAccess('forms'), sheetAdminController.deleteColumn);
+router.post('/sheets/:id/columns/:colKey/restore', requireMenuAccess('forms'), sheetAdminController.restoreColumn);
+router.post('/sheets/:id/columns/:colKey/toggle-public-value', requireMenuAccess('forms'), sheetAdminController.togglePublicValue);
 router.post('/sheets/:id/columns/update', requireMenuAccess('forms'), sheetAdminController.updateColumns);
 router.post('/sheets/:id/columns/visibility', requireMenuAccess('forms'), sheetAdminController.updateColumnsVisibility);
 

@@ -65,10 +65,11 @@ export const sheetPublicController = {
       // Check if session has any unlocked rows for this sheet
       const sessionUnlocked = (req as any).session?.unlockedSheetRows?.[sheet.id] || null;
 
-      // Filter out columns hidden by admin
+      // Filter out columns hidden or deleted by admin
       const allCols = (sheet.columns as any[]) || [];
-      const publicCols = allCols.filter(c => !c.hidden);
-      const hiddenKeys = new Set(allCols.filter(c => !!c.hidden).map(c => (c.key || '').toLowerCase()));
+      const publicCols = allCols.filter(c => !c.hidden && !c.deleted && !c.isDeleted);
+      const hiddenKeys = new Set(allCols.filter(c => !!c.hidden || !!c.deleted || !!c.isDeleted).map(c => (c.key || '').toLowerCase()));
+      const deletedIdentityKeys = Array.from(new Set(allCols.filter(c => !!c.deleted || !!c.isDeleted).map(c => (c.key || '').toLowerCase())));
 
       const isNipExplicitlyHidden = hiddenKeys.has('nip') || hiddenKeys.has('identifier');
       const isNamaExplicitlyHidden = hiddenKeys.has('nama') || hiddenKeys.has('label');
@@ -102,12 +103,14 @@ export const sheetPublicController = {
             }
           }
         }
-        // In PROTECTED_NIP mode: hide employee response data for rows not currently unlocked by session
+        // In PROTECTED_NIP mode: hide employee response data for rows not currently unlocked by session,
+        // EXCEPT if the column is configured to show public values (col.showPublicValue === true)
         if (sheet.accessMode === 'PROTECTED_NIP' && r.id !== sessionUnlocked) {
           for (const col of publicCols) {
             const isProtectedCol = !!col.isProtected;
             const isIdentityCol = ['nama', 'label', 'namalengkap', 'namapegawai', 'nama_lengkap', 'nip', 'identifier', 'kode', 'unitkerja', 'sublabel', 'jabatan'].includes((col.key || '').toLowerCase());
-            if (!isProtectedCol && !isIdentityCol) {
+            const isPublicValueAllowed = !!col.showPublicValue;
+            if (!isProtectedCol && !isIdentityCol && !isPublicValueAllowed) {
               if (safeData[col.key] !== undefined && safeData[col.key] !== null && String(safeData[col.key]).trim() !== '' && String(safeData[col.key]).trim() !== '-') {
                 safeData[col.key] = '__FILLED__';
               }
@@ -147,6 +150,7 @@ export const sheetPublicController = {
         isNipExplicitlyHidden,
         isNamaExplicitlyHidden,
         isUnitExplicitlyHidden,
+        deletedIdentityKeys,
         stats: {
           totalRows,
           filledRowsCount,

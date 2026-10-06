@@ -148,6 +148,7 @@ export const sheetAdminController = {
         required: !!col.required,
         hidden: !!col.hidden,
         isProtected: !!col.isProtected,
+        showPublicValue: !!col.showPublicValue,
         filterable: col.filterable !== undefined ? !!col.filterable : true,
         placeholder: col.placeholder?.trim() || '',
         width: col.width ? parseInt(col.width, 10) : 170
@@ -328,6 +329,7 @@ export const sheetAdminController = {
         required: !!col.required,
         hidden: !!col.hidden,
         isProtected: !!col.isProtected,
+        showPublicValue: !!col.showPublicValue,
         filterable: col.filterable !== undefined ? !!col.filterable : true,
         placeholder: col.placeholder?.trim() || '',
         width: col.width ? parseInt(col.width, 10) : 170
@@ -586,26 +588,31 @@ export const sheetAdminController = {
           ? String(rowData.unitKerja).trim()
           : (r.subLabel ? String(r.subLabel).trim() : '-');
 
-        // Check which identity columns are already present in dynamic columns
-        const hasNipInCols = columns.some((c: any) => c.key === 'nip' || c.key === 'identifier' || (c.label || '').trim().toUpperCase() === 'NIP');
-        const hasNamaInCols = columns.some((c: any) => c.key === 'nama' || c.key === 'label' || (c.label || '').toLowerCase().includes('nama'));
-        const hasUnitInCols = columns.some((c: any) => c.key === 'unitKerja' || c.key === 'subLabel' || (c.label || '').toLowerCase().includes('unit'));
+        // Check which identity columns are already present in dynamic columns or deleted
+        const deletedIdentityKeys = new Set(columns.filter((c: any) => !!c.deleted || !!c.isDeleted).map((c: any) => (c.key || '').toLowerCase()));
+        const isNipDeleted = deletedIdentityKeys.has('nip') || deletedIdentityKeys.has('identifier');
+        const isNamaDeleted = deletedIdentityKeys.has('nama') || deletedIdentityKeys.has('label');
+        const isUnitDeleted = deletedIdentityKeys.has('unitkerja') || deletedIdentityKeys.has('sublabel') || deletedIdentityKeys.has('namaunit');
+
+        const hasNipInCols = columns.some((c: any) => !c.deleted && !c.isDeleted && (c.key === 'nip' || c.key === 'identifier' || (c.label || '').trim().toUpperCase() === 'NIP'));
+        const hasNamaInCols = columns.some((c: any) => !c.deleted && !c.isDeleted && (c.key === 'nama' || c.key === 'label' || (c.label || '').toLowerCase().includes('nama')));
+        const hasUnitInCols = columns.some((c: any) => !c.deleted && !c.isDeleted && (c.key === 'unitKerja' || c.key === 'subLabel' || (c.label || '').toLowerCase().includes('unit')));
 
         if (sheet.targetType === 'UNIT') {
-          if (!hasNamaInCols) entry['Nama Unit / Sekolah'] = resolvedNama;
-          if (!hasNipInCols) entry['NPSN / Kode'] = resolvedNip;
+          if (!hasNamaInCols && !isNamaDeleted) entry['Nama Unit / Sekolah'] = resolvedNama;
+          if (!hasNipInCols && !isNipDeleted) entry['NPSN / Kode'] = resolvedNip;
         } else if (sheet.targetType === 'PEGAWAI') {
-          if (!hasNipInCols) entry['NIP'] = resolvedNip;
-          if (!hasNamaInCols) entry['Nama Pegawai'] = resolvedNama;
-          if (!hasUnitInCols) entry['Unit Kerja'] = resolvedUnit;
+          if (!hasNipInCols && !isNipDeleted) entry['NIP'] = resolvedNip;
+          if (!hasNamaInCols && !isNamaDeleted) entry['Nama Pegawai'] = resolvedNama;
+          if (!hasUnitInCols && !isUnitDeleted) entry['Unit Kerja'] = resolvedUnit;
         } else {
-          if (!hasNamaInCols && !hasNipInCols) {
+          if (!hasNamaInCols && !hasNipInCols && !isNamaDeleted && !isNipDeleted) {
             entry['Identitas / Nama'] = resolvedNama !== '-' ? resolvedNama : resolvedNip;
           }
         }
 
-        // Dynamic columns
-        columns.forEach(c => {
+        // Dynamic columns (only active, non-deleted columns)
+        columns.filter((c: any) => !c.deleted && !c.isDeleted).forEach((c: any) => {
           let val = rowData[c.key];
 
           // Automatic fallback if rowData has not synced identity keys
@@ -745,6 +752,7 @@ export const sheetAdminController = {
         required: !!required,
         hidden: false,
         isProtected: !!req.body.isProtected,
+        showPublicValue: !!req.body.showPublicValue,
         filterable: req.body.filterable !== undefined ? !!req.body.filterable : true,
         width: width ? parseInt(width, 10) : 170
       };
@@ -762,19 +770,50 @@ export const sheetAdminController = {
     }
   },
 
-  // 15. Delete Column Directly from Spreadsheet
+  // 15. Delete Column Directly from Spreadsheet (Supports both custom & identity columns)
   deleteColumn: async (req: Request, res: Response) => {
     try {
       const { id, colKey } = req.params;
       const sheet = await prisma.dataSheet.findUnique({ where: { id } });
       if (!sheet) return res.status(404).json({ success: false, message: 'Spreadsheet tidak ditemukan' });
 
-      let cols = Array.isArray(sheet.columns) ? [...sheet.columns] : [];
-      if (cols.length <= 1) {
-        return res.status(400).json({ success: false, message: 'Minimal harus ada 1 kolom pada spreadsheet.' });
-      }
+      let cols = Array.isArray(sheet.columns) ? [...(sheet.columns as any[])] : [];
 
-      cols = cols.filter((c: any) => c.key !== colKey);
+      const identityAliases: Record<string, string[]> = {
+        'identifier': ['identifier', 'nip'],
+        'nip': ['identifier', 'nip'],
+        'label': ['label', 'nama'],
+        'nama': ['label', 'nama'],
+        'subLabel': ['subLabel', 'unitKerja', 'jabatan', 'kategori'],
+        'unitKerja': ['subLabel', 'unitKerja', 'jabatan', 'kategori']
+      };
+
+      const cleanKey = String(colKey || '').trim();
+      const matchedIdent = Object.keys(identityAliases).find(k => k.toLowerCase() === cleanKey.toLowerCase());
+
+      if (matchedIdent) {
+        const aliases = identityAliases[matchedIdent];
+        const existingIdx = cols.findIndex((c: any) => aliases.some(a => a.toLowerCase() === (c.key || '').toLowerCase()));
+        if (existingIdx >= 0) {
+          cols[existingIdx] = {
+            ...cols[existingIdx],
+            deleted: true,
+            hidden: true,
+            isIdentity: true
+          };
+        } else {
+          cols.push({
+            key: matchedIdent,
+            label: matchedIdent === 'label' ? 'Nama' : (matchedIdent === 'identifier' ? 'NIP/Kode' : 'Unit/Jabatan'),
+            type: 'text',
+            deleted: true,
+            hidden: true,
+            isIdentity: true
+          });
+        }
+      } else {
+        cols = cols.filter((c: any) => c.key !== cleanKey);
+      }
 
       await prisma.dataSheet.update({
         where: { id },
@@ -785,6 +824,108 @@ export const sheetAdminController = {
     } catch (error) {
       console.error('[sheetAdminController.deleteColumn] Error:', error);
       res.status(500).json({ success: false, message: 'Gagal menghapus kolom' });
+    }
+  },
+
+  // 15b. Restore Column (e.g. Identity column that was previously deleted)
+  restoreColumn: async (req: Request, res: Response) => {
+    try {
+      const { id, colKey } = req.params;
+      const sheet = await prisma.dataSheet.findUnique({ where: { id } });
+      if (!sheet) return res.status(404).json({ success: false, message: 'Spreadsheet tidak ditemukan' });
+
+      let cols = Array.isArray(sheet.columns) ? [...(sheet.columns as any[])] : [];
+      const identityAliases: Record<string, string[]> = {
+        'identifier': ['identifier', 'nip'],
+        'nip': ['identifier', 'nip'],
+        'label': ['label', 'nama'],
+        'nama': ['label', 'nama'],
+        'subLabel': ['subLabel', 'unitKerja', 'jabatan', 'kategori'],
+        'unitKerja': ['subLabel', 'unitKerja', 'jabatan', 'kategori']
+      };
+
+      const cleanKey = String(colKey || '').trim();
+      const matchedIdent = Object.keys(identityAliases).find(k => k.toLowerCase() === cleanKey.toLowerCase());
+
+      if (matchedIdent) {
+        const aliases = identityAliases[matchedIdent];
+        cols = cols.map((c: any) => {
+          if (aliases.some(a => a.toLowerCase() === (c.key || '').toLowerCase())) {
+            const copy = { ...c };
+            delete copy.deleted;
+            copy.hidden = false;
+            return copy;
+          }
+          return c;
+        });
+      }
+
+      await prisma.dataSheet.update({
+        where: { id },
+        data: { columns: cols }
+      });
+
+      res.json({ success: true, columns: cols });
+    } catch (error) {
+      console.error('[sheetAdminController.restoreColumn] Error:', error);
+      res.status(500).json({ success: false, message: 'Gagal memulihkan kolom' });
+    }
+  },
+
+  // 15c. Toggle Public Value on Column (PROTECTED_NIP Mode: Perlihatkan nilai ke umum / Cukup tanda terisi)
+  togglePublicValue: async (req: Request, res: Response) => {
+    try {
+      const { id, colKey } = req.params;
+      const sheet = await prisma.dataSheet.findUnique({ where: { id } });
+      if (!sheet) return res.status(404).json({ success: false, message: 'Spreadsheet tidak ditemukan' });
+
+      let cols = Array.isArray(sheet.columns) ? [...(sheet.columns as any[])] : [];
+      let targetIdx = cols.findIndex((c: any) => c.key === colKey);
+      if (targetIdx === -1) {
+        const identityAliases: Record<string, string[]> = {
+          'identifier': ['identifier', 'nip'],
+          'nip': ['identifier', 'nip'],
+          'label': ['label', 'nama'],
+          'nama': ['label', 'nama'],
+          'subLabel': ['subLabel', 'unitKerja', 'jabatan', 'kategori'],
+          'unitKerja': ['subLabel', 'unitKerja', 'jabatan', 'kategori']
+        };
+        const cleanKey = String(colKey || '').trim();
+        const matchedIdent = Object.keys(identityAliases).find(k => k.toLowerCase() === cleanKey.toLowerCase());
+        if (matchedIdent) {
+          cols.push({
+            key: matchedIdent,
+            label: matchedIdent === 'label' ? 'Nama' : (matchedIdent === 'identifier' ? 'NIP/Kode' : 'Unit/Jabatan'),
+            type: 'text',
+            isIdentity: true,
+            showPublicValue: true
+          });
+          targetIdx = cols.length - 1;
+        } else {
+          return res.status(404).json({ success: false, message: 'Kolom tidak ditemukan' });
+        }
+      }
+
+      const currentVal = !!cols[targetIdx].showPublicValue;
+      cols[targetIdx] = {
+        ...cols[targetIdx],
+        showPublicValue: !currentVal
+      };
+
+      await prisma.dataSheet.update({
+        where: { id },
+        data: { columns: cols }
+      });
+
+      res.json({
+        success: true,
+        showPublicValue: !currentVal,
+        message: !currentVal ? 'Nilai kolom ini akan diperlihatkan untuk umum' : 'Nilai kolom ini disamarkan tanda ✓ Terisi untuk umum',
+        columns: cols
+      });
+    } catch (error) {
+      console.error('[sheetAdminController.togglePublicValue] Error:', error);
+      res.status(500).json({ success: false, message: 'Gagal mengubah pengaturan tampilan kolom' });
     }
   },
 
@@ -801,7 +942,9 @@ export const sheetAdminController = {
       const sanitizedCols = columns.map((col: any) => ({
         ...col,
         hidden: !!col.hidden,
+        deleted: !!col.deleted,
         isProtected: !!col.isProtected,
+        showPublicValue: !!col.showPublicValue,
         filterable: col.filterable !== undefined ? !!col.filterable : true
       }));
 
