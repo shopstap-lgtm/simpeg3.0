@@ -334,4 +334,38 @@ model DataSheetRow {
 }
 
 
+model SmartSheet {
+  id                  String         @id @default(cuid())
+  slug                String         @unique
+  title               String
+  description         String?
+  status              String         @default("ACTIVE")   // "ACTIVE" | "CLOSED"
+  columns             Json           // Array of { id: string, name: string, type: string, width: number, isLocked: boolean }
+  allowPublicExport   Boolean        @default(true)
+  createdBy           String?
 
+  rows                SmartSheetRow[]
+
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  @@index([slug])
+  @@index([status])
+}
+
+model SmartSheetRow {
+  id              String      @id @default(cuid())
+  sheetId         String
+  rowIndex        Int         @default(0)
+  data            Json        // { [colId]: string | number | boolean }
+  lastUpdatedBy   String?
+  lastUpdatedAt   DateTime    @default(now())
+
+  sheet           SmartSheet  @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([sheetId])
+  @@index([rowIndex])
+}

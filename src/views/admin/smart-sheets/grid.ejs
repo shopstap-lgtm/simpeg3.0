@@ -1,0 +1,2006 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= sheet.title %> - Smart Sheets</title>
+  <link rel="stylesheet" href="/css/styles.css?v=20261007_grid">
+  <script src="/js/lucide.min.js"></script>
+  <script defer src="/js/alpine.min.js"></script>
+  <style>
+    /* Spreadsheet Grid Scroller */
+    .grid-scroller {
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+    }
+    .grid-scroller::-webkit-scrollbar { width: 8px; height: 8px; }
+    .grid-scroller::-webkit-scrollbar-track { background: #f8fafc; }
+    .grid-scroller::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .grid-scroller::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    
+    /* Spreadsheet Cell Styles */
+    .cell-input {
+      width: 100%; height: 100%;
+      background: transparent;
+      outline: none;
+      padding: 0.375rem 0.625rem;
+      font-size: 0.8125rem;
+      border: 1.5px solid transparent;
+      transition: background-color 0.15s, border-color 0.15s;
+    }
+    .cell-input:focus {
+      border-color: #4f46e5; 
+      background: #ffffff;
+      box-shadow: inset 0 0 0 1px #4f46e5;
+    }
+    .cell-readonly {
+      background-color: #f8fafc;
+      cursor: default;
+      color: #475569;
+    }
+    .cell-wrap {
+      position: relative;
+      height: 100%;
+      min-height: 34px;
+    }
+    /* Fit Window Table Compact Styling */
+    .fit-window-table .cell-input {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.375rem;
+    }
+    .fit-window-table select.cell-input {
+      font-size: 0.75rem;
+      padding: 0.25rem 0.25rem;
+    }
+    .fit-window-table th {
+      padding-left: 0.25rem !important;
+      padding-right: 0.25rem !important;
+    }
+    /* Mobile Responsive: Izinkan scroll horizontal agar tabel tetap lega dan terbaca */
+    @media (max-width: 767px) {
+      .grid-scroller {
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+      .grid-scroller table,
+      .fit-window-table {
+        width: max-content !important;
+        min-width: 100% !important;
+      }
+      .grid-scroller table th,
+      .grid-scroller table td,
+      .fit-window-table th,
+      .fit-window-table td {
+        min-width: 130px !important;
+      }
+      .grid-scroller table th.col-index,
+      .grid-scroller table td.col-index,
+      .fit-window-table th.col-index,
+      .fit-window-table td.col-index {
+        width: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+      }
+      .grid-scroller table th.col-auth,
+      .grid-scroller table td.col-auth,
+      .fit-window-table th.col-auth,
+      .fit-window-table td.col-auth {
+        width: 96px !important;
+        min-width: 96px !important;
+        max-width: 96px !important;
+      }
+      .grid-scroller table th.col-add,
+      .fit-window-table th.col-add {
+        width: 44px !important;
+        min-width: 44px !important;
+        max-width: 44px !important;
+      }
+    }
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans h-screen flex flex-col overflow-hidden select-none" x-data="smartGridViewer()">
+  <script type="application/json" id="sheet-data"><%- JSON.stringify({ ...sheet, isSuperAdmin: typeof isSuperAdmin !== 'undefined' ? isSuperAdmin : false }) %></script>
+
+  <!-- Hidden File Input for Cell Uploads -->
+  <input type="file" x-ref="cellFileInput" @change="onCellFileSelected($event)" class="hidden">
+
+  <!-- ==========================================
+       1. Top Navigation Bar (Header)
+       ========================================== -->
+  <header class="bg-white border-b border-slate-200 px-3 sm:px-5 py-2.5 flex items-center justify-between shrink-0 shadow-2xs z-30">
+    <div class="flex items-center gap-3 min-w-0">
+      <a href="/admin/smart-sheets" class="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors shrink-0" title="Kembali ke Dashboard">
+        <i data-lucide="arrow-left" class="w-4 h-4"></i>
+      </a>
+
+      <div class="min-w-0">
+        <!-- Title & Description Container -->
+        <div class="flex items-center gap-2">
+          <!-- Title: Editable for SuperAdmin, Static for others -->
+          <template x-if="isSuperAdmin">
+            <input type="text" 
+                   x-model="sheetData.title" 
+                   @input="triggerAutoSave()" 
+                   class="font-extrabold text-base text-slate-900 border-b border-transparent hover:border-slate-300 focus:border-indigo-600 outline-none px-1 py-0.5 bg-transparent transition-colors truncate max-w-xs sm:max-w-md" 
+                   placeholder="Nama Lembar Kerja">
+          </template>
+          <template x-if="!isSuperAdmin">
+            <h1 class="font-extrabold text-base text-slate-900 px-1 py-0.5 truncate max-w-xs sm:max-w-md" x-text="sheetData.title"></h1>
+          </template>
+
+          <!-- Tombol Buka Modal Deskripsi & Petunjuk -->
+          <button type="button" 
+                  @click="showDescModal = true" 
+                  :class="sheetData.description ? 'text-indigo-600 hover:text-indigo-700 bg-indigo-50 border-indigo-200' : 'text-slate-400 hover:text-slate-600 bg-slate-50 border-slate-200'"
+                  class="p-1 rounded-lg border transition-colors shrink-0 shadow-2xs cursor-pointer flex items-center gap-1 text-[11px] font-semibold px-2"
+                  :title="isSuperAdmin ? 'Edit Deskripsi & Petunjuk Spreadsheet' : 'Lihat Deskripsi & Petunjuk Spreadsheet'">
+            <i data-lucide="info" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline" x-text="sheetData.description ? 'Deskripsi' : (isSuperAdmin ? '+ Deskripsi' : '')"></span>
+          </button>
+        </div>
+
+        <!-- Realtime Cloud Sync Status & Description Snippet -->
+        <div class="flex items-center gap-2 text-[11px] text-slate-400 px-1 mt-0.5">
+          <template x-if="saveState === 'saving'">
+            <span class="text-indigo-600 flex items-center gap-1 font-medium">
+              <i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Menyimpan...
+            </span>
+          </template>
+          <template x-if="saveState === 'saved'">
+            <span class="text-emerald-600 flex items-center gap-1 font-medium">
+              <i data-lucide="cloud-check" class="w-3 h-3"></i> Tersimpan otomatis
+            </span>
+          </template>
+          <template x-if="saveState === 'dirty'">
+            <span class="text-amber-600 flex items-center gap-1 font-medium">
+              <i data-lucide="circle-dot" class="w-2.5 h-2.5"></i> Menyimpan perubahan...
+            </span>
+          </template>
+          <template x-if="saveState === 'error'">
+            <span class="text-rose-600 flex items-center gap-1 font-medium">
+              <i data-lucide="alert-circle" class="w-3 h-3"></i> Gagal menyimpan otomatis
+            </span>
+          </template>
+
+          <!-- Inline Description Snippet (Jika ada) -->
+          <template x-if="sheetData.description">
+            <span class="text-slate-500 truncate max-w-xs sm:max-w-sm hidden md:inline-flex items-center gap-1 cursor-pointer hover:text-indigo-600 transition"
+                  @click="showDescModal = true"
+                  :title="sheetData.description">
+              <span>•</span>
+              <span class="truncate" x-text="sheetData.description"></span>
+            </span>
+          </template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Header Actions -->
+    <div class="flex items-center gap-2 shrink-0">
+      <button type="button" 
+              @click="openShareModal()" 
+              class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
+        <i data-lucide="share-2" class="w-3.5 h-3.5 text-indigo-600"></i>
+        <span>Bagikan</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==========================================
+       2. Compact Toolbar (Clean & Sederhana)
+       ========================================== -->
+  <div class="bg-white border-b border-slate-200 px-3 sm:px-4 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0 z-20">
+    <div class="flex items-center gap-2 flex-wrap">
+      
+      <!-- Realtime Keyword Search Input -->
+      <div class="relative w-44 sm:w-64">
+        <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+        <input type="text" 
+               x-model="searchQuery" 
+               placeholder="Cari kata kunci..." 
+               class="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-100 hover:bg-slate-100/80 focus:bg-white border border-slate-200/60 focus:border-indigo-500 rounded-xl outline-none transition-all text-slate-800">
+        <button type="button" 
+                x-show="searchQuery" 
+                @click="searchQuery = ''" 
+                class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-3 h-3"></i>
+        </button>
+      </div>
+
+      <!-- Filter Button & Dropdown -->
+      <div class="relative" x-data="{ open: false }">
+        <button type="button" 
+                @click="open = !open" 
+                :class="activeFilterCol ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-bold' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'"
+                class="px-2.5 py-1.5 rounded-xl border text-xs flex items-center gap-1.5 transition cursor-pointer">
+          <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+          <span>Filter</span>
+          <span x-show="activeFilterCol" class="w-2 h-2 rounded-full bg-indigo-600"></span>
+        </button>
+
+        <!-- Filter Popover -->
+        <div x-show="open" 
+             @click.outside="open = false" 
+             x-cloak 
+             class="absolute left-0 mt-1 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-3 z-50 space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-2">
+            <span class="text-xs font-bold text-slate-800">Filter Kolom</span>
+            <button type="button" @click="resetFilter(); open = false;" class="text-[10px] text-rose-600 hover:underline">Reset</button>
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Pilih Kolom:</label>
+            <select x-model="activeFilterCol" class="w-full text-xs p-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none">
+              <option value="">Semua Kolom</option>
+              <template x-for="c in sheetData.columns" :key="c.id">
+                <option :value="c.id" x-text="c.name"></option>
+              </template>
+            </select>
+          </div>
+          <div x-show="activeFilterCol">
+            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Kondisi:</label>
+            <select x-model="activeFilterMode" class="w-full text-xs p-1.5 bg-slate-50 border border-slate-200 rounded-lg outline-none">
+              <option value="all">Tampilkan Semua</option>
+              <option value="filled">Hanya yang Terisi</option>
+              <option value="empty">Hanya yang Kosong</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Freeze Columns Dropdown in Toolbar -->
+      <div class="relative" x-data="{ open: false }">
+        <button type="button" 
+                @click="open = !open" 
+                :class="hasFrozenColumns ? 'bg-sky-50 text-sky-700 border-sky-300 font-bold' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'"
+                class="px-2.5 py-1.5 rounded-xl border text-xs flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
+          <i data-lucide="snowflake" class="w-3.5 h-3.5" :class="hasFrozenColumns ? 'text-sky-600' : 'text-slate-400'"></i>
+          <span x-text="hasFrozenColumns ? `Bekukan: ${frozenCount} Kolom` : 'Bekukan Kolom'"></span>
+          <span x-show="hasFrozenColumns" class="w-2 h-2 rounded-full bg-sky-500"></span>
+        </button>
+
+        <div x-show="open" 
+             @click.outside="open = false" 
+             x-cloak 
+             class="absolute left-0 mt-1 w-52 bg-white rounded-2xl shadow-xl border border-slate-200 p-2 z-50 space-y-1">
+          <div class="px-2 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 flex items-center justify-between">
+            <span>Bekukan Kolom (Freeze)</span>
+            <i data-lucide="snowflake" class="w-3 h-3 text-sky-500"></i>
+          </div>
+          <button type="button" 
+                  @click="unfreezeAll(); open = false;" 
+                  class="w-full text-left px-2 py-1.5 rounded-lg text-xs hover:bg-slate-100 flex items-center justify-between text-slate-700 transition cursor-pointer">
+            <span>Tidak Ada (Cairkan)</span>
+            <span x-show="!hasFrozenColumns" class="text-sky-600 font-bold">✓</span>
+          </button>
+          <button type="button" 
+                  @click="freezeCount(1); open = false;" 
+                  class="w-full text-left px-2 py-1.5 rounded-lg text-xs hover:bg-slate-100 flex items-center justify-between text-slate-700 transition cursor-pointer">
+            <span>1 Kolom Pertama</span>
+            <span x-show="frozenCount === 1" class="text-sky-600 font-bold">✓</span>
+          </button>
+          <button type="button" 
+                  @click="freezeCount(2); open = false;" 
+                  class="w-full text-left px-2 py-1.5 rounded-lg text-xs hover:bg-slate-100 flex items-center justify-between text-slate-700 transition cursor-pointer">
+            <span>2 Kolom Pertama</span>
+            <span x-show="frozenCount === 2" class="text-sky-600 font-bold">✓</span>
+          </button>
+          <button type="button" 
+                  @click="freezeCount(3); open = false;" 
+                  class="w-full text-left px-2 py-1.5 rounded-lg text-xs hover:bg-slate-100 flex items-center justify-between text-slate-700 transition cursor-pointer">
+            <span>3 Kolom Pertama</span>
+            <span x-show="frozenCount === 3" class="text-sky-600 font-bold">✓</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Fit Window (Paskan Layar) Toggle: Tampil di layar tablet/desktop -->
+      <button type="button" 
+              @click="toggleFitWindow()" 
+              :class="isFitWindow ? 'bg-indigo-50 text-indigo-700 border-indigo-300 font-bold' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'"
+              class="hidden sm:flex px-2.5 py-1.5 rounded-xl border text-xs items-center gap-1.5 transition cursor-pointer shadow-2xs"
+              :title="isFitWindow ? 'Mode Paskan Layar aktif (klik untuk ukuran bebas/scroll)' : 'Paskan tabel ke layar (kecilkan kolom otomatis agar muat tanpa scroll)'">
+        <i :data-lucide="isFitWindow ? 'minimize-2' : 'maximize-2'" class="w-3.5 h-3.5" :class="isFitWindow ? 'text-indigo-600' : 'text-slate-400'"></i>
+        <span x-text="isFitWindow ? 'Paskan Layar' : 'Ukuran Bebas'"></span>
+        <span x-show="isFitWindow" class="w-2 h-2 rounded-full bg-indigo-500"></span>
+      </button>
+
+      <!-- Super Admin Actions: Kunci Kredensial Baris & Import Database -->
+      <template x-if="isSuperAdmin">
+        <div class="flex items-center gap-1.5">
+          <button type="button" 
+                  @click="initRowLockSettings(); showRowLockSettings = true;" 
+                  :class="hasCredentialLock ? 'bg-amber-50 border-amber-300 text-amber-800 font-bold' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'"
+                  class="border px-2.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow-2xs"
+                  title="Atur Kunci Kredensial Baris & Penyamaran Kolom">
+            <i data-lucide="shield-check" class="w-3.5 h-3.5" :class="hasCredentialLock ? 'text-amber-600' : 'text-indigo-600'"></i>
+            <span>Kunci Kredensial Baris</span>
+            <span x-show="hasCredentialLock" class="w-2 h-2 rounded-full bg-amber-500"></span>
+          </button>
+
+          <button type="button" 
+                  @click="showImportModal = true" 
+                  class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
+            <i data-lucide="database" class="w-3.5 h-3.5 text-indigo-600"></i>
+            <span>Import Database</span>
+          </button>
+        </div>
+      </template>
+
+      <!-- Tombol Tampilkan Semua Kolom ke Publik (Super Admin) -->
+      <template x-if="isSuperAdmin && hasHiddenColumns">
+        <button type="button" 
+                @click="unhideAllColumns()" 
+                class="bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-800 px-2.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
+          <i data-lucide="eye" class="w-3.5 h-3.5 text-amber-600"></i>
+          <span>Tampilkan Semua Kolom ke Publik</span>
+        </button>
+      </template>
+    </div>
+
+    <!-- Info counter -->
+    <div class="text-[11px] text-slate-500 flex items-center gap-2">
+      <span x-text="`${displayedRows.length.toLocaleString()} Baris`"></span>
+      <span x-show="hasCredentialLock" class="text-amber-600 font-semibold">• Kredensial Aktif</span>
+      <span x-show="searchQuery || activeFilterCol" class="text-indigo-600 font-semibold">• Terfilter</span>
+      <span class="sm:hidden text-[10px] text-slate-400 font-normal">← Geser tabel →</span>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       3. Main Spreadsheet Table (Data Grid)
+       ========================================== -->
+  <main class="flex-1 overflow-hidden flex flex-col relative bg-slate-100">
+    <!-- Collapsible Description / Petunjuk Banner -->
+    <template x-if="sheetData.description && showDescBanner">
+      <div class="bg-indigo-50/80 border-b border-indigo-200/90 px-4 py-2 flex items-start justify-between gap-3 text-xs text-indigo-950 shrink-0">
+        <div class="flex items-start gap-2.5 min-w-0">
+          <i data-lucide="info" class="w-4 h-4 text-indigo-600 shrink-0 mt-0.5"></i>
+          <div class="min-w-0">
+            <span class="font-bold text-indigo-900 block text-[11px] uppercase tracking-wider">Petunjuk & Deskripsi Spreadsheet:</span>
+            <p class="text-slate-700 text-xs leading-relaxed whitespace-pre-line mt-0.5" x-text="sheetData.description"></p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <template x-if="isSuperAdmin">
+            <button type="button" @click="showDescModal = true" class="text-indigo-700 hover:text-indigo-900 text-[11px] font-bold underline cursor-pointer">Edit</button>
+          </template>
+          <button type="button" @click="showDescBanner = false" class="text-slate-400 hover:text-slate-600 p-0.5 rounded cursor-pointer" title="Tutup pemberitahuan ini">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+    </template>
+    <div class="flex-1 overflow-auto grid-scroller relative bg-white">
+      <table class="border-collapse table-fixed bg-white transition-all duration-150"
+             :class="(isFitWindow && !isMobile) ? 'w-full min-w-full fit-window-table' : 'w-max'">
+        <!-- Table Headers -->
+        <thead class="sticky top-0 z-20 bg-slate-50 shadow-2xs select-none">
+          <tr>
+            <!-- Row Index Corner Header -->
+            <th class="col-index w-10 sm:w-12 bg-slate-100 border border-slate-300 text-center text-slate-400 font-mono text-[10px] z-30"
+                :class="(!isFitWindow || isMobile) ? 'sticky left-0' : ''"
+                style="width: 44px; min-width: 44px;">#</th>
+            
+            <!-- Sticky Row Credential Access Column Header (jika Kunci Kredensial Baris Aktif) -->
+            <template x-if="hasCredentialLock">
+              <th class="col-auth w-24 bg-slate-100 border border-slate-300 text-center text-slate-600 font-bold text-[11px] z-30"
+                  :class="(!isFitWindow || isMobile) ? 'sticky left-11' : ''"
+                  style="width: 96px; min-width: 92px;"
+                  title="Status Akses Baris Pegawai">
+                <span class="flex items-center justify-center gap-1">
+                  <i data-lucide="shield" class="w-3 h-3 text-amber-600"></i> Akses
+                </span>
+              </th>
+            </template>
+
+            <!-- Dynamic Headers (Rata Tengah, Bersih, Sederhana, Mendukung Freeze & Fit Window) -->
+            <template x-for="(col, colIdx) in visibleColumns" :key="col.id">
+              <th :data-col-id="col.id" 
+                  class="border border-slate-300 bg-slate-50 hover:bg-slate-100 transition-colors relative group select-none text-center"
+                  :class="{
+                    'sticky z-25 bg-slate-100 shadow-2xs': isColFrozen(colIdx),
+                    'border-r-2 border-r-slate-400 shadow-[2px_0_5px_-1px_rgba(0,0,0,0.12)]': isLastFrozenCol(colIdx)
+                  }"
+                  :style="getColHeaderStyle(col, colIdx)">
+                <div class="py-1.5 flex items-center justify-center relative min-h-[34px]"
+                     :class="isFitWindow ? 'px-1.5' : 'px-2.5'">
+                  <!-- Centered Title -->
+                  <div class="flex items-center justify-center gap-1 truncate min-w-0 w-full"
+                       :class="isFitWindow ? 'pr-4' : 'px-5'">
+                    <span class="text-xs font-bold text-slate-700 truncate text-center" x-text="col.name"></span>
+                    
+                    <!-- Indikator Kolom Dibekukan (Freeze) -->
+                    <template x-if="col.isFrozen">
+                      <i data-lucide="snowflake" class="w-3 h-3 text-sky-500 shrink-0" title="Kolom Dibekukan (Freeze)"></i>
+                    </template>
+
+                    <!-- Indikator Khusus Admin jika kolom disembunyikan dari publik -->
+                    <template x-if="isSuperAdmin && col.isHidden">
+                      <span class="px-1 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded text-[9px] font-semibold inline-flex items-center gap-0.5 shrink-0" title="Disembunyikan dari publik">
+                        <i data-lucide="eye-off" class="w-2.5 h-2.5"></i>
+                        <span>Privat</span>
+                      </span>
+                    </template>
+                  </div>
+
+                  <!-- Tombol Menu / Filter Dropdown di Pojok Kanan Header -->
+                  <button type="button" 
+                          @click.stop="openHeaderMenu(colIdx, $event)" 
+                          class="absolute right-0.5 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-slate-200 text-slate-400 hover:text-slate-800 transition shrink-0 opacity-70 group-hover:opacity-100 cursor-pointer"
+                          title="Filter, Sort & Opsi Kolom">
+                    <i data-lucide="filter" class="w-3 h-3 text-indigo-600" x-show="activeFilterCol === col.id"></i>
+                    <i data-lucide="chevron-down" class="w-3 h-3" x-show="activeFilterCol !== col.id"></i>
+                  </button>
+                </div>
+              </th>
+            </template>
+            
+            <!-- Super Admin: Add Column Button -->
+            <template x-if="isSuperAdmin">
+              <th class="col-add w-10 sm:w-12 border border-slate-300 bg-slate-50 hover:bg-slate-100 cursor-pointer"
+                  style="width: 44px; min-width: 40px;"
+                  @click="addColumn()" 
+                  title="Tambah Kolom Baru">
+                <div class="flex items-center justify-center h-full">
+                  <i data-lucide="plus" class="w-4 h-4 text-slate-500"></i>
+                </div>
+              </th>
+            </template>
+          </tr>
+        </thead>
+        
+        <!-- Table Body (Ultra Lightweight: Paginated 60 FPS) -->
+        <tbody>
+          <template x-for="(row, rowIdx) in paginatedRows" :key="row.id || row._localId">
+            <tr class="hover:bg-slate-50/60 transition-colors">
+              <!-- Row Index Sticky Column -->
+              <td class="col-index bg-slate-100 border border-slate-300 text-center text-slate-500 font-mono text-[10px] w-10 sm:w-12"
+                  :class="(!isFitWindow || isMobile) ? 'sticky left-0 z-10' : ''"
+                  style="width: 44px; min-width: 44px;"
+                  x-text="getRowNumber(row, rowIdx)"></td>
+              
+              <!-- Sticky Row Auth Button Column (jika Kunci Kredensial Baris Aktif) -->
+              <template x-if="hasCredentialLock">
+                <td class="col-auth bg-slate-50 border border-slate-300 px-1 py-1 text-center w-24"
+                    :class="(!isFitWindow || isMobile) ? 'sticky left-11 z-10' : ''"
+                    style="width: 96px; min-width: 92px;">
+                  <!-- SuperAdmin: Selalu Terbuka / Admin -->
+                  <template x-if="isSuperAdmin">
+                    <span class="text-[10px] text-indigo-700 font-bold bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded-full inline-flex items-center justify-center gap-1 shadow-2xs max-w-full truncate">
+                      <i data-lucide="shield-check" class="w-3 h-3 text-indigo-600 shrink-0"></i> 
+                      <span class="truncate">Admin</span>
+                    </span>
+                  </template>
+
+                  <!-- Pengunjung Publik -->
+                  <template x-if="!isSuperAdmin">
+                    <div class="w-full flex items-center justify-center">
+                      <template x-if="isRowUnlocked(row)">
+                        <span class="text-[10px] text-emerald-700 font-bold bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded-full inline-flex items-center justify-center gap-1 shadow-2xs max-w-full truncate">
+                          <i data-lucide="unlock" class="w-2.5 h-2.5 text-emerald-600 shrink-0"></i> 
+                          <span class="truncate">Terbuka</span>
+                        </span>
+                      </template>
+                      <template x-if="!isRowUnlocked(row)">
+                        <button type="button" 
+                                @click="openRowAuthModal(row)" 
+                                class="w-full max-w-[90px] px-1.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-lg text-[10px] font-bold inline-flex items-center justify-center gap-1 transition cursor-pointer shadow-2xs hover:shadow-xs truncate"
+                                title="Buka Akses Baris">
+                          <i data-lucide="lock" class="w-2.5 h-2.5 text-amber-600 shrink-0"></i> 
+                          <span class="truncate whitespace-nowrap">Buka Akses</span>
+                        </button>
+                      </template>
+                    </div>
+                  </template>
+                </td>
+              </template>
+
+              <!-- Dynamic Cells (Mendukung Freeze) -->
+              <template x-for="(col, colIdx) in visibleColumns" :key="col.id">
+                <td class="border border-slate-200 p-0 relative transition-colors" 
+                    :class="{
+                      'bg-slate-50/70': !canEditCell(row, col) && !isColFrozen(colIdx),
+                      'sticky z-10 bg-white': isColFrozen(colIdx) && canEditCell(row, col),
+                      'sticky z-10 bg-slate-50': isColFrozen(colIdx) && !canEditCell(row, col),
+                      'border-r-2 border-r-slate-400 shadow-[2px_0_5px_-1px_rgba(0,0,0,0.12)]': isLastFrozenCol(colIdx)
+                    }"
+                    :style="isColFrozen(colIdx) ? `left: ${getFrozenLeft(colIdx)};` : ''">
+                  <div class="cell-wrap flex items-center">
+                    
+                    <!-- KONDISI 1: CELL DISAMARKAN (MASKED: Tampilkan Ceklis Sudah) -->
+                    <template x-if="isCellMasked(row, col)">
+                      <div class="px-2 py-1.5 flex items-center justify-center w-full h-full select-none bg-slate-50/70 cursor-pointer hover:bg-emerald-50/50 transition-colors"
+                           @click="!isSuperAdmin && !isRowUnlocked(row) && openRowAuthModal(row)"
+                           title="Data sudah diisi dan terkunci privasi. Klik untuk buka akses jika ini baris Anda.">
+                        <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold shadow-2xs">
+                          <i data-lucide="check-circle-2" class="w-3 h-3 text-emerald-600"></i> Sudah
+                        </span>
+                      </div>
+                    </template>
+
+                    <!-- KONDISI 2: CELL NORMAL (TIDAK DISAMARKAN) -->
+                    <template x-if="!isCellMasked(row, col)">
+                      <div class="w-full h-full flex items-center">
+                        <!-- 1. Text & NIP Type -->
+                        <template x-if="col.type === 'text' || col.type === 'nip'">
+                          <div class="w-full h-full flex items-center" 
+                               @click="if(!canEditCell(row, col) && hasCredentialLock && (col.requiresAuth || col.isMasked)) openRowAuthModal(row)">
+                            <input type="text" 
+                                   x-model="row.data[col.id]" 
+                                   @input="triggerAutoSave()" 
+                                   @blur="saveImmediately()"
+                                   class="cell-input" 
+                                   :class="{'cell-readonly': !canEditCell(row, col), 'cursor-pointer hover:bg-amber-50/40': !canEditCell(row, col) && hasCredentialLock && (col.requiresAuth || col.isMasked)}"
+                                   :readonly="!canEditCell(row, col)"
+                                   :placeholder="!canEditCell(row, col) ? (hasCredentialLock && (col.requiresAuth || col.isMasked) && !isRowUnlocked(row) ? 'Terkunci (Perlu Akses)' : '') : '...'">
+                          </div>
+                        </template>
+                        
+                        <!-- 2. Select Type -->
+                        <template x-if="col.type === 'select'">
+                          <div class="w-full h-full flex items-center"
+                               @click="if(!canEditCell(row, col) && hasCredentialLock && (col.requiresAuth || col.isMasked)) openRowAuthModal(row)">
+                            <select x-model="row.data[col.id]" 
+                                    @change="triggerAutoSave(); saveImmediately();" 
+                                    class="cell-input cursor-pointer" 
+                                    :disabled="!canEditCell(row, col)"
+                                    :class="{'opacity-60 bg-slate-50 cursor-pointer': !canEditCell(row, col)}">
+                              <option value="">- Pilih -</option>
+                              <template x-for="opt in getColOptions(col)" :key="opt">
+                                <option :value="opt" x-text="opt"></option>
+                              </template>
+                            </select>
+                          </div>
+                        </template>
+                        
+                        <!-- 3. File Upload Cell -->
+                        <template x-if="col.type === 'file'">
+                          <div class="px-2 py-1 flex items-center justify-between w-full h-full group">
+                            <!-- File already uploaded -->
+                            <template x-if="row.data[col.id]">
+                              <div class="flex items-center gap-1.5 w-full min-w-0">
+                                <a :href="row.data[col.id]" 
+                                   target="_blank" 
+                                   class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-semibold rounded-lg flex items-center gap-1.5 truncate max-w-full transition-colors" 
+                                   title="Buka Berkas">
+                                  <i data-lucide="file-text" class="w-3 h-3 shrink-0"></i>
+                                  <span class="truncate" x-text="extractFileName(row.data[col.id])"></span>
+                                </a>
+                                <template x-if="canEditCell(row, col)">
+                                  <button type="button" 
+                                          @click="removeCellFile(row, col.id)" 
+                                          class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-rose-600 p-0.5 rounded transition-opacity shrink-0 cursor-pointer" 
+                                          title="Hapus Berkas">
+                                    <i data-lucide="x" class="w-3 h-3"></i>
+                                  </button>
+                                </template>
+                              </div>
+                            </template>
+
+                            <!-- File empty: Upload Button -->
+                            <template x-if="!row.data[col.id]">
+                              <div>
+                                <template x-if="uploadingCellKey === (row.id + '_' + col.id)">
+                                  <span class="text-[10px] text-indigo-600 font-medium flex items-center gap-1 px-1">
+                                    <i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Mengunggah...
+                                  </span>
+                                </template>
+                                <template x-if="uploadingCellKey !== (row.id + '_' + col.id)">
+                                  <button type="button" 
+                                          @click="canEditCell(row, col) ? triggerCellUpload(row, col.id) : (hasCredentialLock && (col.requiresAuth || col.isMasked) ? openRowAuthModal(row) : null)" 
+                                          :disabled="!canEditCell(row, col) && !(hasCredentialLock && (col.requiresAuth || col.isMasked))"
+                                          class="text-[11px] flex items-center gap-1 border border-dashed px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                                          :class="canEditCell(row, col) 
+                                            ? 'text-slate-500 hover:text-indigo-600 border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/40' 
+                                            : (hasCredentialLock && (col.requiresAuth || col.isMasked) 
+                                                ? 'text-amber-700 bg-amber-50/60 border-amber-300 hover:bg-amber-100/70 hover:border-amber-400' 
+                                                : 'text-slate-300 border-slate-200 cursor-not-allowed opacity-50')">
+                                    <i data-lucide="upload" class="w-3 h-3" :class="!canEditCell(row, col) && hasCredentialLock && (col.requiresAuth || col.isMasked) ? 'text-amber-600' : ''"></i> 
+                                    <span x-text="(!canEditCell(row, col) && hasCredentialLock && (col.requiresAuth || col.isMasked)) ? 'Perlu Akses' : 'Upload'"></span>
+                                  </button>
+                                </template>
+                              </div>
+                            </template>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+
+                  </div>
+                </td>
+              </template>
+              
+              <!-- Extra Cell for SuperAdmin Add Column Header match -->
+              <template x-if="isSuperAdmin">
+                <td class="w-10 sm:w-12 border border-slate-200 border-l-0 bg-transparent"
+                    style="width: 44px; min-width: 40px;"></td>
+              </template>
+            </tr>
+          </template>
+          
+          <!-- Super Admin: Add Rows Area -->
+          <template x-if="isSuperAdmin">
+            <tr>
+              <td class="bg-slate-100 border border-slate-300"></td>
+              <td :colspan="visibleColumns.length + (hasCredentialLock ? 2 : 1)" class="p-2.5 bg-slate-50 border-t border-slate-300">
+                <button type="button" 
+                        @click="addRows(10)" 
+                        class="text-xs text-slate-600 hover:text-slate-900 font-bold flex items-center gap-1.5 px-3 py-1.5 hover:bg-slate-200/70 rounded-xl transition-colors cursor-pointer">
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i> Tambah 10 Baris
+                </button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Clean Sticky Pagination Bar (Google Sheets Style: 60 FPS Performance) -->
+    <div class="bg-white border-t border-slate-200 px-3 sm:px-5 py-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 shrink-0 z-20 select-none">
+      <div class="flex items-center gap-2">
+        <span class="font-medium text-slate-700" x-text="paginationInfo"></span>
+        <span x-show="searchQuery || activeFilterCol" class="text-indigo-600 font-semibold">• Terfilter</span>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Page size selector -->
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-400 text-[11px]">Tampilkan:</span>
+          <select x-model="pageSize" @change="currentPage = 1" class="border border-slate-200 rounded-lg px-2 py-1 text-xs bg-slate-50 outline-none cursor-pointer">
+            <option value="25">25 baris</option>
+            <option value="50">50 baris</option>
+            <option value="100">100 baris</option>
+            <option value="250">250 baris</option>
+            <option value="all">Semua baris</option>
+          </select>
+        </div>
+
+        <!-- Page buttons -->
+        <div class="flex items-center gap-1">
+          <button type="button" @click="currentPage = 1" :disabled="currentPage <= 1" class="px-2 py-1 border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold" title="Halaman Pertama">«</button>
+          <button type="button" @click="currentPage--" :disabled="currentPage <= 1" class="px-2.5 py-1 border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold" title="Sebelumnya">‹</button>
+          <span class="px-2 text-xs font-bold text-slate-800" x-text="`${currentPage} / ${totalPages}`"></span>
+          <button type="button" @click="currentPage++" :disabled="currentPage >= totalPages" class="px-2.5 py-1 border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold" title="Berikutnya">›</button>
+          <button type="button" @click="currentPage = totalPages" :disabled="currentPage >= totalPages" class="px-2 py-1 border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-semibold" title="Halaman Terakhir">»</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ==========================================
+       4. Modal: Bagikan Spreadsheet
+       ========================================== -->
+  <div x-show="showShareModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-4">
+    <div @click.outside="showShareModal = false"
+         x-transition:enter="transition ease-out duration-150"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+         class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden">
+      
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+          <i data-lucide="share-2" class="w-4 h-4 text-indigo-600"></i>
+          Bagikan Spreadsheet
+        </h3>
+        <button type="button" @click="showShareModal = false" class="text-slate-400 hover:text-slate-600 transition-colors">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-3">
+        <p class="text-xs text-slate-500">Tautan akses pengisian publik untuk lembar kerja ini:</p>
+        <div class="flex items-center gap-2">
+          <input type="text" readonly :value="shareUrl" class="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono text-slate-700 select-all outline-none focus:border-indigo-500">
+          <button type="button" @click="copyShareLink()" class="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shrink-0 cursor-pointer">
+            <i :data-lucide="copied ? 'check' : 'copy'" class="w-3.5 h-3.5"></i>
+            <span x-text="copied ? 'Tersalin' : 'Salin Link'"></span>
+          </button>
+        </div>
+        <div x-show="copied" x-transition class="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+          <i data-lucide="check-circle" class="w-3.5 h-3.5"></i>
+          <span>Tautan berhasil disalin ke clipboard!</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       5. Modal: Import Database (SuperAdmin Only)
+       ========================================== -->
+  <div x-show="showImportModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-4">
+    <div @click.outside="if(!isImporting) showImportModal = false"
+         x-transition:enter="transition ease-out duration-150"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+         class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden">
+      
+      <div class="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+        <h3 class="font-bold text-sm text-slate-900 flex items-center gap-2">
+          <i data-lucide="database" class="w-4 h-4 text-indigo-600"></i>
+          Import dari Database SIMPEG
+        </h3>
+        <button type="button" @click="showImportModal = false" :disabled="isImporting" class="text-slate-400 hover:text-slate-600">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-2">Pilih Sumber Data:</label>
+          <div class="space-y-2">
+            <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors" :class="importForm.source === 'PEGAWAI' ? 'border-indigo-600 bg-indigo-50/30' : ''">
+              <input type="radio" value="PEGAWAI" x-model="importForm.source" class="text-indigo-600">
+              <div>
+                <div class="text-xs font-bold text-slate-800">Data Pegawai</div>
+                <div class="text-[11px] text-slate-400">NIP, Nama Lengkap, Unit Kerja, Jabatan</div>
+              </div>
+            </label>
+            <label class="flex items-center gap-3 p-3 border border-slate-200 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors" :class="importForm.source === 'UNIT' ? 'border-indigo-600 bg-indigo-50/30' : ''">
+              <input type="radio" value="UNIT" x-model="importForm.source" class="text-indigo-600">
+              <div>
+                <div class="text-xs font-bold text-slate-800">Data Unit Kerja (Sekolah)</div>
+                <div class="text-[11px] text-slate-400">Nama Sekolah, Jenjang, Kepala Sekolah</div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-2">Mode Penyisipan:</label>
+          <div class="flex items-center gap-4 text-xs">
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" value="append" x-model="importForm.mode" class="text-indigo-600">
+              <span class="text-slate-700">Tambah ke Bawah</span>
+            </label>
+            <label class="flex items-center gap-1.5 cursor-pointer">
+              <input type="radio" value="replace" x-model="importForm.mode" class="text-indigo-600">
+              <span class="text-slate-700">Gantikan Semua Baris</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+        <button type="button" @click="showImportModal = false" :disabled="isImporting" class="px-3.5 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-xl">Batal</button>
+        <button type="button" @click="runImport()" :disabled="isImporting" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-2">
+          <span x-show="isImporting"><i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i></span>
+          <span x-text="isImporting ? 'Mengimpor...' : 'Mulai Import'"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       6. Modal: Pengaturan Kolom (SuperAdmin Only)
+       ========================================== -->
+  <div x-show="showColMenu" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-4">
+    <div @click.outside="showColMenu = false"
+         x-transition:enter="transition ease-out duration-150"
+         x-transition:enter-start="opacity-0 scale-95"
+         x-transition:enter-end="opacity-100 scale-100"
+         x-transition:leave="transition ease-in duration-100"
+         x-transition:leave-start="opacity-100 scale-100"
+         x-transition:leave-end="opacity-0 scale-95"
+         class="bg-white rounded-2xl shadow-xl border border-slate-200 w-80 overflow-hidden flex flex-col">
+      <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <h3 class="font-bold text-sm text-slate-800">Pengaturan Kolom</h3>
+        <button type="button" @click="showColMenu = false" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="p-4 space-y-3.5">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Nama Kolom</label>
+          <input type="text" x-model="activeCol.name" @input="triggerAutoSave()" class="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs focus:border-indigo-500 outline-none">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Tipe Data</label>
+          <select x-model="activeCol.type" 
+                  @change="if(activeCol.type === 'select' && (!activeCol.options || activeCol.options.length === 0)) { activeColOptionsText = 'PNS, PPPK, HONORER'; updateActiveColOptions(); } triggerAutoSave();" 
+                  class="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs focus:border-indigo-500 outline-none">
+            <option value="text">Teks Bebas</option>
+            <option value="nip">NIP / Identitas (Kunci)</option>
+            <option value="select">Pilihan (Dropdown)</option>
+            <option value="file">Upload File / Berkas</option>
+          </select>
+        </div>
+
+        <!-- Pilihan Dropdown Kustom -->
+        <div x-show="activeCol.type === 'select'" class="p-2.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+          <label class="block text-xs font-bold text-slate-700">Daftar Pilihan Dropdown:</label>
+          <textarea x-model="activeColOptionsText" 
+                    @input="updateActiveColOptions()" 
+                    rows="3" 
+                    class="w-full px-2.5 py-1.5 border border-slate-300 rounded-lg text-xs focus:border-indigo-500 outline-none bg-white font-mono" 
+                    placeholder="Contoh: PNS, PPPK, HONORER (pisahkan dengan koma atau baris baru)"></textarea>
+          <p class="text-[10px] text-slate-400 leading-tight">Tulis pilihan opsi dropdown di atas (pisahkan dengan koma atau baris baru).</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Lebar Kolom (px)</label>
+          <input type="number" x-model.number="activeCol.width" @input="triggerAutoSave()" class="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs focus:border-indigo-500 outline-none">
+        </div>
+        <div class="pt-2 border-t border-slate-100 space-y-2.5">
+          <label class="flex items-start gap-2.5 cursor-pointer">
+            <input type="checkbox" id="isLocked" x-model="activeCol.isLocked" @change="triggerAutoSave()" class="rounded text-indigo-600 mt-0.5">
+            <div>
+              <span class="text-xs font-bold text-slate-700 block">Kunci Kolom (Read-Only Publik)</span>
+              <span class="text-[10px] text-slate-400 block mt-0.5 leading-tight">Responden publik tidak bisa mengedit atau mengupload di kolom ini.</span>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-2.5 cursor-pointer">
+            <input type="checkbox" id="isCredential" x-model="activeCol.isCredential" @change="triggerAutoSave()" class="rounded text-amber-600 mt-0.5">
+            <div>
+              <span class="text-xs font-bold text-slate-700 block">Jadikan Kunci Kredensial Baris</span>
+              <span class="text-[10px] text-slate-400 block mt-0.5 leading-tight">Pengunjung wajib mencocokkan nilai kolom ini untuk membuka akses baris.</span>
+            </div>
+          </label>
+
+          <label class="flex items-start gap-2.5 cursor-pointer">
+            <input type="checkbox" id="isMasked" x-model="activeCol.isMasked" @change="activeCol.requiresAuth = activeCol.isMasked; triggerAutoSave();" class="rounded text-emerald-600 mt-0.5">
+            <div>
+              <span class="text-xs font-bold text-slate-700 block">Wajib Buka Akses & Samarkan Privasi</span>
+              <span class="text-[10px] text-slate-400 block mt-0.5 leading-tight">Pengunjung wajib buka akses untuk mengisi kolom ini. Data disamarkan ("✓ Sudah") bagi pengunjung umum.</span>
+            </div>
+          </label>
+        </div>
+        
+        <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+          <button type="button" @click="deleteActiveCol()" class="text-xs text-rose-600 font-bold hover:underline cursor-pointer">Hapus Kolom</button>
+          <button type="button" @click="showColMenu = false; saveImmediately();" class="bg-indigo-600 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold hover:bg-indigo-700 cursor-pointer">Selesai</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       7. Floating Header Menu (SORT, FILTER, GESER, SEMBUNYIKAN, HAPUS)
+       ========================================== -->
+  <div x-show="showHeaderMenu" 
+       x-cloak 
+       @click.outside="closeHeaderMenu()"
+       class="fixed z-50 bg-white rounded-2xl shadow-xl border border-slate-200 w-64 py-1.5 text-xs select-none"
+       :style="`top: ${headerMenuPos.top}; left: ${headerMenuPos.left};`">
+    
+    <!-- Title / Column Name -->
+    <div class="px-3.5 py-2 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+      <div class="truncate min-w-0 pr-2">
+        <span class="text-[10px] text-slate-400 block uppercase font-bold tracking-wider">Opsi Kolom</span>
+        <span class="font-bold text-slate-800 text-xs truncate block" x-text="activeMenuCol.name"></span>
+      </div>
+      <button type="button" @click="closeHeaderMenu()" class="text-slate-400 hover:text-slate-600 p-0.5"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+    </div>
+
+    <!-- 1. SORT SECTION -->
+    <div class="p-1 border-b border-slate-100">
+      <div class="px-2.5 py-0.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Urutkan (Sort)</div>
+      <button type="button" 
+              @click="sortByCol(activeMenuCol.id, 'asc')"
+              class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-100 text-slate-700 flex items-center gap-2 transition cursor-pointer">
+        <i data-lucide="arrow-up-a-z" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+        <span>Urutkan A → Z (Menaik)</span>
+      </button>
+      <button type="button" 
+              @click="sortByCol(activeMenuCol.id, 'desc')"
+              class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-100 text-slate-700 flex items-center gap-2 transition cursor-pointer">
+        <i data-lucide="arrow-down-z-a" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+        <span>Urutkan Z → A (Menurun)</span>
+      </button>
+    </div>
+
+    <!-- 2. FILTER SECTION -->
+    <div class="p-1 border-b border-slate-100">
+      <div class="px-2.5 py-0.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Filter Data</div>
+      <button type="button" 
+              @click="filterColMode(activeMenuCol.id, 'all')"
+              :class="activeFilterCol === activeMenuCol.id && activeFilterMode === 'all' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-100'"
+              class="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition cursor-pointer">
+        <span class="flex items-center gap-2">
+          <i data-lucide="list" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
+          <span>Tampilkan Semua</span>
+        </span>
+        <span x-show="!activeFilterCol || (activeFilterCol === activeMenuCol.id && activeFilterMode === 'all')">✓</span>
+      </button>
+      <button type="button" 
+              @click="filterColMode(activeMenuCol.id, 'filled')"
+              :class="activeFilterCol === activeMenuCol.id && activeFilterMode === 'filled' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-100'"
+              class="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition cursor-pointer">
+        <span class="flex items-center gap-2">
+          <i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-500 shrink-0"></i>
+          <span>Hanya yang Terisi</span>
+        </span>
+        <span x-show="activeFilterCol === activeMenuCol.id && activeFilterMode === 'filled'">✓</span>
+      </button>
+      <button type="button" 
+              @click="filterColMode(activeMenuCol.id, 'empty')"
+              :class="activeFilterCol === activeMenuCol.id && activeFilterMode === 'empty' ? 'bg-indigo-50 text-indigo-700 font-bold' : 'text-slate-700 hover:bg-slate-100'"
+              class="w-full text-left px-2.5 py-1.5 rounded-lg flex items-center justify-between transition cursor-pointer">
+        <span class="flex items-center gap-2">
+          <i data-lucide="circle-slash" class="w-3.5 h-3.5 text-slate-400 shrink-0"></i>
+          <span>Hanya yang Kosong</span>
+        </span>
+        <span x-show="activeFilterCol === activeMenuCol.id && activeFilterMode === 'empty'">✓</span>
+      </button>
+    </div>
+
+    <!-- BEKUKAN KOLOM (FREEZE) -->
+    <div class="p-1 border-b border-slate-100">
+      <div class="px-2.5 py-0.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bekukan (Freeze)</div>
+      <template x-if="!activeMenuCol.isFrozen">
+        <button type="button" 
+                @click="freezeUpTo(activeMenuColIdx)"
+                class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-100 text-slate-700 flex items-center gap-2 transition cursor-pointer">
+          <i data-lucide="snowflake" class="w-3.5 h-3.5 text-sky-600 shrink-0"></i>
+          <span>Bekukan Hingga Kolom Ini</span>
+        </button>
+      </template>
+      <template x-if="activeMenuCol.isFrozen">
+        <button type="button" 
+                @click="unfreezeAll()"
+                class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-sky-50 text-sky-700 font-semibold flex items-center gap-2 transition cursor-pointer">
+          <i data-lucide="snowflake" class="w-3.5 h-3.5 text-sky-600 shrink-0"></i>
+          <span>Batal Bekukan Kolom (Cairkan)</span>
+        </button>
+      </template>
+    </div>
+
+    <!-- 3. GESER KOLOM HORIZONTAL (SuperAdmin) -->
+    <template x-if="isSuperAdmin">
+      <div class="p-1 border-b border-slate-100">
+        <div class="px-2.5 py-0.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Geser Kolom</div>
+        <div class="grid grid-cols-2 gap-1 px-1 py-0.5">
+          <button type="button" 
+                  @click.stop="moveColumn(activeMenuColIdx, -1)" 
+                  :disabled="activeMenuColIdx <= 0"
+                  class="px-2 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed transition text-xs font-semibold cursor-pointer">
+            <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i> Kiri
+          </button>
+          <button type="button" 
+                  @click.stop="moveColumn(activeMenuColIdx, 1)" 
+                  :disabled="activeMenuColIdx >= visibleColumns.length - 1"
+                  class="px-2 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 flex items-center justify-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed transition text-xs font-semibold cursor-pointer">
+            Kanan <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <!-- 4. SEMBUNYIKAN & PENGATURAN (Super Admin) -->
+    <template x-if="isSuperAdmin">
+      <div class="p-1">
+        <button type="button" 
+                @click="toggleHideColumn(activeMenuColIdx)"
+                class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-100 text-slate-700 flex items-center justify-between transition cursor-pointer">
+          <span class="flex items-center gap-2">
+            <i data-lucide="eye-off" class="w-3.5 h-3.5 text-slate-500 shrink-0" x-show="!activeMenuCol.isHidden"></i>
+            <i data-lucide="eye" class="w-3.5 h-3.5 text-indigo-600 shrink-0" x-show="activeMenuCol.isHidden"></i>
+            <span x-text="activeMenuCol.isHidden ? 'Tampilkan ke Publik' : 'Sembunyikan dari Publik'"></span>
+          </span>
+          <span x-show="activeMenuCol.isHidden" class="text-[10px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">Privat</span>
+        </button>
+
+        <button type="button" 
+                @click="openColSettingsFromMenu()"
+                class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-100 text-slate-700 flex items-center gap-2 transition cursor-pointer mt-0.5">
+          <i data-lucide="settings-2" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+          <span>Pengaturan Kolom...</span>
+        </button>
+        
+        <button type="button" 
+                @click="deleteColFromMenu(activeMenuColIdx)"
+                class="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-rose-50 text-rose-600 flex items-center gap-2 transition cursor-pointer mt-0.5">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5 shrink-0"></i>
+          <span>Hapus Kolom</span>
+        </button>
+      </div>
+    </template>
+
+  </div>
+
+  <!-- ==========================================
+       8. Modal: Pengaturan Kunci Kredensial Baris (SuperAdmin Only)
+       ========================================== -->
+  <div x-show="showRowLockSettings" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-4">
+    <div @click.outside="showRowLockSettings = false"
+         class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-md overflow-hidden flex flex-col">
+      <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-2">
+          <i data-lucide="shield-check" class="w-4 h-4 text-indigo-600"></i>
+          <h3 class="font-bold text-sm text-slate-800">Kunci Kredensial & Privasi Baris</h3>
+        </div>
+        <button type="button" @click="showRowLockSettings = false" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+
+      <div class="p-4 space-y-4">
+        <!-- Toggle Status -->
+        <div class="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+          <div>
+            <span class="text-xs font-bold text-slate-800 block">Aktifkan Kunci Kredensial Baris</span>
+            <span class="text-[10px] text-slate-500 block">Pengunjung wajib memasukkan kredensial untuk membuka & mengisi baris miliknya.</span>
+          </div>
+          <input type="checkbox" x-model="tempRowLockEnabled" class="rounded text-indigo-600 scale-125 cursor-pointer">
+        </div>
+
+        <!-- Pilihan Kolom Kredensial -->
+        <div x-show="tempRowLockEnabled">
+          <label class="block text-xs font-bold text-slate-700 mb-1">Kolom yang Dijadikan Kredensial Pembuka:</label>
+          <select x-model="tempCredentialColId" class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:border-indigo-500 outline-none cursor-pointer">
+            <template x-for="c in sheetData.columns" :key="c.id">
+              <option :value="c.id" x-text="`${c.name} (${c.type.toUpperCase()})`"></option>
+            </template>
+          </select>
+          <p class="text-[10px] text-slate-400 mt-1">Pengunjung harus memasukkan nilai yang cocok dari kolom ini (contoh: NIP) untuk membuka baris.</p>
+        </div>
+
+        <!-- Pilihan Kolom Khusus / Privasi -->
+        <div x-show="tempRowLockEnabled">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-xs font-bold text-slate-700">Pilih Kolom Privasi (Wajib Buka Akses & Disamarkan):</label>
+            <span class="text-[10px] text-indigo-600 font-semibold" x-text="`${tempMaskedColIds.length} dipilih`"></span>
+          </div>
+          <div class="max-h-44 overflow-y-auto space-y-1.5 border border-slate-200 rounded-xl p-2.5 bg-slate-50">
+            <template x-for="c in sheetData.columns.filter(col => col.id !== tempCredentialColId && !col.isLocked)" :key="c.id">
+              <label class="flex items-center gap-2 text-xs text-slate-700 cursor-pointer p-1.5 rounded-lg hover:bg-white transition border border-transparent hover:border-slate-200">
+                <input type="checkbox" :value="c.id" x-model="tempMaskedColIds" class="rounded text-indigo-600">
+                <span class="truncate font-medium" x-text="c.name"></span>
+                <span class="text-[10px] text-slate-400 font-mono ml-auto" x-text="`(${c.type})`"></span>
+              </label>
+            </template>
+          </div>
+          <p class="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
+            <span class="font-semibold text-slate-700">• Dicentang:</span> Pengunjung <b>wajib klik "Buka Akses"</b> untuk mengisi/unggah, dan disamarkan (<em>✓ Sudah</em>) saat terisi.<br>
+            <span class="font-semibold text-slate-700">• Tidak Dicentang:</span> Bersifat <b>publik umum</b>, pengunjung dapat langsung mengisi tanpa perlu memasukkan kredensial.
+          </p>
+        </div>
+      </div>
+
+      <div class="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+        <button type="button" @click="showRowLockSettings = false" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-xl cursor-pointer">Batal</button>
+        <button type="button" @click="saveRowLockSettings()" class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold cursor-pointer">Simpan Pengaturan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       9. Modal: Verifikasi Kredensial Baris Pengunjung
+       ========================================== -->
+  <div x-show="showAuthModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-4">
+    <div @click.outside="showAuthModal = false"
+         class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-sm overflow-hidden flex flex-col">
+      <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-2">
+          <i data-lucide="lock" class="w-4 h-4 text-amber-600"></i>
+          <h3 class="font-bold text-sm text-slate-800">Verifikasi Akses Baris</h3>
+        </div>
+        <button type="button" @click="showAuthModal = false" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+
+      <div class="p-4 space-y-3">
+        <template x-if="authModalRow">
+          <div class="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 text-xs">
+            <span class="text-slate-500 block text-[11px]">Memverifikasi baris untuk:</span>
+            <span class="font-bold text-slate-800 block truncate" x-text="authModalRow.data?.['c_nama'] || ('Baris #' + (authModalRow.rowIndex !== undefined ? (authModalRow.rowIndex + 1) : 1))"></span>
+            <span class="text-[11px] text-slate-500 block truncate" x-show="authModalRow.data?.['c_unit']" x-text="authModalRow.data?.['c_unit']"></span>
+          </div>
+        </template>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1" x-text="`Masukkan ${credentialCol ? credentialCol.name : 'Kredensial'}:`"></label>
+          <input type="text" 
+                 id="auth-nip-input"
+                 x-model="authInput" 
+                 @keydown.enter="verifyRowAuth()"
+                 :placeholder="`Masukkan ${credentialCol ? credentialCol.name : 'NIP'} Anda`" 
+                 class="w-full px-3 py-2 border border-slate-300 rounded-xl text-xs focus:border-indigo-500 outline-none">
+          <p x-show="authError" class="text-[11px] text-rose-600 mt-1 font-semibold flex items-center gap-1">
+            <i data-lucide="alert-circle" class="w-3 h-3 shrink-0"></i>
+            <span x-text="authError"></span>
+          </p>
+        </div>
+      </div>
+
+      <div class="px-4 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+        <button type="button" @click="showAuthModal = false" class="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-xl cursor-pointer">Batal</button>
+        <button type="button" @click="verifyRowAuth()" class="px-4 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer">
+          <i data-lucide="unlock" class="w-3.5 h-3.5"></i>
+          <span>Buka Akses</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       10. Modal: Deskripsi & Petunjuk Spreadsheet
+       ========================================== -->
+  <div x-show="showDescModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-4">
+    <div @click.outside="showDescModal = false"
+         class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-lg overflow-hidden flex flex-col">
+      <div class="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div class="flex items-center gap-2">
+          <div class="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center shrink-0">
+            <i data-lucide="info" class="w-4 h-4"></i>
+          </div>
+          <div class="min-w-0">
+            <h3 class="font-bold text-sm text-slate-800" x-text="isSuperAdmin ? 'Edit Deskripsi & Petunjuk' : 'Petunjuk & Deskripsi Spreadsheet'"></h3>
+            <span class="text-[10px] text-slate-400 block truncate" x-text="sheetData.title"></span>
+          </div>
+        </div>
+        <button type="button" @click="showDescModal = false" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+
+      <div class="p-5 space-y-4">
+        <!-- SuperAdmin: Editable Textarea -->
+        <template x-if="isSuperAdmin">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1.5">Deskripsi / Petunjuk Pengisian:</label>
+            <textarea x-model="sheetData.description" 
+                      rows="4" 
+                      class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all resize-y" 
+                      placeholder="Tuliskan petunjuk, instruksi, atau keterangan bagi pengisi spreadsheet ini..."></textarea>
+            <p class="text-[10px] text-slate-400 mt-1">Petunjuk ini akan tampil sebagai banner informasi di atas tabel dan di header.</p>
+          </div>
+        </template>
+
+        <!-- Public: Read-Only View -->
+        <template x-if="!isSuperAdmin">
+          <div>
+            <div x-show="sheetData.description" class="p-4 bg-slate-50 border border-slate-200/80 rounded-xl text-xs text-slate-700 leading-relaxed whitespace-pre-line" x-text="sheetData.description"></div>
+            <div x-show="!sheetData.description" class="p-6 text-center text-xs text-slate-400 italic">
+              Tidak ada petunjuk atau deskripsi khusus untuk lembar kerja ini.
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <div class="px-5 py-3 bg-slate-50 border-t border-slate-100 flex items-center justify-end gap-2">
+        <button type="button" @click="showDescModal = false" class="px-3.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-xl cursor-pointer">Tutup</button>
+        <template x-if="isSuperAdmin">
+          <button type="button" 
+                  @click="showDescBanner = true; showDescModal = false; saveImmediately();" 
+                  class="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold cursor-pointer transition">
+            Simpan Deskripsi
+          </button>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==========================================
+       7. Alpine.js Component Script
+       ========================================== -->
+  <script>
+    function smartGridViewer() {
+      let raw = {};
+      try {
+        const el = document.getElementById('sheet-data');
+        raw = JSON.parse(el ? (el.textContent || el.value || '{}') : '{}');
+      } catch(e) {
+        console.error('Failed to parse sheet data:', e);
+      }
+
+      const parsedRows = (raw.rows || []).map(r => {
+        let d = r.data;
+        if(typeof d === 'string') try { d = JSON.parse(d); } catch(e){ d = {}; }
+        return { ...r, data: d || {} };
+      });
+
+      // Default Sort: Jika ada kolom unit kerja, urutkan berdasarkan Unit Kerja dulu, lalu Pegawai
+      const unitCol = (raw.columns || []).find(c => 
+        c.id === 'c_unit' || (c.name && c.name.toLowerCase().includes('unit'))
+      );
+      const pegCol = (raw.columns || []).find(c => 
+        c.id === 'c_nama' || (c.name && (c.name.toLowerCase().includes('nama') || c.name.toLowerCase().includes('pegawai')))
+      );
+
+      if (unitCol) {
+        parsedRows.sort((a, b) => {
+          const uA = (a.data?.[unitCol.id] || '').toString().trim().toLowerCase();
+          const uB = (b.data?.[unitCol.id] || '').toString().trim().toLowerCase();
+          const comp = uA.localeCompare(uB, 'id', { numeric: true });
+          if (comp !== 0) return comp;
+          if (pegCol) {
+            const pA = (a.data?.[pegCol.id] || '').toString().trim().toLowerCase();
+            const pB = (b.data?.[pegCol.id] || '').toString().trim().toLowerCase();
+            return pA.localeCompare(pB, 'id', { numeric: true });
+          }
+          return 0;
+        });
+      }
+
+      return {
+        sheetData: {
+          id: raw.id,
+          title: raw.title || 'Spreadsheet',
+          description: raw.description || '',
+          slug: raw.slug || '',
+          columns: (raw.columns || []).map(c => ({
+            id: c.id,
+            name: c.name || 'Kolom',
+            type: c.type || 'text',
+            width: c.width || 180,
+            options: Array.isArray(c.options) ? c.options : (typeof c.options === 'string' ? c.options.split(/[\n,]+/).map(s=>s.trim()).filter(Boolean) : []),
+            isLocked: !!c.isLocked,
+            isCredential: !!c.isCredential,
+            requiresAuth: !!c.requiresAuth || !!c.isMasked,
+            isMasked: !!c.isMasked || !!c.requiresAuth,
+            isHidden: !!c.isHidden,
+            isFrozen: !!c.isFrozen
+          }))
+        },
+        rows: parsedRows,
+        isSuperAdmin: !!raw.isSuperAdmin,
+        
+        // Deskripsi Banner & Modal State
+        showDescModal: false,
+        showDescBanner: !!raw.description,
+        
+        // Responsive viewport tracking
+        windowWidth: typeof window !== 'undefined' ? window.innerWidth : 1200,
+        get isMobile() {
+          return this.windowWidth < 768;
+        },
+
+        // Fit Window mode: secara default true agar otomatis pas di layar, dapat ditoggle ke normal
+        isFitWindow: true,
+        
+        // Realtime Save States: 'saved' | 'saving' | 'dirty' | 'error'
+        saveState: 'saved',
+        saveTimer: null,
+
+        // Search & Filter
+        searchQuery: '',
+        activeFilterCol: '',
+        activeFilterMode: 'all',
+
+        // Pagination & High Performance
+        pageSize: 50,
+        currentPage: 1,
+
+        get totalPages() {
+          if (this.pageSize === 'all') return 1;
+          const sz = parseInt(this.pageSize) || 50;
+          return Math.max(1, Math.ceil(this.displayedRows.length / sz));
+        },
+
+        get paginatedRows() {
+          const list = this.displayedRows;
+          if (this.pageSize === 'all') return list;
+          const sz = parseInt(this.pageSize) || 50;
+          const start = (this.currentPage - 1) * sz;
+          return list.slice(start, start + sz);
+        },
+
+        get paginationInfo() {
+          const total = this.displayedRows.length;
+          if (total === 0) return '0 baris';
+          if (this.pageSize === 'all') return `Menampilkan semua ${total.toLocaleString()} baris`;
+          const sz = parseInt(this.pageSize) || 50;
+          const start = (this.currentPage - 1) * sz + 1;
+          const end = Math.min(total, this.currentPage * sz);
+          return `Menampilkan ${start.toLocaleString()} - ${end.toLocaleString()} dari ${total.toLocaleString()} baris`;
+        },
+
+        getRowNumber(row, rowIdx) {
+          if (this.pageSize === 'all') return (row.rowIndex !== undefined ? (row.rowIndex + 1) : (rowIdx + 1));
+          const sz = parseInt(this.pageSize) || 50;
+          return (this.currentPage - 1) * sz + rowIdx + 1;
+        },
+
+        // Visible Columns: Admin selalu melihat semua kolom, Publik hanya melihat kolom yang tidak disembunyikan
+        get visibleColumns() {
+          if (this.isSuperAdmin) {
+            return this.sheetData.columns || [];
+          }
+          return (this.sheetData.columns || []).filter(c => !c.isHidden);
+        },
+
+        get hasHiddenColumns() {
+          return (this.sheetData.columns || []).some(c => c.isHidden);
+        },
+
+        unhideAllColumns() {
+          this.sheetData.columns.forEach(c => c.isHidden = false);
+          this.saveImmediately();
+          this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+
+        // Freeze Columns Helpers
+        get hasFrozenColumns() {
+          return (this.visibleColumns || []).some(c => c.isFrozen);
+        },
+
+        get frozenCount() {
+          return (this.visibleColumns || []).filter(c => c.isFrozen).length;
+        },
+
+        freezeUpTo(visibleIdx) {
+          for (let i = 0; i < this.visibleColumns.length; i++) {
+            this.visibleColumns[i].isFrozen = (i <= visibleIdx);
+          }
+          this.closeHeaderMenu();
+          this.saveImmediately();
+          this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+
+        freezeCount(count) {
+          for (let i = 0; i < this.visibleColumns.length; i++) {
+            this.visibleColumns[i].isFrozen = (i < count);
+          }
+          this.saveImmediately();
+          this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+
+        unfreezeAll() {
+          (this.sheetData.columns || []).forEach(c => c.isFrozen = false);
+          this.closeHeaderMenu();
+          this.saveImmediately();
+          this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+
+        getFrozenLeft(colIdx) {
+          if (this.isFitWindow && !this.isMobile) return 'auto';
+          const base = this.hasCredentialLock ? 140 : 44;
+          let offset = base;
+          for (let i = 0; i < colIdx; i++) {
+            const c = this.visibleColumns[i];
+            if (c && c.isFrozen) {
+              offset += (c.width || 180);
+            }
+          }
+          return offset + 'px';
+        },
+
+        isColFrozen(colIdx) {
+          if (this.isFitWindow && !this.isMobile) return false;
+          if (this.isMobile) return false; // Pada mobile, biarkan tabel scroll alami agar kolom beku tidak menutupi layar HP
+          const col = this.visibleColumns[colIdx];
+          return !!(col && col.isFrozen);
+        },
+
+        isLastFrozenCol(colIdx) {
+          if (this.isFitWindow && !this.isMobile) return false;
+          if (this.isMobile) return false;
+          if (!this.isColFrozen(colIdx)) return false;
+          const nextCol = this.visibleColumns[colIdx + 1];
+          return !nextCol || !nextCol.isFrozen;
+        },
+
+        getColHeaderStyle(col, colIdx) {
+          let style = '';
+          // Di layar mobile (< 768px), biarkan kolom berukuran cukup dan scroll horizontal alami
+          if (this.isMobile) {
+            const w = col.width || 160;
+            style += `width: ${w}px; min-width: ${Math.max(130, w)}px;`;
+            if (this.isColFrozen(colIdx)) {
+              style += ` left: ${this.getFrozenLeft(colIdx)};`;
+            }
+          } else if (this.isFitWindow) {
+            // Di desktop/tablet, bagi proporsional pas selebar layar
+            const totalWeights = this.visibleColumns.reduce((sum, c) => sum + (c.width || 180), 0) || 1;
+            const pct = (((col.width || 180) / totalWeights) * 100).toFixed(2);
+            style += `width: ${pct}%; min-width: 70px;`;
+          } else {
+            style += `width: ${col.width || 180}px; min-width: ${col.width || 180}px;`;
+            if (this.isColFrozen(colIdx)) {
+              style += ` left: ${this.getFrozenLeft(colIdx)};`;
+            }
+          }
+          return style;
+        },
+
+        toggleFitWindow() {
+          this.isFitWindow = !this.isFitWindow;
+          try {
+            localStorage.setItem('smart_sheet_fit_window_' + this.sheetData.id, this.isFitWindow ? '1' : '0');
+          } catch(e) {}
+          this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+
+        // Floating Header Menu
+        showHeaderMenu: false,
+        activeMenuColIdx: -1,
+        activeMenuCol: {},
+        headerMenuPos: { top: '0px', left: '0px' },
+
+        openHeaderMenu(colIdx, event) {
+          this.activeMenuColIdx = colIdx;
+          this.activeMenuCol = this.visibleColumns[colIdx];
+          if (!this.activeMenuCol) return;
+          const rect = event.currentTarget.getBoundingClientRect();
+          this.headerMenuPos = {
+            top: Math.min(rect.bottom + 4, window.innerHeight - 340) + 'px',
+            left: Math.max(10, Math.min(rect.left - 60, window.innerWidth - 270)) + 'px'
+          };
+          this.showHeaderMenu = true;
+          this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+
+        closeHeaderMenu() {
+          this.showHeaderMenu = false;
+        },
+
+        sortByCol(colId, dir) {
+          const unitCol = (this.sheetData.columns || []).find(c => 
+            c.id === 'c_unit' || (c.name && c.name.toLowerCase().includes('unit'))
+          );
+          const pegCol = (this.sheetData.columns || []).find(c => 
+            c.id === 'c_nama' || (c.name && (c.name.toLowerCase().includes('nama') || c.name.toLowerCase().includes('pegawai')))
+          );
+
+          this.rows.sort((a, b) => {
+            const valA = (a.data?.[colId] || '').toString().trim().toLowerCase();
+            const valB = (b.data?.[colId] || '').toString().trim().toLowerCase();
+            const numA = parseFloat(valA);
+            const numB = parseFloat(valB);
+            let comp = 0;
+            if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
+              comp = dir === 'asc' ? numA - numB : numB - numA;
+            } else {
+              comp = dir === 'asc' ? valA.localeCompare(valB, 'id', { numeric: true }) : valB.localeCompare(valA, 'id', { numeric: true });
+            }
+
+            // Jika mengurutkan kolom unit kerja dan nilainya sama, urutkan pegawai A-Z
+            if (comp === 0 && unitCol && colId === unitCol.id && pegCol) {
+              const pA = (a.data?.[pegCol.id] || '').toString().trim().toLowerCase();
+              const pB = (b.data?.[pegCol.id] || '').toString().trim().toLowerCase();
+              return pA.localeCompare(pB, 'id', { numeric: true });
+            }
+
+            return comp;
+          });
+          this.currentPage = 1;
+          this.closeHeaderMenu();
+          this.saveImmediately();
+        },
+
+        filterColMode(colId, mode) {
+          this.activeFilterCol = colId;
+          this.activeFilterMode = mode;
+          this.currentPage = 1;
+          this.closeHeaderMenu();
+        },
+
+        moveColumn(visibleIdx, direction) {
+          if (!this.isSuperAdmin) return;
+          const col = this.visibleColumns[visibleIdx];
+          if (!col) return;
+          const originalIdx = this.sheetData.columns.findIndex(c => c.id === col.id);
+          const targetOriginalIdx = originalIdx + direction;
+          if (targetOriginalIdx < 0 || targetOriginalIdx >= this.sheetData.columns.length) return;
+          
+          const movedCol = this.sheetData.columns.splice(originalIdx, 1)[0];
+          this.sheetData.columns.splice(targetOriginalIdx, 0, movedCol);
+          
+          // Tetap buka popup menu dan update index aktif agar bisa digeser berkali-kali
+          const newVisibleIdx = this.visibleColumns.findIndex(c => c.id === col.id);
+          this.activeMenuColIdx = newVisibleIdx;
+          this.activeMenuCol = col;
+          
+          this.saveImmediately();
+
+          this.$nextTick(() => {
+            // Reposisi popup agar tetap menempel pada header kolom yang bergeser
+            const thList = document.querySelectorAll('thead th[data-col-id]');
+            for (const th of thList) {
+              if (th.getAttribute('data-col-id') === col.id) {
+                const rect = th.getBoundingClientRect();
+                this.headerMenuPos = {
+                  top: Math.min(rect.bottom + 4, window.innerHeight - 340) + 'px',
+                  left: Math.max(10, Math.min(rect.left - 40, window.innerWidth - 270)) + 'px'
+                };
+                break;
+              }
+            }
+            if (window.lucide) window.lucide.createIcons();
+          });
+        },
+
+        toggleHideColumn(visibleIdx) {
+          if (!this.isSuperAdmin) return;
+          const col = this.visibleColumns[visibleIdx];
+          if (!col) return;
+          col.isHidden = !col.isHidden;
+          this.closeHeaderMenu();
+          this.saveImmediately();
+          this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+
+        hideColumn(visibleIdx) {
+          this.toggleHideColumn(visibleIdx);
+        },
+
+        deleteColFromMenu(visibleIdx) {
+          if (!this.isSuperAdmin) return;
+          if (this.sheetData.columns.length <= 1) return alert('Minimal harus ada 1 kolom!');
+          const col = this.visibleColumns[visibleIdx];
+          if (!col) return;
+          if (!confirm(`Yakin hapus kolom "${col.name}" beserta seluruh datanya?`)) return;
+          
+          const originalIdx = this.sheetData.columns.findIndex(c => c.id === col.id);
+          const colId = col.id;
+          this.sheetData.columns.splice(originalIdx, 1);
+          this.rows.forEach(r => { if (r.data) delete r.data[colId]; });
+          this.closeHeaderMenu();
+          this.saveImmediately();
+          this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+
+        openColSettingsFromMenu() {
+          const col = this.visibleColumns[this.activeMenuColIdx];
+          this.closeHeaderMenu();
+          if (col) {
+            const originalIdx = this.sheetData.columns.findIndex(c => c.id === col.id);
+            this.openColMenu(originalIdx);
+          }
+        },
+
+        // Row Credential Lock & Privacy Masking
+        unlockedRowIds: new Set(),
+        showRowLockSettings: false,
+        tempRowLockEnabled: false,
+        tempCredentialColId: '',
+        tempMaskedColIds: [],
+
+        showAuthModal: false,
+        authModalRow: null,
+        authInput: '',
+        authError: '',
+
+        get hasCredentialLock() {
+          return (this.sheetData.columns || []).some(c => c.isCredential);
+        },
+
+        get credentialCol() {
+          return (this.sheetData.columns || []).find(c => c.isCredential) || 
+                 (this.sheetData.columns || []).find(c => c.type === 'nip') || 
+                 this.sheetData.columns[0];
+        },
+
+        isRowUnlocked(row) {
+          if (this.isSuperAdmin) return true;
+          if (!this.hasCredentialLock) return true;
+          const rowKey = String(row.id || row._localId);
+          return this.unlockedRowIds.has(rowKey);
+        },
+
+        isCellMasked(row, col) {
+          if (this.isSuperAdmin) return false;
+          if (!this.hasCredentialLock) return false;
+          if (!col.isMasked && !col.requiresAuth) return false;
+          if (this.isRowUnlocked(row)) return false;
+          const val = row.data?.[col.id];
+          return !!(val && String(val).trim().length > 0);
+        },
+
+        canEditCell(row, col) {
+          if (this.isSuperAdmin) return true;
+          if (col.isLocked) return false;
+          // Kolom yang bersifat privasi / butuh otorisasi kredensial (requiresAuth atau isMasked)
+          // hanya bisa diedit jika baris sudah dibuka (unlocked)
+          if (this.hasCredentialLock && (col.requiresAuth || col.isMasked)) {
+            return this.isRowUnlocked(row);
+          }
+          // Kolom umum lainnya bebas diedit oleh publik tanpa kredensial!
+          return true;
+        },
+
+        openRowAuthModal(row) {
+          this.authModalRow = row;
+          this.authInput = '';
+          this.authError = '';
+          this.showAuthModal = true;
+          this.$nextTick(() => {
+            const inp = document.getElementById('auth-nip-input');
+            if (inp) inp.focus();
+            if (window.lucide) window.lucide.createIcons();
+          });
+        },
+
+        verifyRowAuth() {
+          if (!this.authModalRow) return;
+          const targetCol = this.credentialCol;
+          if (!targetCol) return;
+          const expectedVal = (this.authModalRow.data?.[targetCol.id] || '').toString().trim().toLowerCase();
+          const inputVal = (this.authInput || '').trim().toLowerCase();
+          if (!inputVal) {
+            this.authError = `Silakan masukkan ${targetCol.name}`;
+            return;
+          }
+          const isNip = targetCol.type === 'nip' || (targetCol.name || '').toLowerCase().includes('nip');
+          const normExpected = isNip ? expectedVal.replace(/\D/g, '') : expectedVal;
+          const normInput = isNip ? inputVal.replace(/\D/g, '') : inputVal;
+          if (normExpected && normInput && normExpected === normInput) {
+            const rowKey = String(this.authModalRow.id || this.authModalRow._localId);
+            this.unlockedRowIds.add(rowKey);
+            try {
+              sessionStorage.setItem('sheet_unlocked_' + this.sheetData.id, JSON.stringify(Array.from(this.unlockedRowIds)));
+            } catch(e) {}
+            this.showAuthModal = false;
+            this.authModalRow = null;
+            this.authInput = '';
+            this.authError = '';
+            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+          } else {
+            this.authError = `${targetCol.name} yang dimasukkan tidak sesuai!`;
+          }
+        },
+
+        initRowLockSettings() {
+          this.tempRowLockEnabled = this.hasCredentialLock;
+          this.tempCredentialColId = this.credentialCol?.id || this.sheetData.columns[0]?.id || '';
+          this.tempMaskedColIds = this.sheetData.columns.filter(c => c.isMasked || c.requiresAuth).map(c => c.id);
+        },
+
+        saveRowLockSettings() {
+          if (!this.tempRowLockEnabled) {
+            this.sheetData.columns.forEach(c => {
+              c.isCredential = false;
+              c.isMasked = false;
+              c.requiresAuth = false;
+            });
+          } else {
+            this.sheetData.columns.forEach(c => {
+              c.isCredential = (c.id === this.tempCredentialColId);
+              const isProtected = this.tempMaskedColIds.includes(c.id);
+              c.isMasked = isProtected;
+              c.requiresAuth = isProtected;
+            });
+          }
+          this.showRowLockSettings = false;
+          this.saveImmediately();
+          this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+
+        // File Upload State
+        activeUploadRow: null,
+        activeUploadColId: null,
+        uploadingCellKey: null,
+
+        // Modals
+        showShareModal: false,
+        copied: false,
+        showImportModal: false,
+        isImporting: false,
+        importForm: { source: 'PEGAWAI', mode: 'append' },
+
+        showColMenu: false,
+        activeCol: {},
+        activeColIdx: -1,
+
+        get shareUrl() {
+          return window.location.origin + '/smart-sheet/' + (this.sheetData.slug || '');
+        },
+
+        // Computed Filtered & Searched Rows (Instant in-memory lookup)
+        get displayedRows() {
+          let list = this.rows;
+
+          // Keyword Search across all cells
+          if (this.searchQuery.trim()) {
+            const q = this.searchQuery.toLowerCase().trim();
+            list = list.filter(r => {
+              const vals = Object.values(r.data || {});
+              return vals.some(v => String(v || '').toLowerCase().includes(q));
+            });
+          }
+
+          // Column Filter
+          if (this.activeFilterCol) {
+            const colId = this.activeFilterCol;
+            if (this.activeFilterMode === 'filled') {
+              list = list.filter(r => (r.data?.[colId] || '').toString().trim() !== '');
+            } else if (this.activeFilterMode === 'empty') {
+              list = list.filter(r => !(r.data?.[colId] || '').toString().trim());
+            }
+          }
+
+          return list;
+        },
+
+        init() {
+          try {
+            const saved = sessionStorage.getItem('sheet_unlocked_' + this.sheetData.id);
+            if (saved) {
+              const arr = JSON.parse(saved);
+              if (Array.isArray(arr)) {
+                this.unlockedRowIds = new Set(arr);
+              }
+            }
+          } catch(e) {}
+
+          this.$watch('searchQuery', () => { this.currentPage = 1; });
+
+          this.windowWidth = window.innerWidth;
+          window.addEventListener('resize', () => {
+            this.windowWidth = window.innerWidth;
+          });
+
+          try {
+            const savedFit = localStorage.getItem('smart_sheet_fit_window_' + this.sheetData.id);
+            if (savedFit !== null) {
+              this.isFitWindow = (savedFit === '1');
+            } else {
+              this.isFitWindow = (this.visibleColumns.length <= 14);
+            }
+          } catch(e) {}
+
+          this.initRowLockSettings();
+          if (window.lucide) window.lucide.createIcons();
+          window.addEventListener('beforeunload', (e) => {
+            if (this.saveState === 'dirty') e.returnValue = 'Menyimpan perubahan...';
+          });
+        },
+
+        // ==========================================
+        // REALTIME AUTOSAVE (Google Sheets Style)
+        // ==========================================
+        triggerAutoSave() {
+          this.saveState = 'dirty';
+          clearTimeout(this.saveTimer);
+          this.saveTimer = setTimeout(() => {
+            this.saveImmediately();
+          }, 600);
+        },
+
+        async saveImmediately() {
+          clearTimeout(this.saveTimer);
+          this.saveState = 'saving';
+          try {
+            const payload = {
+              title: this.sheetData.title,
+              description: this.sheetData.description || '',
+              columns: this.sheetData.columns,
+              rows: this.rows
+            };
+
+            const endpoint = this.isSuperAdmin 
+              ? `/admin/smart-sheets/${this.sheetData.id}/save`
+              : `/smart-sheet/${this.sheetData.id}/save`;
+
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (data.success) {
+              this.saveState = 'saved';
+            } else {
+              console.warn('[SmartSheet] Autosave error:', data.message);
+              this.saveState = 'error';
+            }
+          } catch (e) {
+            console.error('[SmartSheet] Autosave exception:', e);
+            this.saveState = 'error';
+          }
+        },
+
+        // ==========================================
+        // CELL FILE UPLOAD
+        // ==========================================
+        triggerCellUpload(row, colId) {
+          this.activeUploadRow = row;
+          this.activeUploadColId = colId;
+          this.$refs.cellFileInput.value = '';
+          this.$refs.cellFileInput.click();
+        },
+
+        async onCellFileSelected(e) {
+          const file = e.target.files?.[0];
+          if (!file || !this.activeUploadRow || !this.activeUploadColId) return;
+
+          const row = this.activeUploadRow;
+          const colId = this.activeUploadColId;
+          const cellKey = row.id + '_' + colId;
+          this.uploadingCellKey = cellKey;
+
+          const formData = new FormData();
+          formData.append('file', file);
+
+          try {
+            const endpoint = this.isSuperAdmin 
+              ? `/admin/smart-sheets/${this.sheetData.id}/upload-cell`
+              : `/smart-sheet/${this.sheetData.id}/upload-cell`;
+
+            const res = await fetch(endpoint, {
+              method: 'POST',
+              body: formData
+            });
+            const data = await res.json();
+
+            if (data.success && data.fileUrl) {
+              row.data[colId] = data.fileUrl;
+              await this.saveImmediately();
+              this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            } else {
+              alert(data.message || 'Gagal mengunggah berkas');
+            }
+          } catch (err) {
+            alert('Kesalahan saat mengunggah berkas');
+          } finally {
+            this.uploadingCellKey = null;
+            this.activeUploadRow = null;
+            this.activeUploadColId = null;
+          }
+        },
+
+        removeCellFile(row, colId) {
+          if (!confirm('Hapus berkas dari baris ini?')) return;
+          row.data[colId] = '';
+          this.triggerAutoSave();
+        },
+
+        extractFileName(url) {
+          if (!url) return '';
+          const parts = url.split('/');
+          const raw = parts[parts.length - 1];
+          return raw.replace(/^sheet-\d+-/, '');
+        },
+
+        // ==========================================
+        // FILTER HELPER
+        // ==========================================
+        resetFilter() {
+          this.activeFilterCol = '';
+          this.activeFilterMode = 'all';
+          this.currentPage = 1;
+        },
+
+        // ==========================================
+        // SHARE MODAL
+        // ==========================================
+        openShareModal() {
+          this.showShareModal = true;
+          this.copyShareLink();
+          this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+
+        async copyShareLink() {
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(this.shareUrl);
+            } else {
+              const ta = document.createElement('textarea');
+              ta.value = this.shareUrl;
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              document.body.removeChild(ta);
+            }
+            this.copied = true;
+            this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            setTimeout(() => {
+              this.copied = false;
+              this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+            }, 3000);
+          } catch (e) {
+            console.error('Copy failed:', e);
+          }
+        },
+
+        // ==========================================
+        // DATABASE IMPORT (SuperAdmin Only)
+        // ==========================================
+        async runImport() {
+          if (this.isImporting) return;
+          this.isImporting = true;
+          try {
+            const res = await fetch(`/admin/smart-sheets/${this.sheetData.id}/import`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(this.importForm)
+            });
+            const data = await res.json();
+            if (data.success) {
+              window.location.reload();
+            } else {
+              alert(data.message || 'Gagal import data');
+              this.isImporting = false;
+            }
+          } catch (e) {
+            alert('Terjadi kesalahan jaringan');
+            this.isImporting = false;
+          }
+        },
+
+        // ==========================================
+        // COLUMN & ROW CONTROLS (SuperAdmin Only)
+        // ==========================================
+        addColumn() {
+          if (!this.isSuperAdmin) return;
+          const newId = 'c_' + Date.now();
+          this.sheetData.columns.push({ 
+            id: newId, 
+            name: 'Kolom Baru', 
+            type: 'text', 
+            width: 180, 
+            options: [],
+            isLocked: false,
+            isCredential: false,
+            requiresAuth: false,
+            isMasked: false,
+            isHidden: false,
+            isFrozen: false
+          });
+          this.rows.forEach(r => { if (r.data) r.data[newId] = ''; });
+          this.saveImmediately();
+          this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+
+        addRows(count = 10) {
+          if (!this.isSuperAdmin) return;
+          const maxRowIdx = this.rows.length > 0 ? Math.max(...this.rows.map(r => r.rowIndex || 0)) : -1;
+          for (let i = 0; i < count; i++) {
+            const newRow = { _localId: 'new_' + Date.now() + i, rowIndex: maxRowIdx + 1 + i, data: {} };
+            this.sheetData.columns.forEach(c => newRow.data[c.id] = '');
+            this.rows.push(newRow);
+          }
+          this.saveImmediately();
+          this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+
+        // Custom Dropdown Options Helper & State
+        activeColOptionsText: '',
+
+        getColOptions(col) {
+          if (!col) return [];
+          if (Array.isArray(col.options) && col.options.length > 0) {
+            return col.options;
+          }
+          if (typeof col.options === 'string' && col.options.trim()) {
+            return col.options.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+          }
+          return ['Pilihan 1', 'Pilihan 2', 'Pilihan 3'];
+        },
+
+        updateActiveColOptions() {
+          if (!this.activeCol) return;
+          const parsed = (this.activeColOptionsText || '')
+            .split(/[\n,]+/)
+            .map(s => s.trim())
+            .filter(Boolean);
+          this.activeCol.options = parsed;
+          this.triggerAutoSave();
+        },
+
+        openColMenu(idx) {
+          if (!this.isSuperAdmin) return;
+          this.activeColIdx = idx;
+          this.activeCol = this.sheetData.columns[idx]; 
+          const opts = this.activeCol.options;
+          if (Array.isArray(opts)) {
+            this.activeColOptionsText = opts.join(', ');
+          } else if (typeof opts === 'string') {
+            this.activeColOptionsText = opts;
+          } else {
+            this.activeColOptionsText = '';
+          }
+          this.showColMenu = true;
+          this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+
+        deleteActiveCol() {
+          if (!this.isSuperAdmin) return;
+          if (this.sheetData.columns.length <= 1) return alert('Minimal harus ada 1 kolom!');
+          if (!confirm('Yakin hapus kolom ini beserta seluruh datanya?')) return;
+          
+          const colId = this.sheetData.columns[this.activeColIdx].id;
+          this.sheetData.columns.splice(this.activeColIdx, 1);
+          this.rows.forEach(r => { if (r.data) delete r.data[colId]; });
+          
+          this.showColMenu = false;
+          this.saveImmediately();
+          this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        }
+      };
+    }
+  </script>
+</body>
+</html>

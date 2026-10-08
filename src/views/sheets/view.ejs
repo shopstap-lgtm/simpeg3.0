@@ -177,6 +177,16 @@
         </div>
 
 
+        <!-- Fit to Screen Toggle (Khusus Tablet & Desktop) -->
+        <button type="button"
+                @click="isFitToScreen = !isFitToScreen"
+                :class="isFitToScreen ? 'bg-indigo-100 text-indigo-700 border-indigo-200 shadow-inner' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'"
+                class="hidden sm:flex px-2 py-1.5 rounded-xl border text-[10px] font-bold items-center gap-1.5 transition-colors cursor-pointer"
+                title="Paksa agar semua kolom muat di layar tanpa scroll horizontal">
+          <i data-lucide="maximize" class="w-3.5 h-3.5"></i>
+          <span>Fit Screen</span>
+        </button>
+
         <!-- Tombol Geser Kolom Horizontal -->
         <div class="flex items-center gap-1 bg-slate-100 p-0.5 rounded-xl border border-slate-200" title="Geser tabel ke kiri / kanan">
           <button type="button"
@@ -210,12 +220,14 @@
 
       <div x-ref="tableScroll"
            @scroll="syncScroll('bottom')"
-           class="overflow-x-auto max-h-[700px] relative scrollbar-thin">
-        <table class="w-full border-collapse text-left text-xs" @paste="handlePublicPaste($event)">
+           class="overflow-x-auto max-h-[700px] relative scrollbar-thin [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
+        <table class="w-full border-collapse text-left text-xs" 
+               :class="(isFitToScreen && !isMobile) ? '[&_th]:!min-w-0 [&_th]:!w-auto' : ''"
+               @paste="handlePublicPaste($event)">
           <!-- Table Header -->
           <thead class="bg-slate-100/90 sticky top-0 z-20 text-[11px] font-black text-slate-600 uppercase tracking-wider border-b border-slate-300 select-none shadow-2xs">
             <tr>
-              <th class="py-3 px-3 w-12 text-center border-r border-slate-200 bg-slate-100">#</th>
+              <th class="py-3 px-3 w-12 text-center border-r border-slate-200 bg-slate-100 sticky left-0 z-30 shadow-2xs">#</th>
               
               <!-- Fallback Identitas Columns if not explicitly defined in sheet -->
               <template x-if="!isFieldDefinedInSheet('nama') && !isFieldDefinedInSheet('label') && isIdentColVisible('label')">
@@ -359,8 +371,8 @@
                     'hover:bg-slate-50/80': !isRowUnlocked(row) && !isRowFilled(row)
                   }">
                 
-                <!-- Index -->
-                <td class="py-2.5 px-3 text-center border-r border-slate-200 font-mono text-[11px] text-slate-400 bg-slate-50/30"
+                <!-- Index Sticky Column -->
+                <td class="py-2.5 px-3 text-center border-r border-slate-200 font-mono text-[11px] text-slate-500 bg-slate-50 sticky left-0 z-10"
                     x-text="getRowGlobalIndex(rowIdx)">
                 </td>
 
@@ -621,9 +633,9 @@
                       <button type="button"
                               @click="promptUnlockRow(row)"
                               class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-700 hover:text-white bg-amber-50 hover:bg-amber-600 border border-amber-200 hover:border-amber-600 shadow-2xs transition-all cursor-pointer"
-                              title="Buka kunci baris ini menggunakan kredensial NIP">
+                              :title="targetType === 'UNIT' ? 'Buka kunci baris ini menggunakan Nama Unit Sekolah' : 'Buka kunci baris ini menggunakan kredensial identitas'">
                         <i data-lucide="key" class="w-3.5 h-3.5 text-amber-600 group-hover:text-white"></i>
-                        <span>Verifikasi NIP</span>
+                        <span x-text="targetType === 'UNIT' ? 'Verifikasi Unit' : (targetType === 'PEGAWAI' ? 'Verifikasi NIP' : 'Verifikasi Baris')"></span>
                       </button>
                     </template>
                   </td>
@@ -700,22 +712,29 @@
           <i data-lucide="shield-alert" class="w-7 h-7"></i>
         </div>
         <h3 class="font-black text-slate-900 text-lg">Verifikasi Identitas</h3>
-        <p class="text-xs text-slate-500 leading-relaxed">
-          Masukkan <b>NIP</b> Anda untuk membuka akses pengisian baris data Anda.
-        </p>
-      </div>
+          <template x-if="targetType === 'UNIT'">
+            <p class="text-xs text-slate-500 leading-relaxed">
+              Masukkan <b>Nama Unit Sekolah</b> (Sesuai dengan data di atas) untuk membuka akses pengisian baris data Anda.
+            </p>
+          </template>
+          <template x-if="targetType !== 'UNIT'">
+            <p class="text-xs text-slate-500 leading-relaxed">
+              Masukkan <b>NIP / Kode Identitas</b> Anda untuk membuka akses pengisian baris data Anda.
+            </p>
+          </template>
+        </div>
 
-      <!-- Form Verify -->
-      <div class="space-y-3 pt-2">
-        <div>
-          <label class="block font-bold text-slate-700 text-xs mb-1">
-            Nomor Induk Pegawai (NIP):
-          </label>
-          <input type="text"
-                 x-model="verifyInput.nip"
-                 @keydown.enter="submitVerifyNip()"
-                 placeholder="Contoh: 198501012010011005"
-                 class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono font-bold text-sm focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all">
+        <!-- Form Verify -->
+        <div class="space-y-3 pt-2">
+          <div>
+            <label class="block font-bold text-slate-700 text-xs mb-1">
+              <span x-text="targetType === 'UNIT' ? 'Nama Unit Sekolah:' : (targetType === 'PEGAWAI' ? 'Nomor Induk Pegawai (NIP):' : 'Kode Identitas Baris:')"></span>
+            </label>
+            <input type="text"
+                   x-model="verifyInput.nip"
+                   @keydown.enter="submitVerifyNip()"
+                   :placeholder="targetType === 'UNIT' ? 'Contoh: SDN CIBITUNG 01' : (targetType === 'PEGAWAI' ? 'Contoh: 198501012010011005' : 'Masukkan identitas')"
+                   class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-mono font-bold text-sm focus:bg-white focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 outline-none transition-all">
         </div>
 
         <template x-if="verifyError">
@@ -944,6 +963,11 @@
       isVerifying: false,
       verifyError: '',
       verifyInput: { nip: '' },
+      windowWidth: typeof window !== 'undefined' ? window.innerWidth : 1200,
+      get isMobile() {
+        return this.windowWidth < 768;
+      },
+      isFitToScreen: false,
 
       // Session Timer State (PROTECTED_NIP mode)
       sessionTimerSeconds: 0,
@@ -964,6 +988,7 @@
       _isSyncingScroll: false,
 
       init() {
+        this.windowWidth = window.innerWidth;
         if (window.lucide) {
           this.$nextTick(() => window.lucide.createIcons());
         }
@@ -984,6 +1009,7 @@
         }, { passive: true, capture: true });
 
         window.addEventListener('resize', () => {
+          this.windowWidth = window.innerWidth;
           this.updateScrollMetrics();
           if (this.activeFilterCol) this.repositionFilterDropdown();
         }, { passive: true });

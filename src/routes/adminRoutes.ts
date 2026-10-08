@@ -16,6 +16,7 @@ import { fileManagerController } from '../controllers/admin/fileManagerControlle
 import { ncrAdminController } from '../controllers/admin/ncrAdminController';
 import { formController } from '../controllers/admin/formController';
 import { sheetAdminController } from '../controllers/admin/sheetAdminController';
+import { smartSheetController } from '../controllers/admin/smartSheetController';
 import { requireAdmin, requireSuperAdmin, requireSuperAdminOrDinas, requireNonDinas, requireMenuAccess } from '../middleware/requireAdmin';
 import { presenceService } from '../services/presenceService';
 
@@ -222,6 +223,18 @@ router.post('/sheets/:id/columns/:colKey/restore', requireMenuAccess('forms'), s
 router.post('/sheets/:id/columns/:colKey/toggle-public-value', requireMenuAccess('forms'), sheetAdminController.togglePublicValue);
 router.post('/sheets/:id/columns/update', requireMenuAccess('forms'), sheetAdminController.updateColumns);
 router.post('/sheets/:id/columns/visibility', requireMenuAccess('forms'), sheetAdminController.updateColumnsVisibility);
+
+// ==========================================
+// SMART SHEETS (DATAGRID BARU)
+// ==========================================
+router.get('/smart-sheets', requireMenuAccess('forms'), smartSheetController.index);
+router.post('/smart-sheets', requireMenuAccess('forms'), smartSheetController.create);
+router.get('/smart-sheets/:slug', requireMenuAccess('forms'), smartSheetController.viewGrid);
+router.post('/smart-sheets/:id/save', requireMenuAccess('forms'), smartSheetController.saveGrid);
+router.post('/smart-sheets/:id/upload-cell', requireMenuAccess('forms'), sheetCellUpload.single('file'), smartSheetController.uploadCellFile);
+router.post('/smart-sheets/:id/import', requireMenuAccess('forms'), smartSheetController.importData);
+router.post('/smart-sheets/:id/delete', requireMenuAccess('forms'), smartSheetController.delete);
+
 
 // 11. Real-time Online Users Stats (Admin Only)
 router.get('/api/online-users', requireAdmin, (_req, res) => {

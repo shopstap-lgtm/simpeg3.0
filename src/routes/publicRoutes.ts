@@ -9,6 +9,7 @@ import { ekinerjaController } from '../controllers/ekinerjaController';
 import { ncrPublicController } from '../controllers/ncrPublicController';
 import { publicFormController } from '../controllers/publicFormController';
 import { sheetPublicController } from '../controllers/sheetPublicController';
+import { smartSheetController } from '../controllers/admin/smartSheetController';
 import { checkMaintenance } from '../middleware/maintenanceMiddleware';
 import { presenceService } from '../services/presenceService';
 
@@ -107,6 +108,11 @@ router.post('/sheet/:slug/save-row', sheetPublicController.saveRow);
 router.post('/sheet/:slug/upload-cell', sheetCellUpload.single('file'), sheetPublicController.uploadCellFile);
 router.post('/sheet/:slug/bulk-save', sheetPublicController.bulkSave);
 router.get('/sheet/:slug/export', sheetPublicController.exportXlsx);
+
+// Smart Sheets (Grid Spreadsheet Interaktif)
+router.get('/smart-sheet/:slug', smartSheetController.viewGrid);
+router.post('/smart-sheet/:id/save', smartSheetController.saveGrid);
+router.post('/smart-sheet/:id/upload-cell', sheetCellUpload.single('file'), smartSheetController.uploadCellFile);
 
 // Real-time Presence Heartbeat
 router.post('/api/presence/ping', (req, res) => {
