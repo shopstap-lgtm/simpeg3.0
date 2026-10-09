@@ -415,7 +415,7 @@
             <!-- Dynamic Headers (Mendukung Blok Kolom, Freeze & Fit Window) -->
             <template x-for="(col, colIdx) in visibleColumns" :key="col.id">
               <th :data-col-id="col.id" 
-                  class="border transition-colors relative group select-none text-center cursor-pointer"
+                  class="border transition-colors relative select-none cursor-pointer"
                   :class="{
                     'sticky z-25 shadow-2xs': isColFrozen(colIdx),
                     'border-r-2 border-r-slate-400 shadow-[2px_0_5px_-1px_rgba(0,0,0,0.12)]': isLastFrozenCol(colIdx),
@@ -425,12 +425,12 @@
                   :style="getColHeaderStyle(col, colIdx)"
                   @click="toggleSelectCol(col, $event)"
                   :title="'Klik untuk blok kolom ' + col.name + ' (Tahan Shift untuk blok rentang)'">
-                <div class="py-1.5 flex items-center justify-center relative min-h-[34px] pl-2 pr-7">
-                  <!-- Centered Title (SuperAdmin: Klik nama kolom untuk buka Pengaturan Kolom) -->
-                  <div class="flex items-center justify-center gap-1 truncate min-w-0 w-full"
+                <div class="py-1.5 px-2 flex items-center justify-between gap-1.5 min-h-[34px] w-full">
+                  <!-- Judul Header Kolom (Rata Kiri / Fleksibel, SuperAdmin: Klik nama kolom untuk buka Pengaturan Kolom) -->
+                  <div class="flex items-center gap-1 min-w-0 flex-1 truncate"
                        @click.stop="isSuperAdmin ? openColMenuByColId(col.id) : toggleSelectCol(col, $event)"
                        :title="isSuperAdmin ? 'Klik untuk Pengaturan Kolom ' + col.name : 'Kolom ' + col.name">
-                    <span class="text-xs font-bold truncate text-center transition" 
+                    <span class="text-xs font-bold truncate transition" 
                           :class="isSuperAdmin ? 'hover:text-indigo-600 hover:underline cursor-pointer' : (isColSelected(col) ? 'text-indigo-900 font-black' : 'text-slate-700')"
                           x-text="col.name"></span>
                     
@@ -448,10 +448,10 @@
                     </template>
                   </div>
 
-                  <!-- Tombol Filter di Pojok Kanan Header (Tampil Jelas, Tegas, dan Selalu Terlihat) -->
+                  <!-- Tombol Filter di Sebelah RATA KANAN (Tidak Menghalangi Nama Header) -->
                   <button type="button" 
                           @click.stop="openHeaderMenu(colIdx, $event)" 
-                          class="absolute right-1 top-1/2 -translate-y-1/2 w-5.5 h-5.5 rounded-md flex items-center justify-center transition shrink-0 cursor-pointer z-10 shadow-2xs border"
+                          class="w-5.5 h-5.5 rounded-md flex items-center justify-center transition shrink-0 cursor-pointer shadow-2xs border ml-auto"
                           :class="activeFilterCol === col.id 
                             ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs' 
                             : 'bg-white hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border-slate-300 hover:border-indigo-400'"
