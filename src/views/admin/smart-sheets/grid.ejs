@@ -33,6 +33,11 @@
       background: #ffffff;
       box-shadow: inset 0 0 0 1px #4f46e5;
     }
+    .cell-input-nip {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+      font-variant-numeric: tabular-nums !important;
+      letter-spacing: 0.04em !important;
+    }
     .cell-readonly {
       background-color: #f8fafc;
       cursor: default;
@@ -603,7 +608,11 @@
                                    @input="triggerAutoSave()" 
                                    @blur="saveImmediately()"
                                    class="cell-input" 
-                                   :class="{'cell-readonly': !canEditCell(row, col), 'cursor-pointer hover:bg-amber-50/40': !canEditCell(row, col) && hasCredentialLock && (col.requiresAuth || col.isMasked)}"
+                                   :class="{
+                                     'cell-input-nip font-mono tabular-nums tracking-wider text-slate-800': col.type === 'nip' || (col.name || '').toLowerCase().includes('nip') || (col.id || '').toLowerCase().includes('nip'),
+                                     'cell-readonly': !canEditCell(row, col), 
+                                     'cursor-pointer hover:bg-amber-50/40': !canEditCell(row, col) && hasCredentialLock && (col.requiresAuth || col.isMasked)
+                                   }"
                                    :readonly="!canEditCell(row, col)"
                                    :placeholder="!canEditCell(row, col) ? (hasCredentialLock && (col.requiresAuth || col.isMasked) && !isRowUnlocked(row) ? 'Terkunci (Perlu Akses)' : '') : '...'">
                           </div>
