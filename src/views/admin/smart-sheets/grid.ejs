@@ -226,11 +226,11 @@
       <div class="relative" x-data="{ open: false }">
         <button type="button" 
                 @click="open = !open" 
-                :class="activeFilterCol ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-bold' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'"
+                :class="hasActiveFilters ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-bold shadow-2xs' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'"
                 class="px-2.5 py-1.5 rounded-xl border text-xs flex items-center gap-1.5 transition cursor-pointer">
           <i data-lucide="filter" class="w-3.5 h-3.5"></i>
           <span>Filter</span>
-          <span x-show="activeFilterCol" class="w-2 h-2 rounded-full bg-indigo-600"></span>
+          <span x-show="hasActiveFilters" class="w-2 h-2 rounded-full bg-indigo-600"></span>
         </button>
 
         <!-- Filter Popover -->
@@ -240,7 +240,7 @@
              class="absolute left-0 mt-1 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-3 z-50 space-y-3">
           <div class="flex items-center justify-between border-b border-slate-100 pb-2">
             <span class="text-xs font-bold text-slate-800">Filter Kolom</span>
-            <button type="button" @click="resetFilter(); open = false;" class="text-[10px] text-rose-600 hover:underline">Reset</button>
+            <button type="button" @click="clearAllFilters(); open = false;" class="text-[10px] text-rose-600 hover:underline">Reset</button>
           </div>
           <div>
             <label class="block text-[11px] font-semibold text-slate-500 mb-1">Pilih Kolom:</label>
@@ -359,7 +359,12 @@
     <div class="text-[11px] text-slate-500 flex items-center gap-2">
       <span x-text="`${displayedRows.length.toLocaleString()} Baris`"></span>
       <span x-show="hasCredentialLock" class="text-amber-600 font-semibold">• Kredensial Aktif</span>
-      <span x-show="searchQuery || activeFilterCol" class="text-indigo-600 font-semibold">• Terfilter</span>
+      <span x-show="searchQuery || hasActiveFilters" class="text-indigo-600 font-semibold">• Terfilter</span>
+      <template x-if="hasActiveFilters">
+        <button type="button" @click="clearAllFilters()" class="text-indigo-600 hover:text-indigo-800 underline font-semibold ml-0.5 cursor-pointer">
+          (Hapus Filter)
+        </button>
+      </template>
       <span class="sm:hidden text-[10px] text-slate-400 font-normal">← Geser tabel →</span>
     </div>
   </div>
@@ -458,10 +463,10 @@
                   <button type="button" 
                           @click.stop="openHeaderMenu(colIdx, $event)" 
                           class="w-5 h-5 sm:w-5.5 sm:h-5.5 rounded-md flex items-center justify-center transition shrink-0 cursor-pointer shadow-2xs border justify-self-end"
-                          :class="activeFilterCol === col.id 
-                            ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs' 
+                          :class="isColFiltered(col.id) 
+                            ? 'bg-indigo-600 text-white border-indigo-700 shadow-xs ring-2 ring-indigo-300' 
                             : 'bg-white hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 border-slate-300 hover:border-indigo-400'"
-                          title="Filter & Urutkan">
+                          :title="isColFiltered(col.id) ? 'Filter Aktif pada Kolom Ini (Klik untuk ubah)' : 'Filter & Urutkan'">
                     <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/>
                     </svg>
@@ -686,7 +691,12 @@
     <div class="bg-white border-t border-slate-200 px-3 sm:px-5 py-2 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-600 shrink-0 z-20 select-none">
       <div class="flex items-center gap-2">
         <span class="font-medium text-slate-700" x-text="paginationInfo"></span>
-        <span x-show="searchQuery || activeFilterCol" class="text-indigo-600 font-semibold">• Terfilter</span>
+        <span x-show="searchQuery || hasActiveFilters" class="text-indigo-600 font-semibold">• Terfilter</span>
+        <template x-if="hasActiveFilters">
+          <button type="button" @click="clearAllFilters()" class="text-indigo-600 hover:text-indigo-800 underline font-semibold ml-0.5 cursor-pointer">
+            (Hapus Filter)
+          </button>
+        </template>
       </div>
 
       <div class="flex items-center gap-3">
@@ -1011,18 +1021,22 @@
   <div x-show="showHeaderMenu" 
        x-cloak 
        @click.outside="closeHeaderMenu()"
-       class="fixed z-50 bg-white rounded-2xl shadow-xl border border-slate-200 w-64 py-1.5 text-xs select-none"
+       class="fixed z-50 bg-white rounded-2xl shadow-2xl border border-slate-200/90 w-72 sm:w-80 py-1.5 text-xs select-none max-h-[85vh] overflow-y-auto"
        :style="`top: ${headerMenuPos.top}; left: ${headerMenuPos.left};`">
     
-    <!-- Header: Tombol Tutup (Tanpa Opsi Kolom / Nama Kolom) -->
-    <div class="px-2.5 py-1.5 border-b border-slate-100 flex items-center justify-end">
+    <!-- Header: Tombol Tutup (Tanpa Opsi Kolom / Nama Kolom Sesuai Permintaan) -->
+    <div class="px-2.5 py-1.5 border-b border-slate-100 flex items-center justify-between">
+      <div class="flex items-center gap-1.5 min-w-0">
+        <i data-lucide="filter" class="w-3.5 h-3.5 text-indigo-600 shrink-0"></i>
+        <span class="font-bold text-[11px] text-slate-700 truncate" x-text="activeMenuCol.name || 'Kolom'"></span>
+      </div>
       <button type="button" @click="closeHeaderMenu()" class="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 cursor-pointer transition" title="Tutup">
         <i data-lucide="x" class="w-3.5 h-3.5"></i>
       </button>
     </div>
 
     <!-- 1. SORT SECTION (SEJAJAR HORIZONTAL) -->
-    <div class="p-2 border-b border-slate-100">
+    <div class="p-2.5 border-b border-slate-100">
       <div class="px-0.5 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Urutkan (Sort)</div>
       <div class="grid grid-cols-2 gap-1.5">
         <button type="button" 
@@ -1040,11 +1054,90 @@
       </div>
     </div>
 
-    <!-- 2. FILTER SECTION (DROPDOWN MENU DENGAN ISIAN KOLOM) -->
-    <div class="p-2 border-b border-slate-100">
-      <label class="block px-0.5 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Filter Data</label>
-      <select :value="activeFilterCol === activeMenuCol.id ? activeFilterMode : 'all'"
-              @change="filterColMode(activeMenuCol.id, $event.target.value)"
+    <!-- 2. FILTER MENURUT KONDISI (VALIDASI ATURAN SEPERTI GOOGLE SPREADSHEET) -->
+    <div class="p-2.5 border-b border-slate-100 bg-slate-50/50">
+      <div class="flex items-center justify-between pb-1">
+        <div class="flex items-center gap-1 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+          <i data-lucide="shield-check" class="w-3 h-3 text-indigo-600"></i>
+          <span>Filter Menurut Kondisi</span>
+        </div>
+        <template x-if="filterConditionType !== 'none'">
+          <button type="button" 
+                  @click="filterConditionType = 'none'; filterConditionVal1 = ''; filterConditionVal2 = '';" 
+                  class="text-[10px] text-rose-600 hover:text-rose-700 font-semibold cursor-pointer">
+            Hapus Aturan
+          </button>
+        </template>
+      </div>
+      
+      <!-- Dropdown Kondisi / Validasi Aturan -->
+      <select x-model="filterConditionType"
+              class="w-full text-xs font-medium py-1.5 px-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer">
+        <option value="none">-- Tidak Ada Aturan (Semua) --</option>
+        <optgroup label="Kondisi Kosong / Terisi">
+          <option value="empty">Sel kosong</option>
+          <option value="not_empty">Sel tidak kosong</option>
+        </optgroup>
+        <optgroup label="Aturan Teks">
+          <option value="text_contains">Teks berisi</option>
+          <option value="text_not_contains">Teks tidak berisi</option>
+          <option value="text_starts_with">Teks dimulai dengan</option>
+          <option value="text_ends_with">Teks diakhiri dengan</option>
+          <option value="text_exact">Teks sama persis</option>
+        </optgroup>
+        <optgroup label="Aturan Angka (Numerik)">
+          <option value="num_gt">Lebih besar dari ( &gt; )</option>
+          <option value="num_gte">Lebih besar atau sama ( &ge; )</option>
+          <option value="num_lt">Kurang dari ( &lt; )</option>
+          <option value="num_lte">Kurang dari atau sama ( &le; )</option>
+          <option value="num_eq">Sama dengan ( = )</option>
+          <option value="num_neq">Tidak sama dengan ( &ne; )</option>
+          <option value="num_between">Antara (Rentang Nilai)</option>
+          <option value="num_not_between">Tidak di antara</option>
+        </optgroup>
+        <optgroup label="Aturan Tanggal">
+          <option value="date_exact">Tanggal sama dengan</option>
+          <option value="date_before">Tanggal sebelum</option>
+          <option value="date_after">Tanggal sesudah</option>
+        </optgroup>
+      </select>
+
+      <!-- Input 1 Nilai -->
+      <div x-show="isSingleValCondition" class="mt-2 space-y-1" x-cloak>
+        <label class="block text-[10px] font-semibold text-slate-500">Nilai / Kata Kunci:</label>
+        <input type="text" 
+               x-model="filterConditionVal1" 
+               @keydown.enter="applyColFilter()"
+               :placeholder="filterConditionType.startsWith('num_') ? 'Contoh: 100' : (filterConditionType.startsWith('date_') ? 'Contoh: 2026-10-09' : 'Masukkan kata kunci...')"
+               class="w-full text-xs py-1.5 px-2.5 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-800 placeholder:text-slate-400">
+      </div>
+
+      <!-- Input 2 Nilai (Rentang Min - Max) -->
+      <div x-show="isDoubleValCondition" class="mt-2 space-y-1" x-cloak>
+        <label class="block text-[10px] font-semibold text-slate-500">Rentang Nilai (Min &amp; Max):</label>
+        <div class="grid grid-cols-2 gap-1.5">
+          <input type="text" 
+                 x-model="filterConditionVal1" 
+                 placeholder="Nilai Min..."
+                 class="w-full text-xs py-1.5 px-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-800 placeholder:text-slate-400">
+          <input type="text" 
+                 x-model="filterConditionVal2" 
+                 @keydown.enter="applyColFilter()"
+                 placeholder="Nilai Max..."
+                 class="w-full text-xs py-1.5 px-2 rounded-lg border border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 bg-white text-slate-800 placeholder:text-slate-400">
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. FILTER MENURUT NILAI -->
+    <div class="p-2.5 border-b border-slate-100">
+      <div class="flex items-center justify-between pb-1">
+        <label class="block px-0.5 text-[10px] font-bold text-slate-600 uppercase tracking-wider">Filter Menurut Nilai</label>
+        <template x-if="filterValueMode !== 'all'">
+          <button type="button" @click="filterValueMode = 'all'" class="text-[10px] text-indigo-600 hover:text-indigo-800 font-semibold cursor-pointer">Semua</button>
+        </template>
+      </div>
+      <select x-model="filterValueMode"
               class="w-full text-xs font-medium py-1.5 px-2 rounded-lg border border-slate-200 bg-white text-slate-700 hover:border-slate-300 focus:outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer">
         <option value="all">-- Semua Data --</option>
         <option value="filled">Hanya yang Terisi</option>
@@ -1053,6 +1146,21 @@
           <option :value="'val:' + item.val" x-text="item.val + (item.count > 1 ? ' (' + item.count + ')' : '')"></option>
         </template>
       </select>
+    </div>
+
+    <!-- 4. TOMBOL AKSI TERAPKAN & RESET -->
+    <div class="p-2.5 border-b border-slate-100 bg-slate-50/80 flex items-center gap-2">
+      <button type="button" 
+              @click="clearColFilter()"
+              class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 font-semibold text-xs transition cursor-pointer shadow-2xs">
+        Reset
+      </button>
+      <button type="button" 
+              @click="applyColFilter()"
+              class="flex-1 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs transition shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer">
+        <i data-lucide="check" class="w-3.5 h-3.5"></i>
+        <span>Terapkan Filter</span>
+      </button>
     </div>
 
     <!-- 3. BEKUKAN KOLOM (FREEZE) -->
@@ -1465,6 +1573,38 @@
        7. Alpine.js Component Script
        ========================================== -->
   <script>
+    function parseFlexibleNumber(val) {
+      if (val === null || val === undefined) return NaN;
+      let s = String(val).trim();
+      if (s === '') return NaN;
+      if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) {
+        s = s.replace(/\./g, '').replace(',', '.');
+      } else {
+        s = s.replace(',', '.');
+      }
+      const n = parseFloat(s);
+      return isNaN(n) ? NaN : n;
+    }
+
+    function parseFlexibleDate(str) {
+      if (!str) return NaN;
+      str = String(str).trim();
+      const dmyMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+      if (dmyMatch) {
+        const day = parseInt(dmyMatch[1], 10);
+        const month = parseInt(dmyMatch[2], 10) - 1;
+        const year = parseInt(dmyMatch[3], 10);
+        const d = new Date(year, month, day);
+        return d.getTime();
+      }
+      const d = new Date(str);
+      if (!isNaN(d.getTime())) {
+        d.setHours(0, 0, 0, 0);
+        return d.getTime();
+      }
+      return NaN;
+    }
+
     function smartGridViewer() {
       let raw = {};
       try {
@@ -2008,12 +2148,47 @@
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
 
-        // Floating Header Menu
+        // Floating Header Menu & Filter System (Google Spreadsheet Style)
         showHeaderMenu: false,
         activeMenuColIdx: -1,
         activeMenuCol: {},
         headerMenuPos: { top: '0px', left: '0px' },
         currentFilterValues: [],
+
+        // Multi-Column Filter State
+        colFilters: {},
+        filterConditionType: 'none',
+        filterConditionVal1: '',
+        filterConditionVal2: '',
+        filterValueMode: 'all',
+
+        // Backwards compatibility
+        activeFilterCol: '',
+        activeFilterMode: 'all',
+
+        get isSingleValCondition() {
+          return [
+            'text_contains', 'text_not_contains', 'text_starts_with', 'text_ends_with', 'text_exact',
+            'num_gt', 'num_gte', 'num_lt', 'num_lte', 'num_eq', 'num_neq',
+            'date_exact', 'date_before', 'date_after'
+          ].includes(this.filterConditionType);
+        },
+
+        get isDoubleValCondition() {
+          return ['num_between', 'num_not_between'].includes(this.filterConditionType);
+        },
+
+        get hasActiveFilters() {
+          return Object.keys(this.colFilters).length > 0 || (!!this.activeFilterCol && this.activeFilterMode !== 'all');
+        },
+
+        isColFiltered(colId) {
+          if (!colId) return false;
+          if (this.activeFilterCol === colId && this.activeFilterMode !== 'all') return true;
+          const f = this.colFilters[colId];
+          if (!f) return false;
+          return (f.condition && f.condition !== 'none') || (f.valueMode && f.valueMode !== 'all');
+        },
 
         getColDistinctValues(colId) {
           if (!colId) return [];
@@ -2030,21 +2205,37 @@
             .sort((a, b) => a.val.localeCompare(b.val, undefined, { numeric: true, sensitivity: 'base' }));
         },
 
-        resetFilter() {
-          this.activeFilterCol = '';
-          this.activeFilterMode = 'all';
-          this.currentPage = 1;
-        },
-
         openHeaderMenu(colIdx, event) {
           this.activeMenuColIdx = colIdx;
           this.activeMenuCol = this.visibleColumns[colIdx];
           if (!this.activeMenuCol) return;
-          this.currentFilterValues = this.getColDistinctValues(this.activeMenuCol.id);
+          const colId = this.activeMenuCol.id;
+          this.currentFilterValues = this.getColDistinctValues(colId);
+
+          // Sync filter states for this column
+          const f = this.colFilters[colId] || {};
+          this.filterConditionType = f.condition || 'none';
+          this.filterConditionVal1 = f.val1 || '';
+          this.filterConditionVal2 = f.val2 || '';
+          this.filterValueMode = f.valueMode || 'all';
+
           const rect = event.currentTarget.getBoundingClientRect();
+          const menuWidth = this.isMobile ? 280 : 320;
+          const menuEstimatedHeight = 440;
+
+          let top = rect.bottom + 4;
+          if (top + menuEstimatedHeight > window.innerHeight) {
+            top = Math.max(10, window.innerHeight - menuEstimatedHeight - 10);
+          }
+          let left = rect.left - 60;
+          if (left + menuWidth > window.innerWidth) {
+            left = window.innerWidth - menuWidth - 10;
+          }
+          if (left < 10) left = 10;
+
           this.headerMenuPos = {
-            top: Math.min(rect.bottom + 4, window.innerHeight - 340) + 'px',
-            left: Math.max(10, Math.min(rect.left - 60, window.innerWidth - 270)) + 'px'
+            top: top + 'px',
+            left: left + 'px'
           };
           this.showHeaderMenu = true;
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
@@ -2052,6 +2243,68 @@
 
         closeHeaderMenu() {
           this.showHeaderMenu = false;
+        },
+
+        applyColFilter() {
+          const colId = this.activeMenuCol?.id;
+          if (!colId) return;
+
+          const cond = this.filterConditionType || 'none';
+          const v1 = (this.filterConditionVal1 || '').trim();
+          const v2 = (this.filterConditionVal2 || '').trim();
+          const mode = this.filterValueMode || 'all';
+
+          if (cond === 'none' && mode === 'all') {
+            delete this.colFilters[colId];
+            if (this.activeFilterCol === colId) {
+              this.activeFilterCol = '';
+              this.activeFilterMode = 'all';
+            }
+          } else {
+            this.colFilters[colId] = {
+              condition: cond,
+              val1: v1,
+              val2: v2,
+              valueMode: mode
+            };
+            this.activeFilterCol = colId;
+            this.activeFilterMode = mode;
+          }
+
+          this.currentPage = 1;
+          this.closeHeaderMenu();
+        },
+
+        clearColFilter(colId) {
+          const id = colId || this.activeMenuCol?.id;
+          if (id) {
+            delete this.colFilters[id];
+            if (this.activeFilterCol === id) {
+              this.activeFilterCol = '';
+              this.activeFilterMode = 'all';
+            }
+          }
+          this.filterConditionType = 'none';
+          this.filterConditionVal1 = '';
+          this.filterConditionVal2 = '';
+          this.filterValueMode = 'all';
+          this.currentPage = 1;
+          this.closeHeaderMenu();
+        },
+
+        clearAllFilters() {
+          this.colFilters = {};
+          this.activeFilterCol = '';
+          this.activeFilterMode = 'all';
+          this.filterConditionType = 'none';
+          this.filterConditionVal1 = '';
+          this.filterConditionVal2 = '';
+          this.filterValueMode = 'all';
+          this.currentPage = 1;
+        },
+
+        resetFilter() {
+          this.clearAllFilters();
         },
 
         sortByCol(colId, dir) {
@@ -2091,15 +2344,8 @@
         },
 
         filterColMode(colId, mode) {
-          if (mode === 'all') {
-            this.activeFilterCol = null;
-            this.activeFilterMode = 'all';
-          } else {
-            this.activeFilterCol = colId;
-            this.activeFilterMode = mode;
-          }
-          this.currentPage = 1;
-          this.closeHeaderMenu();
+          this.filterValueMode = mode;
+          this.applyColFilter();
         },
 
         moveColumn(visibleIdx, direction) {
@@ -2345,7 +2591,7 @@
           let list = this.rows;
 
           // Keyword Search across all cells
-          if (this.searchQuery.trim()) {
+          if (this.searchQuery && this.searchQuery.trim()) {
             const q = this.searchQuery.toLowerCase().trim();
             list = list.filter(r => {
               const vals = Object.values(r.data || {});
@@ -2353,14 +2599,101 @@
             });
           }
 
-          // Column Filter
-          if (this.activeFilterCol) {
+          // Multi-Column Filters with Google Spreadsheet Conditions & Values
+          const filterEntries = Object.entries(this.colFilters);
+          if (filterEntries.length > 0) {
+            list = list.filter(row => {
+              for (const [colId, flt] of filterEntries) {
+                const rawVal = row.data?.[colId];
+                const strVal = (rawVal === undefined || rawVal === null) ? '' : String(rawVal).trim();
+                const lowerVal = strVal.toLowerCase();
+
+                // 1. Evaluate Value Filter (Filter menurut nilai)
+                if (flt.valueMode && flt.valueMode !== 'all') {
+                  if (flt.valueMode === 'filled') {
+                    if (strVal === '') return false;
+                  } else if (flt.valueMode === 'empty') {
+                    if (strVal !== '') return false;
+                  } else if (flt.valueMode.startsWith('val:')) {
+                    const target = flt.valueMode.slice(4).trim().toLowerCase();
+                    if (lowerVal !== target) return false;
+                  }
+                }
+
+                // 2. Evaluate Condition Filter (Filter menurut aturan kondisi / validasi)
+                if (flt.condition && flt.condition !== 'none') {
+                  const c = flt.condition;
+                  const v1 = (flt.val1 || '').trim();
+                  const v2 = (flt.val2 || '').trim();
+                  const lowerV1 = v1.toLowerCase();
+
+                  if (c === 'empty') {
+                    if (strVal !== '') return false;
+                  } else if (c === 'not_empty') {
+                    if (strVal === '') return false;
+                  } else if (c === 'text_contains') {
+                    if (strVal === '' || !lowerVal.includes(lowerV1)) return false;
+                  } else if (c === 'text_not_contains') {
+                    if (lowerVal.includes(lowerV1)) return false;
+                  } else if (c === 'text_starts_with') {
+                    if (strVal === '' || !lowerVal.startsWith(lowerV1)) return false;
+                  } else if (c === 'text_ends_with') {
+                    if (strVal === '' || !lowerVal.endsWith(lowerV1)) return false;
+                  } else if (c === 'text_exact') {
+                    if (lowerVal !== lowerV1) return false;
+                  } else if (c === 'num_gt' || c === 'num_gte' || c === 'num_lt' || c === 'num_lte' || c === 'num_eq' || c === 'num_neq') {
+                    const num = parseFlexibleNumber(strVal);
+                    const targetNum = parseFlexibleNumber(v1);
+                    if (isNaN(num) || isNaN(targetNum)) {
+                      if (c === 'num_eq' && lowerVal !== lowerV1) return false;
+                      if (c === 'num_neq' && lowerVal === lowerV1) return false;
+                      if (c !== 'num_eq' && c !== 'num_neq') return false;
+                    } else {
+                      if (c === 'num_gt' && !(num > targetNum)) return false;
+                      if (c === 'num_gte' && !(num >= targetNum)) return false;
+                      if (c === 'num_lt' && !(num < targetNum)) return false;
+                      if (c === 'num_lte' && !(num <= targetNum)) return false;
+                      if (c === 'num_eq' && !(num === targetNum)) return false;
+                      if (c === 'num_neq' && !(num !== targetNum)) return false;
+                    }
+                  } else if (c === 'num_between') {
+                    const num = parseFlexibleNumber(strVal);
+                    const n1 = parseFlexibleNumber(v1);
+                    const n2 = parseFlexibleNumber(v2);
+                    if (isNaN(num) || isNaN(n1) || isNaN(n2)) return false;
+                    const min = Math.min(n1, n2);
+                    const max = Math.max(n1, n2);
+                    if (num < min || num > max) return false;
+                  } else if (c === 'num_not_between') {
+                    const num = parseFlexibleNumber(strVal);
+                    const n1 = parseFlexibleNumber(v1);
+                    const n2 = parseFlexibleNumber(v2);
+                    if (isNaN(num) || isNaN(n1) || isNaN(n2)) return false;
+                    const min = Math.min(n1, n2);
+                    const max = Math.max(n1, n2);
+                    if (num >= min && num <= max) return false;
+                  } else if (c === 'date_exact' || c === 'date_before' || c === 'date_after') {
+                    const tRow = parseFlexibleDate(strVal);
+                    const tTarget = parseFlexibleDate(v1);
+                    if (isNaN(tRow) || isNaN(tTarget)) {
+                      if (lowerVal !== lowerV1) return false;
+                    } else {
+                      if (c === 'date_exact' && tRow !== tTarget) return false;
+                      if (c === 'date_before' && !(tRow < tTarget)) return false;
+                      if (c === 'date_after' && !(tRow > tTarget)) return false;
+                    }
+                  }
+                }
+              }
+              return true;
+            });
+          } else if (this.activeFilterCol && this.activeFilterMode !== 'all') {
             const colId = this.activeFilterCol;
             if (this.activeFilterMode === 'filled') {
               list = list.filter(r => (r.data?.[colId] || '').toString().trim() !== '');
             } else if (this.activeFilterMode === 'empty') {
               list = list.filter(r => !(r.data?.[colId] || '').toString().trim());
-            } else if (this.activeFilterMode && this.activeFilterMode.startsWith('val:')) {
+            } else if (this.activeFilterMode.startsWith('val:')) {
               const targetVal = this.activeFilterMode.slice(4).trim().toLowerCase();
               list = list.filter(r => (r.data?.[colId] || '').toString().trim().toLowerCase() === targetVal);
             }
@@ -2538,9 +2871,7 @@
         // FILTER HELPER
         // ==========================================
         resetFilter() {
-          this.activeFilterCol = '';
-          this.activeFilterMode = 'all';
-          this.currentPage = 1;
+          this.clearAllFilters();
         },
 
         // ==========================================
