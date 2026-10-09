@@ -977,8 +977,25 @@
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Lebar Kolom (px)</label>
-          <input type="number" x-model.number="activeCol.width" @input="triggerAutoSave()" class="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs focus:border-indigo-500 outline-none">
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-bold text-slate-700">Lebar Kolom (px)</label>
+            <span class="text-[10px] text-slate-400">Min. Isian Data: <b class="text-indigo-600" x-text="getColMinContentWidth(activeCol) + ' px'"></b></span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <input type="number" 
+                   x-model.number="activeCol.width" 
+                   :min="getColMinContentWidth(activeCol)"
+                   @input="triggerAutoSave()"
+                   @blur="if(!activeCol.width || activeCol.width < getColMinContentWidth(activeCol)) { activeCol.width = getColMinContentWidth(activeCol); triggerAutoSave(); }" 
+                   class="w-full px-3 py-1.5 border border-slate-300 rounded-xl text-xs focus:border-indigo-500 outline-none">
+            <button type="button" 
+                    @click="activeCol.width = getColMinContentWidth(activeCol); triggerAutoSave();" 
+                    class="px-2.5 py-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200 rounded-xl text-[11px] font-bold text-slate-600 transition shrink-0 cursor-pointer"
+                    title="Paskan otomatis dengan lebar data terpanjang">
+              Paskan Data
+            </button>
+          </div>
+          <p class="text-[10px] text-slate-400 mt-1 leading-tight">Minimal selebar isian data agar isi kolom tidak terpotong.</p>
         </div>
         <div class="pt-2 border-t border-slate-100 space-y-2.5">
           <label class="flex items-start gap-2.5 cursor-pointer">
@@ -1951,22 +1968,54 @@
           return !nextCol || !nextCol.isFrozen;
         },
 
+        getColMinContentWidth(col) {
+          if (!col) return 140;
+
+          // 1. Hitung panjang karakter judul header (+ ruang tombol panah & spacer)
+          const headerLen = (col.name || '').trim().length;
+          let maxChars = Math.max(headerLen + 4, 10);
+
+          // 2. Hitung panjang karakter isian data terpanjang pada kolom ini
+          const rowsList = Array.isArray(this.rows) ? this.rows : [];
+          const checkLimit = Math.min(rowsList.length, 500);
+          for (let i = 0; i < checkLimit; i++) {
+            const val = rowsList[i]?.data?.[col.id];
+            if (val !== undefined && val !== null && val !== '') {
+              const strLen = String(val).trim().length;
+              if (strLen > maxChars) {
+                maxChars = strLen;
+              }
+            }
+          }
+
+          // 3. Konversi ke piksel (font Inter 13px rata-rata ~8.5px/karakter + padding sel 36px)
+          let neededWidth = Math.ceil(maxChars * 8.5) + 36;
+
+          // Tambahan ruang untuk tipe khusus (dropdown arrow atau file download button)
+          if (col.type === 'file') neededWidth += 36;
+          if (col.type === 'select') neededWidth += 26;
+
+          // Batas minimal 140px, batas maksimal wajar 550px agar tabel tetap proporsional
+          return Math.max(140, Math.min(neededWidth, 550));
+        },
+
         getColHeaderStyle(col, colIdx) {
           let style = '';
-          // Di layar mobile (< 768px), biarkan kolom berukuran cukup dan scroll horizontal alami
+          const minRequired = this.getColMinContentWidth(col);
+          const effectiveWidth = Math.max(col.width || 160, minRequired);
+
           if (this.isMobile) {
-            const w = col.width || 160;
-            style += `width: ${w}px; min-width: ${Math.max(130, w)}px;`;
+            style += `width: ${effectiveWidth}px; min-width: ${effectiveWidth}px;`;
             if (this.isColFrozen(colIdx)) {
               style += ` left: ${this.getFrozenLeft(colIdx)};`;
             }
           } else if (this.isFitWindow) {
-            // Di desktop/tablet, bagi proporsional pas selebar layar
-            const totalWeights = this.visibleColumns.reduce((sum, c) => sum + (c.width || 180), 0) || 1;
-            const pct = (((col.width || 180) / totalWeights) * 100).toFixed(2);
-            style += `width: ${pct}%; min-width: 70px;`;
+            // Proporsional tapi min-width MUTLAK tidak boleh kurang dari lebar isian data!
+            const totalWeights = this.visibleColumns.reduce((sum, c) => sum + Math.max(c.width || 160, this.getColMinContentWidth(c)), 0) || 1;
+            const pct = ((effectiveWidth / totalWeights) * 100).toFixed(2);
+            style += `width: ${pct}%; min-width: ${effectiveWidth}px;`;
           } else {
-            style += `width: ${col.width || 180}px; min-width: ${col.width || 180}px;`;
+            style += `width: ${effectiveWidth}px; min-width: ${effectiveWidth}px;`;
             if (this.isColFrozen(colIdx)) {
               style += ` left: ${this.getFrozenLeft(colIdx)};`;
             }
@@ -2603,6 +2652,10 @@
           if (!this.isSuperAdmin) return;
           this.activeColIdx = idx;
           this.activeCol = this.sheetData.columns[idx]; 
+          const minRequired = this.getColMinContentWidth(this.activeCol);
+          if (!this.activeCol.width || this.activeCol.width < minRequired) {
+            this.activeCol.width = minRequired;
+          }
           const opts = this.activeCol.options;
           if (Array.isArray(opts)) {
             this.activeColOptionsText = opts.join(', ');

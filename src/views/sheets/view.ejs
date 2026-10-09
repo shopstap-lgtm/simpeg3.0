@@ -222,7 +222,7 @@
            @scroll="syncScroll('bottom')"
            class="overflow-x-auto max-h-[700px] relative scrollbar-thin [overscroll-behavior-x:contain] [-webkit-overflow-scrolling:touch]">
         <table class="w-full border-collapse text-left text-xs" 
-               :class="(isFitToScreen && !isMobile) ? '[&_th]:!min-w-0 [&_th]:!w-auto' : ''"
+               :class="(isFitToScreen && !isMobile) ? '[&_th]:!w-auto' : ''"
                @paste="handlePublicPaste($event)">
           <!-- Table Header -->
           <thead class="bg-slate-100/90 sticky top-0 z-20 text-[11px] font-black text-slate-600 uppercase tracking-wider border-b border-slate-300 select-none shadow-2xs">
@@ -310,7 +310,8 @@
 
               <!-- Dynamic Custom Columns (Filtered by Column Visibility) -->
               <template x-for="col in visibleColumns" :key="col.key">
-                <th class="py-2.5 px-3 min-w-[170px] border-r border-slate-200 bg-slate-100">
+                <th class="py-2.5 px-3 min-w-[170px] border-r border-slate-200 bg-slate-100"
+                    :style="col.width ? `width: ${Math.max(col.width, 170)}px; min-width: ${Math.max(col.width, 170)}px;` : 'min-width: 170px;'">
                   <div class="flex items-center justify-between gap-1.5">
                     <div class="flex items-center gap-1.5 truncate">
                       <span class="truncate font-bold text-slate-800" :title="col.label" x-text="col.label"></span>
