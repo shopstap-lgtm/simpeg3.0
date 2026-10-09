@@ -293,7 +293,7 @@ export const smartSheetController = {
       }
 
       const { id } = req.params;
-      const { source, mode } = req.body; // source: 'PEGAWAI' | 'UNIT', mode: 'append' | 'replace'
+      const { source, mode, selectedFields } = req.body; // source: 'PEGAWAI' | 'UNIT', mode: 'append' | 'replace'
 
       const sheet = await prisma.smartSheet.findUnique({
         where: { id },
@@ -302,9 +302,34 @@ export const smartSheetController = {
       if (!sheet) return res.status(404).json({ success: false, message: 'Spreadsheet tidak ditemukan' });
 
       let currentColumns = (sheet.columns as any[]) || [];
+
+      // Jika spreadsheet masih berupa sheet default (hanya 1 kolom bernama "Kolom Baru") dan belum ada baris atau mode replace:
+      if (currentColumns.length === 1 && currentColumns[0].name === 'Kolom Baru' && (mode === 'replace' || sheet.rows.length === 0)) {
+        currentColumns = [];
+      }
+
       let importedRows: any[] = [];
 
       if (source === 'PEGAWAI') {
+        const PEGAWAI_FIELD_MAP: Record<string, { colId: string; name: string; type: string; width: number; getValue: (emp: any) => string }> = {
+          nip: { colId: 'c_nip', name: 'NIP / Identitas', type: 'nip', width: 200, getValue: emp => emp.nip || '' },
+          nama: { colId: 'c_nama', name: 'Nama Pegawai', type: 'text', width: 220, getValue: emp => emp.nama || '' },
+          unit: { colId: 'c_unit', name: 'Unit Kerja', type: 'text', width: 220, getValue: emp => emp.unit?.namaUnit || '-' },
+          jabatan: { colId: 'c_jabatan', name: 'Jabatan', type: 'text', width: 170, getValue: emp => emp.jabatan || '-' },
+          statusKepegawaian: { colId: 'c_status_pegawai', name: 'Status Kepegawaian', type: 'text', width: 160, getValue: emp => emp.statusKepegawaian || '-' },
+          nik: { colId: 'c_nik', name: 'NIK', type: 'text', width: 180, getValue: emp => emp.nik || '-' },
+          noHp: { colId: 'c_no_hp', name: 'No HP / WhatsApp', type: 'text', width: 160, getValue: emp => emp.noHp || '-' },
+          npwp: { colId: 'c_npwp', name: 'NPWP', type: 'text', width: 180, getValue: emp => emp.npwp || '-' }
+        };
+
+        const activeFieldKeys: string[] = (Array.isArray(selectedFields) && selectedFields.length > 0)
+          ? selectedFields.filter(f => PEGAWAI_FIELD_MAP[f])
+          : ['nip', 'nama', 'unit', 'jabatan', 'statusKepegawaian'];
+
+        if (activeFieldKeys.length === 0) {
+          return res.status(400).json({ success: false, message: 'Pilih minimal 1 atribut kolom pegawai' });
+        }
+
         const employees = await prisma.employee.findMany({
           where: { aktif: true },
           include: { unit: true }
@@ -319,41 +344,87 @@ export const smartSheetController = {
           return (a.nama || '').trim().toLowerCase().localeCompare((b.nama || '').trim().toLowerCase(), 'id', { numeric: true });
         });
 
-        // Pastikan kolom NIP, Nama, Unit, Jabatan tersedia
-        const hasNip = currentColumns.some(c => c.id === 'c_nip' || c.type === 'nip');
-        const hasNama = currentColumns.some(c => c.id === 'c_nama');
-        const hasUnit = currentColumns.some(c => c.id === 'c_unit');
-        const hasJabatan = currentColumns.some(c => c.id === 'c_jabatan');
+        // Tambahkan kolom yang dipilih jika belum ada di spreadsheet
+        for (const fKey of activeFieldKeys) {
+          const conf = PEGAWAI_FIELD_MAP[fKey];
+          const exists = currentColumns.some(c => c.id === conf.colId || (fKey === 'nip' && c.type === 'nip'));
+          if (!exists) {
+            currentColumns.push({
+              id: conf.colId,
+              name: conf.name,
+              type: conf.type,
+              width: conf.width,
+              options: [],
+              isLocked: true,
+              isCredential: false,
+              requiresAuth: false,
+              isMasked: false,
+              isHidden: false,
+              isFrozen: false
+            });
+          }
+        }
 
-        if (!hasNip) currentColumns.unshift({ id: 'c_nip', name: 'NIP / Identitas', type: 'nip', width: 200, isLocked: true });
-        if (!hasNama) currentColumns.push({ id: 'c_nama', name: 'Nama Pegawai', type: 'text', width: 220, isLocked: true });
-        if (!hasUnit) currentColumns.push({ id: 'c_unit', name: 'Unit Kerja', type: 'text', width: 200, isLocked: true });
-        if (!hasJabatan) currentColumns.push({ id: 'c_jabatan', name: 'Jabatan', type: 'text', width: 160, isLocked: true });
+        importedRows = employees.map(emp => {
+          const rowData: Record<string, any> = {};
+          for (const fKey of activeFieldKeys) {
+            const conf = PEGAWAI_FIELD_MAP[fKey];
+            rowData[conf.colId] = conf.getValue(emp);
+          }
+          return rowData;
+        });
 
-        importedRows = employees.map(emp => ({
-          c_nip: emp.nip,
-          c_nama: emp.nama,
-          c_unit: emp.unit?.namaUnit || '-',
-          c_jabatan: emp.jabatan || '-'
-        }));
       } else if (source === 'UNIT') {
+        const UNIT_FIELD_MAP: Record<string, { colId: string; name: string; type: string; width: number; isLocked: boolean; getValue: (u: any) => string }> = {
+          namaUnit: { colId: 'c_unit', name: 'Nama Unit Kerja / Sekolah', type: 'text', width: 250, isLocked: true, getValue: u => u.namaUnit || '' },
+          jenjang: { colId: 'c_jenjang', name: 'Jenjang', type: 'text', width: 110, isLocked: true, getValue: u => u.jenjang || '-' },
+          kategori: { colId: 'c_kategori', name: 'Kategori', type: 'text', width: 120, isLocked: true, getValue: u => u.kategori || '-' },
+          kepalaSekolah: { colId: 'c_kepsek', name: 'Kepala Sekolah', type: 'text', width: 200, isLocked: false, getValue: u => u.kepalaSekolah || '-' },
+          kontakKepalaSekolah: { colId: 'c_kontak_kepsek', name: 'Kontak Kepala Sekolah', type: 'text', width: 170, isLocked: false, getValue: u => u.kontakKepalaSekolah || '-' },
+          operatorSekolah: { colId: 'c_operator', name: 'Operator Sekolah', type: 'text', width: 190, isLocked: false, getValue: u => u.operatorSekolah || '-' },
+          kontakOperator: { colId: 'c_kontak_operator', name: 'Kontak Operator', type: 'text', width: 170, isLocked: false, getValue: u => u.kontakOperator || '-' }
+        };
+
+        const activeFieldKeys: string[] = (Array.isArray(selectedFields) && selectedFields.length > 0)
+          ? selectedFields.filter(f => UNIT_FIELD_MAP[f])
+          : ['namaUnit', 'jenjang', 'kategori', 'kepalaSekolah'];
+
+        if (activeFieldKeys.length === 0) {
+          return res.status(400).json({ success: false, message: 'Pilih minimal 1 atribut kolom unit kerja' });
+        }
+
         const units = await prisma.unit.findMany({
           orderBy: { namaUnit: 'asc' }
         });
 
-        const hasUnit = currentColumns.some(c => c.id === 'c_unit');
-        const hasJenjang = currentColumns.some(c => c.id === 'c_jenjang');
-        const hasKepsek = currentColumns.some(c => c.id === 'c_kepsek');
+        for (const fKey of activeFieldKeys) {
+          const conf = UNIT_FIELD_MAP[fKey];
+          const exists = currentColumns.some(c => c.id === conf.colId);
+          if (!exists) {
+            currentColumns.push({
+              id: conf.colId,
+              name: conf.name,
+              type: conf.type,
+              width: conf.width,
+              options: [],
+              isLocked: conf.isLocked,
+              isCredential: false,
+              requiresAuth: false,
+              isMasked: false,
+              isHidden: false,
+              isFrozen: false
+            });
+          }
+        }
 
-        if (!hasUnit) currentColumns.unshift({ id: 'c_unit', name: 'Nama Unit Kerja / Sekolah', type: 'text', width: 250, isLocked: true });
-        if (!hasJenjang) currentColumns.push({ id: 'c_jenjang', name: 'Jenjang', type: 'text', width: 110, isLocked: true });
-        if (!hasKepsek) currentColumns.push({ id: 'c_kepsek', name: 'Kepala Sekolah', type: 'text', width: 200, isLocked: false });
-
-        importedRows = units.map(u => ({
-          c_unit: u.namaUnit,
-          c_jenjang: u.jenjang,
-          c_kepsek: u.kepalaSekolah || '-'
-        }));
+        importedRows = units.map(u => {
+          const rowData: Record<string, any> = {};
+          for (const fKey of activeFieldKeys) {
+            const conf = UNIT_FIELD_MAP[fKey];
+            rowData[conf.colId] = conf.getValue(u);
+          }
+          return rowData;
+        });
       } else {
         return res.status(400).json({ success: false, message: 'Sumber data import tidak valid' });
       }
