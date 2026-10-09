@@ -618,8 +618,25 @@ function sheetBuilderApp() {
       rawOptions: Array.isArray(c.options) ? c.options.join(', ') : (c.rawOptions || '')
     }));
   } else {
-    // Default spreadsheet baru: mulai dengan kolom kosong
-    initialCols = [];
+    // Default spreadsheet baru: sediakan 1 kolom bernama "Kolom Baru"
+    initialCols = [
+      {
+        key: 'col_' + Date.now() + '_1',
+        label: 'Kolom Baru',
+        type: 'text',
+        options: [],
+        rawOptions: '',
+        allowedExtensions: '.pdf,.jpg,.jpeg,.png',
+        maxFileSizeMb: 10,
+        renamePattern: '{NIP}_{NAMA}_{NAMA_FILE}',
+        required: false,
+        hidden: false,
+        isProtected: false,
+        filterable: true,
+        placeholder: '',
+        width: 180
+      }
+    ];
   }
 
   return {

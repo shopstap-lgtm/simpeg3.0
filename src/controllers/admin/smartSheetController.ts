@@ -46,7 +46,9 @@ export const smartSheetController = {
           title: title || 'Spreadsheet Baru',
           description: description || '',
           slug,
-          columns: [],
+          columns: [
+            { id: 'col_' + Date.now(), name: 'Kolom Baru', type: 'text', width: 180, isLocked: false, isMasked: false, isCredential: false, requiresAuth: false }
+          ],
           createdBy: user?.namaLengkap || 'Super Admin'
         }
       });
