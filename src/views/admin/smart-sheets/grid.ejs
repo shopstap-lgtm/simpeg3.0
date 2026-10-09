@@ -6,6 +6,12 @@
   <title><%= sheet.title %> - Smart Sheets</title>
   <link rel="stylesheet" href="/css/styles.css?v=20261007_grid">
   <script src="/js/lucide.min.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    if (typeof io === 'undefined') {
+      document.write('<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"><\/script>');
+    }
+  </script>
   <script defer src="/js/alpine.min.js"></script>
   <style>
     /* Spreadsheet Grid Scroller */
@@ -192,6 +198,18 @@
 
     <!-- Right Header Actions -->
     <div class="flex items-center gap-2 shrink-0">
+      <!-- Live WebSocket Presence Badge -->
+      <div class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold border shadow-2xs transition-colors"
+           :class="socketConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-400 border-slate-200'"
+           :title="socketConnected ? 'Terhubung Live Real-time (WebSocket)' : 'Menghubungkan real-time...'">
+        <span class="relative flex h-2 w-2">
+          <span x-show="socketConnected" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2 w-2" :class="socketConnected ? 'bg-emerald-500' : 'bg-slate-400'"></span>
+        </span>
+        <span class="hidden sm:inline" x-text="socketConnected ? `${onlineCount} Online` : 'Offline'"></span>
+        <span class="sm:hidden font-mono" x-text="onlineCount"></span>
+      </div>
+
       <button type="button" 
               @click="openShareModal()" 
               class="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition cursor-pointer shadow-2xs">
@@ -549,7 +567,8 @@
 
               <!-- Dynamic Cells (Mendukung Freeze & Highlight Blok) -->
               <template x-for="(col, colIdx) in visibleColumns" :key="col.id">
-                <td class="border border-slate-200 p-0 relative transition-colors" 
+                <td :data-cell-id="`${row.id}_${col.id}`"
+                    class="border border-slate-200 p-0 relative transition-colors" 
                     :class="{
                       'bg-indigo-50/60': (isColSelected(col) || isRowSelected(row)) && !isColFrozen(colIdx),
                       'bg-slate-50/70': !isColSelected(col) && !isRowSelected(row) && !canEditCell(row, col) && !isColFrozen(colIdx),
@@ -581,8 +600,9 @@
                                @click="if(!canEditCell(row, col) && hasCredentialLock && !isRowUnlocked(row)) openRowAuthModal(row)">
                             <input type="text" 
                                    x-model="row.data[col.id]" 
-                                   @input="triggerAutoSave()" 
-                                   @blur="saveImmediately()"
+                                   @focus="editingCellId = `${row.id}:${col.id}`"
+                                   @input="onCellInput(row, col.id)" 
+                                   @blur="editingCellId = null; onCellBlur(row, col.id); saveImmediately()"
                                    class="cell-input" 
                                    :class="{
                                      'cell-input-nip font-mono tabular-nums tracking-wider text-slate-800': col.type === 'nip' || (col.name || '').toLowerCase().includes('nip') || (col.id || '').toLowerCase().includes('nip'),
@@ -599,7 +619,7 @@
                           <div class="w-full h-full flex items-center"
                                @click="if(!canEditCell(row, col) && hasCredentialLock && !isRowUnlocked(row)) openRowAuthModal(row)">
                             <select x-model="row.data[col.id]" 
-                                    @change="triggerAutoSave(); saveImmediately();" 
+                                    @change="onCellInput(row, col.id); saveImmediately();" 
                                     class="cell-input" 
                                     :disabled="!canEditCell(row, col)"
                                     :class="{
@@ -1680,6 +1700,12 @@
         rows: parsedRows,
         isSuperAdmin: !!raw.isSuperAdmin,
 
+        // WebSocket Realtime State
+        socket: null,
+        socketConnected: false,
+        onlineCount: 1,
+        editingCellId: null,
+
         // Selection & Blok Massal Baris & Kolom
         selectedRowMap: {},
         lastClickedRowId: null,
@@ -1791,6 +1817,7 @@
           this.rows.forEach((r, idx) => { r.rowIndex = idx; });
 
           this.saveImmediately();
+          this.emitRowsSync();
         },
 
         bulkClearSelectedRows() {
@@ -1810,6 +1837,7 @@
           });
 
           this.saveImmediately();
+          this.emitRowsSync();
         },
 
         toggleSelectCol(col, event) {
@@ -1934,6 +1962,7 @@
 
           this.showBulkEditModal = false;
           this.saveImmediately();
+          this.emitRowsSync();
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
         
@@ -2772,6 +2801,123 @@
               }
             }
           });
+
+          // WebSocket Live Connection
+          this.initSocket();
+        },
+
+        // ==========================================
+        // WEBSOCKET REALTIME (Multiplayer Live Sync)
+        // ==========================================
+        initSocket() {
+          if (typeof io === 'undefined') {
+            console.warn('[SmartSheet Socket] Socket.io client not available, continuing in standard HTTP mode.');
+            return;
+          }
+
+          try {
+            this.socket = io({
+              transports: ['websocket', 'polling'],
+              reconnectionAttempts: 10,
+              reconnectionDelay: 1000
+            });
+
+            this.socket.on('connect', () => {
+              this.socketConnected = true;
+              this.socket.emit('sheet:join', {
+                sheetId: this.sheetData.id,
+                user: {
+                  name: this.isSuperAdmin ? 'Super Admin' : 'Pengunjung',
+                  role: this.isSuperAdmin ? 'SUPER_ADMIN' : 'PUBLIC'
+                }
+              });
+            });
+
+            this.socket.on('disconnect', () => {
+              this.socketConnected = false;
+            });
+
+            this.socket.on('sheet:presence', (data) => {
+              if (data && typeof data.count === 'number') {
+                this.onlineCount = Math.max(1, data.count);
+              }
+            });
+
+            this.socket.on('sheet:cell-updated', (payload) => {
+              if (!payload || !payload.rowId || !payload.colId) return;
+              if (this.editingCellId === `${payload.rowId}:${payload.colId}`) {
+                return; // Jangan timpa jika user lokal sedang aktif mengetik di sel ini
+              }
+
+              const row = this.rows.find(r => r.id === payload.rowId);
+              if (row) {
+                if (!row.data) row.data = {};
+                row.data[payload.colId] = payload.value;
+                this.flashUpdatedCell(payload.rowId, payload.colId);
+              }
+            });
+
+            this.socket.on('sheet:rows-synced', (payload) => {
+              if (!payload || !Array.isArray(payload.rows)) return;
+              this.rows = payload.rows.map((r, idx) => ({
+                id: r.id || ('local_' + Date.now() + '_' + idx),
+                ...r,
+                data: (typeof r.data === 'string') ? JSON.parse(r.data) : (r.data || {})
+              }));
+              this.$nextTick(() => {
+                if (window.lucide) window.lucide.createIcons();
+              });
+            });
+          } catch (e) {
+            console.error('[SmartSheet Socket] Init error:', e);
+          }
+        },
+
+        flashUpdatedCell(rowId, colId) {
+          this.$nextTick(() => {
+            const cellEl = document.querySelector(`[data-cell-id="${rowId}_${colId}"]`);
+            if (cellEl) {
+              cellEl.classList.add('bg-emerald-100/90', 'ring-2', 'ring-emerald-400');
+              setTimeout(() => {
+                cellEl.classList.remove('bg-emerald-100/90', 'ring-2', 'ring-emerald-400');
+              }, 1200);
+            }
+          });
+        },
+
+        onCellInput(row, colId) {
+          this.triggerAutoSave();
+          if (this.socket && this.socketConnected) {
+            this.socket.emit('sheet:cell-update', {
+              sheetId: this.sheetData.id,
+              rowId: row.id,
+              colId: colId,
+              value: row.data[colId],
+              updatedBy: this.isSuperAdmin ? 'Admin' : 'Pengunjung'
+            });
+          }
+        },
+
+        onCellBlur(row, colId) {
+          if (this.socket && this.socketConnected) {
+            this.socket.emit('sheet:cell-update', {
+              sheetId: this.sheetData.id,
+              rowId: row.id,
+              colId: colId,
+              value: row.data[colId],
+              updatedBy: this.isSuperAdmin ? 'Admin' : 'Pengunjung'
+            });
+          }
+        },
+
+        emitRowsSync() {
+          if (this.socket && this.socketConnected) {
+            this.socket.emit('sheet:sync-rows', {
+              sheetId: this.sheetData.id,
+              rows: this.rows,
+              updatedBy: this.isSuperAdmin ? 'Admin' : 'Pengunjung'
+            });
+          }
         },
 
         // ==========================================
@@ -2854,6 +3000,7 @@
 
             if (data.success && data.fileUrl) {
               row.data[colId] = data.fileUrl;
+              this.onCellInput(row, colId);
               await this.saveImmediately();
               this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
             } else {
@@ -2871,7 +3018,8 @@
         removeCellFile(row, colId) {
           if (!confirm('Hapus berkas dari baris ini?')) return;
           row.data[colId] = '';
-          this.triggerAutoSave();
+          this.onCellInput(row, colId);
+          this.saveImmediately();
         },
 
         extractFileName(url) {
@@ -2988,6 +3136,7 @@
             this.rows.push(newRow);
           }
           this.saveImmediately();
+          this.emitRowsSync();
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
 
