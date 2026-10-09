@@ -116,6 +116,45 @@
         max-width: 36px !important;
       }
     }
+
+    /* Freeze Column Layering & Non-Transparency (Mobile Only) */
+    .frozen-column-cell {
+      position: sticky !important;
+      z-index: 20 !important;
+      background-color: #ffffff !important;
+      opacity: 1 !important;
+    }
+    .frozen-column-cell.is-readonly {
+      background-color: #f8fafc !important;
+    }
+    .frozen-column-cell.is-selected {
+      background-color: #e0e7ff !important;
+    }
+    .frozen-column-header {
+      position: sticky !important;
+      z-index: 40 !important;
+      background-color: #f8fafc !important;
+      opacity: 1 !important;
+    }
+    .frozen-column-divider {
+      border-right: 2px solid #94a3b8 !important;
+      box-shadow: 4px 0 10px -2px rgba(0, 0, 0, 0.15) !important;
+    }
+    .col-index-corner {
+      position: sticky !important;
+      left: 0 !important;
+      top: 0 !important;
+      z-index: 50 !important;
+      background-color: #f1f5f9 !important;
+      opacity: 1 !important;
+    }
+    .col-index-body {
+      position: sticky !important;
+      left: 0 !important;
+      z-index: 30 !important;
+      background-color: #f8fafc !important;
+      opacity: 1 !important;
+    }
     [x-cloak] { display: none !important; }
   </style>
 </head>
@@ -415,10 +454,10 @@
       <table class="border-collapse table-fixed bg-white transition-all duration-150"
              :class="(isFitWindow && !isMobile && !hasFrozenColumns) ? 'w-full min-w-full fit-window-table' : 'w-max'">
         <!-- Table Headers -->
-        <thead class="sticky top-0 z-20 bg-slate-50 shadow-2xs select-none">
+        <thead class="sticky top-0 z-35 bg-slate-50 shadow-2xs select-none">
           <tr>
             <!-- Row Index Corner Header (Hanya Admin yang bisa Pilih / Blok Semua Baris) -->
-            <th class="col-index border border-slate-300 text-center font-mono text-[10px] z-40 transition-colors select-none sticky left-0 top-0 bg-slate-100 text-slate-500"
+            <th class="col-index col-index-corner border border-slate-300 text-center font-mono text-[10px] select-none text-slate-500"
                 :class="[
                   isSuperAdmin ? (isAllDisplayedSelected ? '!bg-indigo-600 !text-white font-bold cursor-pointer' : (selectedRowCount > 0 ? '!bg-indigo-100 !text-indigo-800 font-bold cursor-pointer' : 'hover:bg-slate-200 cursor-pointer')) : 'cursor-default'
                 ]"
@@ -449,13 +488,14 @@
             <!-- Dynamic Headers (Mendukung Blok Kolom hanya untuk SuperAdmin) -->
             <template x-for="(col, colIdx) in visibleColumns" :key="col.id">
               <th :data-col-id="col.id" 
-                  class="border transition-colors relative select-none text-center"
+                  class="border transition-colors select-none text-center"
                   :class="{
                     'cursor-pointer': isSuperAdmin,
                     'cursor-default': !isSuperAdmin,
-                    'sticky z-30 shadow-2xs': isColFrozen(colIdx),
-                    'border-r-2 border-r-slate-400 shadow-[2px_0_5px_-1px_rgba(0,0,0,0.12)]': isLastFrozenCol(colIdx),
-                    'bg-indigo-100/90 border-indigo-400 text-indigo-950 font-black ring-1 ring-inset ring-indigo-400': isSuperAdmin && isColSelected(col),
+                    'frozen-column-header': isColFrozen(colIdx),
+                    'frozen-column-divider': isLastFrozenCol(colIdx),
+                    'relative z-25': !isColFrozen(colIdx),
+                    'bg-indigo-100 border-indigo-400 text-indigo-950 font-black ring-1 ring-inset ring-indigo-400': isSuperAdmin && isColSelected(col),
                     'bg-slate-50 border-slate-300 text-slate-700': !isSuperAdmin || !isColSelected(col),
                     'hover:bg-slate-100': isSuperAdmin && !isColSelected(col)
                   }"
@@ -550,9 +590,9 @@
                   'hover:bg-slate-50/60': !isRowSelected(row)
                 }">
               <!-- Row Index Sticky Column (Hanya Admin yang bisa blok baris) -->
-              <td class="col-index border border-slate-300 text-center font-mono text-[10px] select-none sticky left-0 z-20"
+              <td class="col-index col-index-body border border-slate-300 text-center font-mono text-[10px] select-none text-slate-500"
                   :class="[
-                    isSuperAdmin ? (isRowSelected(row) ? 'bg-indigo-600 text-white font-bold shadow-2xs cursor-pointer' : 'bg-slate-100 text-slate-500 hover:bg-indigo-100 hover:text-indigo-700 cursor-pointer') : 'bg-slate-100 text-slate-500 cursor-default'
+                    isSuperAdmin ? (isRowSelected(row) ? '!bg-indigo-600 !text-white font-bold shadow-2xs cursor-pointer' : 'hover:bg-indigo-100 hover:text-indigo-700 cursor-pointer') : 'cursor-default'
                   ]"
                   :style="isMobile ? 'width: 36px; min-width: 36px; max-width: 36px;' : 'width: 44px; min-width: 44px; max-width: 44px;'"
                   @click="isSuperAdmin && handleRowHeaderClick(row, $event)"
@@ -565,24 +605,26 @@
                 </div>
               </td>
 
-              <!-- Dynamic Cells (Mendukung Freeze & Highlight Blok) -->
+              <!-- Dynamic Cells (Mendukung Freeze Khusus Mobile & Highlight Blok) -->
               <template x-for="(col, colIdx) in visibleColumns" :key="col.id">
                 <td :data-cell-id="`${row.id}_${col.id}`"
-                    class="border border-slate-200 p-0 relative transition-colors" 
+                    class="border border-slate-200 p-0 transition-colors" 
                     :class="{
-                      'bg-indigo-50/60': (isColSelected(col) || isRowSelected(row)) && !isColFrozen(colIdx),
-                      'bg-slate-50/70': !isColSelected(col) && !isRowSelected(row) && !canEditCell(row, col) && !isColFrozen(colIdx),
-                      'sticky z-15 bg-white': isColFrozen(colIdx) && canEditCell(row, col) && !isRowSelected(row) && !isColSelected(col),
-                      'sticky z-15 bg-slate-50': isColFrozen(colIdx) && !canEditCell(row, col) && !isRowSelected(row) && !isColSelected(col),
-                      'sticky z-15 bg-indigo-50': isColFrozen(colIdx) && (isRowSelected(row) || isColSelected(col)),
-                      'border-r-2 border-r-slate-400 shadow-[2px_0_5px_-1px_rgba(0,0,0,0.12)]': isLastFrozenCol(colIdx)
+                      'frozen-column-cell': isColFrozen(colIdx),
+                      'is-readonly': isColFrozen(colIdx) && !canEditCell(row, col) && !isRowSelected(row) && !isColSelected(col),
+                      'is-selected': isColFrozen(colIdx) && (isRowSelected(row) || isColSelected(col)),
+                      'frozen-column-divider': isLastFrozenCol(colIdx),
+                      'relative z-1': !isColFrozen(colIdx),
+                      'bg-indigo-50': !isColFrozen(colIdx) && (isColSelected(col) || isRowSelected(row)),
+                      'bg-slate-50': !isColFrozen(colIdx) && !canEditCell(row, col) && !isRowSelected(row) && !isColSelected(col),
+                      'bg-white': !isColFrozen(colIdx) && canEditCell(row, col) && !isRowSelected(row) && !isColSelected(col)
                     }"
                     :style="isColFrozen(colIdx) ? `left: ${getFrozenLeft(colIdx)};` : ''">
                   <div class="cell-wrap flex items-center">
                     
                     <!-- KONDISI 1: CELL DISAMARKAN (MASKED: Tampilkan Ceklis Sudah) -->
                     <template x-if="isCellMasked(row, col)">
-                      <div class="px-2 py-1.5 flex items-center justify-center w-full h-full select-none bg-slate-50/70 cursor-pointer hover:bg-emerald-50/50 transition-colors"
+                      <div class="px-2 py-1.5 flex items-center justify-center w-full h-full select-none bg-slate-50 cursor-pointer hover:bg-emerald-50 transition-colors"
                            @click="!isSuperAdmin && !isRowUnlocked(row) && openRowAuthModal(row)"
                            title="Data sudah diisi dan terkunci privasi. Klik untuk buka akses jika ini baris Anda.">
                         <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold shadow-2xs">
@@ -1193,9 +1235,12 @@
       </button>
     </div>
 
-    <!-- 3. BEKUKAN KOLOM (FREEZE) -->
+    <!-- 3. BEKUKAN KOLOM (FREEZE - KHUSUS MOBILE) -->
     <div class="p-2 border-b border-slate-100">
-      <div class="px-0.5 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Bekukan (Freeze)</div>
+      <div class="px-0.5 pb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+        <span>Bekukan (Freeze)</span>
+        <span class="text-[9px] text-sky-600 font-semibold bg-sky-50 px-1.5 py-0.5 rounded border border-sky-100">Khusus HP</span>
+      </div>
       <template x-if="!activeMenuCol.isFrozen">
         <button type="button" 
                 @click="freezeUpTo(activeMenuColIdx)"
@@ -2040,12 +2085,14 @@
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
 
-        // Freeze Columns Helpers
+        // Freeze Columns Helpers (Hanya Aktif di Mobile Saja)
         get hasFrozenColumns() {
+          if (!this.isMobile) return false;
           return (this.visibleColumns || []).some(c => c.isFrozen);
         },
 
         get frozenCount() {
+          if (!this.isMobile) return 0;
           return (this.visibleColumns || []).filter(c => c.isFrozen).length;
         },
 
@@ -2089,7 +2136,8 @@
         },
 
         getFrozenLeft(colIdx) {
-          const base = this.isMobile ? 36 : 44;
+          if (!this.isMobile) return 'auto';
+          const base = 36;
           let offset = base;
           for (let i = 0; i < colIdx; i++) {
             const c = this.visibleColumns[i];
@@ -2101,11 +2149,13 @@
         },
 
         isColFrozen(colIdx) {
+          if (!this.isMobile) return false;
           const col = this.visibleColumns[colIdx];
           return !!(col && col.isFrozen);
         },
 
         isLastFrozenCol(colIdx) {
+          if (!this.isMobile) return false;
           if (!this.isColFrozen(colIdx)) return false;
           const nextCol = this.visibleColumns[colIdx + 1];
           return !nextCol || !nextCol.isFrozen;
@@ -2169,16 +2219,11 @@
             if (this.isColFrozen(colIdx)) {
               style += ` left: ${this.getFrozenLeft(colIdx)};`;
             }
-          } else if (this.isFitWindow && !this.hasFrozenColumns) {
-            // Proporsional tapi min-width MUTLAK tidak boleh kurang dari lebar isian data!
+          } else {
+            // DESKTOP: Selalu pas layar (fit window), TANPA freeze sticky left
             const totalWeights = this.visibleColumns.reduce((sum, c) => sum + this.getEffectiveColWidth(c), 0) || 1;
             const pct = ((effectiveWidth / totalWeights) * 100).toFixed(2);
             style += `width: ${pct}%; min-width: ${effectiveWidth}px;`;
-          } else {
-            style += `width: ${effectiveWidth}px; min-width: ${effectiveWidth}px;`;
-            if (this.isColFrozen(colIdx)) {
-              style += ` left: ${this.getFrozenLeft(colIdx)};`;
-            }
           }
           return style;
         },
