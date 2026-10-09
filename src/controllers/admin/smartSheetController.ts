@@ -90,6 +90,13 @@ export const smartSheetController = {
   viewGrid: async (req: Request, res: Response) => {
     try {
       const { slug } = req.params;
+
+      // Redirect fallback jika slug lama dibuka agar link tetap bekerja
+      if (slug === 'fdfsdfs-1791517564941') {
+        const targetPath = req.baseUrl ? `${req.baseUrl}/data-tte-kec-cibitung-1791517564941` : `/admin/smart-sheets/data-tte-kec-cibitung-1791517564941`;
+        return res.redirect(301, targetPath);
+      }
+
       const sheet = await prisma.smartSheet.findUnique({
         where: { slug },
         include: {
