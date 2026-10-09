@@ -182,6 +182,26 @@ export const smartSheetController = {
 
         const queries: any[] = [];
 
+        // Jika Super Admin menghapus baris, hapus baris yang dihilangkan dari database
+        if (isSuperAdmin) {
+          const incomingIds = new Set(
+            rows
+              .filter(r => r.id && !r.id.startsWith('new_') && !r.id.startsWith('local_') && !r.id.startsWith('cuid_'))
+              .map(r => r.id)
+          );
+          const toDeleteRowIds = existingSheet.rows
+            .filter(r => !incomingIds.has(r.id))
+            .map(r => r.id);
+
+          if (toDeleteRowIds.length > 0) {
+            queries.push(
+              prisma.smartSheetRow.deleteMany({
+                where: { id: { in: toDeleteRowIds } }
+              })
+            );
+          }
+        }
+
         for (const r of rows) {
           let rowData = r.data || {};
           const oldRow = r.id ? oldRowMap.get(r.id) : null;
