@@ -292,6 +292,37 @@
 
       <!-- Column List (Dynamic Repeater) -->
       <div class="space-y-3">
+        <!-- Empty State ketika belum ada kolom -->
+        <template x-if="columns.length === 0">
+          <div class="p-8 text-center bg-slate-50/70 border-2 border-dashed border-slate-200 rounded-3xl space-y-3">
+            <div class="w-12 h-12 mx-auto rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-2xs">
+              <i data-lucide="columns" class="w-6 h-6"></i>
+            </div>
+            <div class="space-y-1">
+              <h3 class="text-sm font-black text-slate-800">Daftar Kolom Masih Kosong</h3>
+              <p class="text-xs text-slate-500 max-w-sm mx-auto">Spreadsheet baru dimulai dari lembar kosong. Klik tombol di bawah untuk menambah kolom sesuai kebutuhan Anda.</p>
+            </div>
+            <div class="flex flex-wrap items-center justify-center gap-2 pt-2">
+              <button type="button" @click="addColumn()" class="btn-primary py-2 px-4 text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span>Tambah Kolom Baru</span>
+              </button>
+              <template x-if="targetType === 'PEGAWAI'">
+                <button type="button" @click="loadEmployeeColumns()" class="py-2 px-3.5 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl cursor-pointer flex items-center gap-1.5 shadow-2xs">
+                  <i data-lucide="users" class="w-4 h-4"></i>
+                  <span>Muat Format Pegawai</span>
+                </button>
+              </template>
+              <template x-if="targetType === 'UNIT'">
+                <button type="button" @click="loadUnitColumns()" class="py-2 px-3.5 text-xs font-bold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-xl cursor-pointer flex items-center gap-1.5 shadow-2xs">
+                  <i data-lucide="school" class="w-4 h-4"></i>
+                  <span>Muat Format Sekolah</span>
+                </button>
+              </template>
+            </div>
+          </div>
+        </template>
+
         <template x-for="(col, index) in columns" :key="col.key">
           <div class="p-4 rounded-2xl bg-white border border-slate-200 shadow-2xs space-y-3 hover:border-slate-300 transition">
             
@@ -311,7 +342,7 @@
                 <button type="button" @click="moveColumn(index, 1)" :disabled="index === columns.length - 1" class="p-1 text-slate-400 hover:text-slate-600 disabled:opacity-30 cursor-pointer" title="Geser ke kanan / bawah">
                   <i data-lucide="chevron-down" class="w-4 h-4"></i>
                 </button>
-                <button type="button" @click="removeColumn(index)" :disabled="columns.length <= 1" class="p-1 text-rose-400 hover:text-rose-600 disabled:opacity-30 cursor-pointer" title="Hapus kolom ini">
+                <button type="button" @click="removeColumn(index)" class="p-1 text-rose-400 hover:text-rose-600 cursor-pointer" title="Hapus kolom ini">
                   <i data-lucide="trash-2" class="w-4 h-4"></i>
                 </button>
               </div>
@@ -587,8 +618,8 @@ function sheetBuilderApp() {
       rawOptions: Array.isArray(c.options) ? c.options.join(', ') : (c.rawOptions || '')
     }));
   } else {
-    // Default new sheet columns
-    initialCols = defaultEmployeeCols.map(c => ({ ...c, hidden: false, showPublicValue: false }));
+    // Default spreadsheet baru: mulai dengan kolom kosong
+    initialCols = [];
   }
 
   return {
@@ -611,13 +642,7 @@ function sheetBuilderApp() {
 
     selectTargetType(type) {
       this.targetType = type;
-      if (!existingSheet) {
-        if (type === 'PEGAWAI') {
-          this.loadEmployeeColumns();
-        } else if (type === 'UNIT') {
-          this.loadUnitColumns();
-        }
-      }
+      // Kolom tetap dibiarkan sesuai buatan user / kosong, tidak otomatis di-reset
     },
 
     loadEmployeeColumns() {
@@ -661,10 +686,6 @@ function sheetBuilderApp() {
     },
 
     removeColumn(index) {
-      if (this.columns.length <= 1) {
-        alert('Minimal harus ada 1 kolom pada spreadsheet.');
-        return;
-      }
       this.columns.splice(index, 1);
     },
 
@@ -681,10 +702,6 @@ function sheetBuilderApp() {
     submitForm() {
       if (!this.title.trim()) {
         alert('Judul spreadsheet wajib diisi.');
-        return;
-      }
-      if (this.columns.length === 0) {
-        alert('Minimal harus ada 1 kolom.');
         return;
       }
 

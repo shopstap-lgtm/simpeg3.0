@@ -452,6 +452,30 @@
         
         <!-- Table Body (Ultra Lightweight: Paginated 60 FPS) -->
         <tbody>
+          <!-- Empty State jika kolom belum dibuat sama sekali -->
+          <template x-if="visibleColumns.length === 0">
+            <tr>
+              <td :colspan="(hasCredentialLock ? 2 : 1) + (isSuperAdmin ? 1 : 0)" class="py-14 px-6 text-center bg-slate-50/40">
+                <div class="max-w-md mx-auto space-y-2.5">
+                  <div class="w-12 h-12 mx-auto rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-2xs">
+                    <i data-lucide="columns" class="w-6 h-6"></i>
+                  </div>
+                  <div class="text-sm font-black text-slate-800">Spreadsheet Masih Kosong</div>
+                  <p class="text-xs text-slate-500 leading-relaxed">
+                    Spreadsheet ini baru dibuat dengan kolom kosong. Klik tombol <b class="text-indigo-600 font-bold">+ (Tambah Kolom)</b> di kanan atas tabel atau tombol <b class="text-slate-700 font-bold">Import Database</b> pada toolbar untuk mulai mengisi data.
+                  </p>
+                  <template x-if="isSuperAdmin">
+                    <div class="pt-2">
+                      <button type="button" @click="addColumn()" class="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-1.5 shadow-xs cursor-pointer transition">
+                        <i data-lucide="plus" class="w-3.5 h-3.5"></i> Tambah Kolom Pertama
+                      </button>
+                    </div>
+                  </template>
+                </div>
+              </td>
+            </tr>
+          </template>
+
           <template x-for="(row, rowIdx) in paginatedRows" :key="row.id || row._localId">
             <tr class="hover:bg-slate-50/60 transition-colors">
               <!-- Row Index Sticky Column -->

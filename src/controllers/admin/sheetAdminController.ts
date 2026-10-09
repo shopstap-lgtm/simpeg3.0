@@ -130,11 +130,8 @@ export const sheetAdminController = {
         parsedColumns = [];
       }
 
-      if (!Array.isArray(parsedColumns) || parsedColumns.length === 0) {
-        if ((req as any).session) {
-          (req as any).session.toast = { type: 'error', message: 'Minimal harus ada 1 kolom pada spreadsheet.' };
-        }
-        return res.redirect('/admin/sheets/create');
+      if (!Array.isArray(parsedColumns)) {
+        parsedColumns = [];
       }
 
       // Sanitize columns
@@ -312,11 +309,8 @@ export const sheetAdminController = {
         parsedColumns = [];
       }
 
-      if (!Array.isArray(parsedColumns) || parsedColumns.length === 0) {
-        if ((req as any).session) {
-          (req as any).session.toast = { type: 'error', message: 'Minimal harus ada 1 kolom pada spreadsheet.' };
-        }
-        return res.redirect(`/admin/sheets/${id}/edit`);
+      if (!Array.isArray(parsedColumns)) {
+        parsedColumns = [];
       }
 
       const sanitizedColumns = parsedColumns.map((col: any, index: number) => ({

@@ -46,10 +46,7 @@ export const smartSheetController = {
           title: title || 'Spreadsheet Baru',
           description: description || '',
           slug,
-          columns: [
-            { id: 'c_nip', name: 'NIP / Kode Identitas', type: 'nip', width: 200, isLocked: true },
-            { id: 'c_nama', name: 'Nama Pegawai', type: 'text', width: 220, isLocked: true }
-          ],
+          columns: [],
           createdBy: user?.namaLengkap || 'Super Admin'
         }
       });
