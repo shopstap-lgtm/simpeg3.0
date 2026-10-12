@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
+import * as XLSX from 'xlsx';
 
 const prisma = new PrismaClient();
 
@@ -468,6 +469,108 @@ export const smartSheetController = {
     } catch (error: any) {
       console.error('[smartSheetController.importData] Error:', error);
       res.status(500).json({ success: false, message: error.message || 'Gagal import data' });
+    }
+  },
+
+  // 7. Export SmartSheet to Excel (.xlsx) for Admin
+  exportXlsx: async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).session?.user;
+      if (user?.role !== 'SUPER_ADMIN') {
+        return res.status(403).send('Akses ditolak: Hanya Super Admin yang dapat mendownload tabel spreadsheet.');
+      }
+
+      const { id } = req.params;
+      const sheet = await prisma.smartSheet.findFirst({
+        where: {
+          OR: [
+            { id },
+            { slug: id }
+          ]
+        },
+        include: {
+          rows: {
+            orderBy: { rowIndex: 'asc' }
+          }
+        }
+      });
+
+      if (!sheet) {
+        return res.status(404).send('Spreadsheet tidak ditemukan');
+      }
+
+      const columns = ((sheet.columns as any[]) || []).filter(c => c && c.id);
+
+      // Default Sort: Jika ada kolom unit kerja, urutkan sama seperti di grid view
+      const unitCol = columns.find(c => c.id === 'c_unit' || (c.name && c.name.toLowerCase().includes('unit')));
+      const pegawaiCol = columns.find(c => c.id === 'c_nama' || (c.name && (c.name.toLowerCase().includes('nama') || c.name.toLowerCase().includes('pegawai'))));
+
+      if (unitCol) {
+        sheet.rows.sort((a, b) => {
+          const dataA = (a.data as any) || {};
+          const dataB = (b.data as any) || {};
+          const uA = (dataA[unitCol.id] || '').toString().trim().toLowerCase();
+          const uB = (dataB[unitCol.id] || '').toString().trim().toLowerCase();
+          const comp = uA.localeCompare(uB, 'id', { numeric: true });
+          if (comp !== 0) return comp;
+          if (pegawaiCol) {
+            const pA = (dataA[pegawaiCol.id] || '').toString().trim().toLowerCase();
+            const pB = (dataB[pegawaiCol.id] || '').toString().trim().toLowerCase();
+            return pA.localeCompare(pB, 'id', { numeric: true });
+          }
+          return 0;
+        });
+      }
+
+      // Baris Header: No, [Nama Kolom...]
+      const headerRow = ['No', ...columns.map(c => c.name || 'Kolom')];
+
+      // Data Baris
+      const rowsData = sheet.rows.map((row, idx) => {
+        const d = (row.data as any) || {};
+        return [
+          idx + 1,
+          ...columns.map(c => {
+            const val = d[c.id];
+            if (val === undefined || val === null) return '';
+            return String(val);
+          })
+        ];
+      });
+
+      const aoa = [headerRow, ...rowsData];
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+      // Otomatis hitung lebar kolom
+      const colWidths = [
+        { wch: 6 }, // Kolom No
+        ...columns.map((c, colIdx) => {
+          let maxLen = (c.name || '').length;
+          for (const r of rowsData) {
+            const cellLen = String(r[colIdx + 1] || '').length;
+            if (cellLen > maxLen) maxLen = cellLen;
+          }
+          return { wch: Math.min(Math.max(maxLen + 4, 14), 60) };
+        })
+      ];
+      ws['!cols'] = colWidths;
+
+      const wb = XLSX.utils.book_new();
+      const safeSheetTitle = (sheet.title || 'Data').substring(0, 31).replace(/[:\\\/\?\*\[\]]/g, '_');
+      XLSX.utils.book_append_sheet(wb, ws, safeSheetTitle);
+
+      const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+      const safeFilename = (sheet.title || 'smart_sheet')
+        .trim()
+        .replace(/[^a-zA-Z0-9_\-]/g, '_')
+        .replace(/_+/g, '_');
+
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}.xlsx"`);
+      res.send(buffer);
+    } catch (error: any) {
+      console.error('[smartSheetController.exportXlsx] Error:', error);
+      res.status(500).send('Gagal mengekspor data ke Excel');
     }
   }
 };

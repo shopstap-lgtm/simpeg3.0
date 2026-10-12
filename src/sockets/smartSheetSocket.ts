@@ -99,6 +99,23 @@ export function initSmartSheetSocket(io: SocketIOServer) {
       });
     });
 
+    // 3b. Realtime Columns Sync (Validation / Add Column / Delete Column / Colors)
+    socket.on('sheet:sync-columns', (payload: {
+      sheetId: string;
+      columns: any[];
+      updatedBy?: string;
+    }) => {
+      if (!payload || !payload.sheetId || !Array.isArray(payload.columns)) return;
+      const { sheetId, columns, updatedBy } = payload;
+      const roomName = 'sheet_' + sheetId;
+
+      socket.to(roomName).emit('sheet:columns-synced', {
+        columns,
+        updatedBy: updatedBy || 'Admin',
+        socketId: socket.id
+      });
+    });
+
     // 4. Leave / Disconnect
     const handleLeave = () => {
       if (currentSheetId && activeViewers.has(currentSheetId)) {

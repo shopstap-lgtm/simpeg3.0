@@ -233,6 +233,7 @@ router.get('/smart-sheets/:slug', requireMenuAccess('forms'), smartSheetControll
 router.post('/smart-sheets/:id/save', requireMenuAccess('forms'), smartSheetController.saveGrid);
 router.post('/smart-sheets/:id/upload-cell', requireMenuAccess('forms'), sheetCellUpload.single('file'), smartSheetController.uploadCellFile);
 router.post('/smart-sheets/:id/import', requireMenuAccess('forms'), smartSheetController.importData);
+router.get('/smart-sheets/:id/export', requireMenuAccess('forms'), smartSheetController.exportXlsx);
 router.post('/smart-sheets/:id/delete', requireMenuAccess('forms'), smartSheetController.delete);
 
 

@@ -110,6 +110,7 @@ router.post('/sheet/:slug/bulk-save', sheetPublicController.bulkSave);
 router.get('/sheet/:slug/export', sheetPublicController.exportXlsx);
 
 // Smart Sheets (Grid Spreadsheet Interaktif)
+router.get('/smart-sheet/:id/export', smartSheetController.exportXlsx);
 router.get('/smart-sheet/:slug', smartSheetController.viewGrid);
 router.post('/smart-sheet/:id/save', smartSheetController.saveGrid);
 router.post('/smart-sheet/:id/upload-cell', sheetCellUpload.single('file'), smartSheetController.uploadCellFile);
