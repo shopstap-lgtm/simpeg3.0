@@ -2312,6 +2312,7 @@
         // Realtime Save States: 'saved' | 'saving' | 'dirty' | 'error'
         saveState: 'saved',
         saveTimer: null,
+        dirtyRowIds: new Set(),
 
         // Search & Filter
         searchQuery: '',
@@ -3231,6 +3232,7 @@
         },
 
         onCellInput(row, colId) {
+          if (row && row.id) this.dirtyRowIds.add(row.id);
           this.triggerAutoSave();
           if (this.socket && this.socketConnected) {
             this.socket.emit('sheet:cell-update', {
@@ -3244,6 +3246,7 @@
         },
 
         onCellBlur(row, colId) {
+          if (row && row.id) this.dirtyRowIds.add(row.id);
           if (this.socket && this.socketConnected) {
             this.socket.emit('sheet:cell-update', {
               sheetId: this.sheetData.id,
@@ -3280,11 +3283,22 @@
           clearTimeout(this.saveTimer);
           this.saveState = 'saving';
           try {
+            // Pengunjung Publik HANYA mengirim baris yang benar-benar mereka edit!
+            // Mencegah race condition tertimpa data lama atau timeout 1060 baris.
+            const rowsToSend = this.isSuperAdmin 
+              ? this.rows 
+              : this.rows.filter(r => this.dirtyRowIds.has(r.id));
+
+            if (!this.isSuperAdmin && rowsToSend.length === 0) {
+              this.saveState = 'saved';
+              return;
+            }
+
             const payload = {
               title: this.sheetData.title,
               description: this.sheetData.description || '',
               columns: this.sheetData.columns,
-              rows: this.rows
+              rows: rowsToSend
             };
 
             const endpoint = this.isSuperAdmin 
@@ -3300,6 +3314,9 @@
 
             if (data.success) {
               this.saveState = 'saved';
+              if (!this.isSuperAdmin) {
+                rowsToSend.forEach(r => this.dirtyRowIds.delete(r.id));
+              }
             } else {
               console.warn('[SmartSheet] Autosave error:', data.message);
               this.saveState = 'error';

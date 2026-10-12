@@ -218,6 +218,7 @@ export const smartSheetController = {
           const oldRow = r.id ? oldRowMap.get(r.id) : null;
 
           // Jika BUKAN Super Admin, lindungi kolom yang terkunci dari manipulasi
+          // DAN gabungkan (merge) data agar kolom lain yang tidak diedit tidak terhapus
           if (!isSuperAdmin && oldRow) {
             const oldData = (oldRow.data as any) || {};
             lockedColIds.forEach(colId => {
@@ -225,6 +226,7 @@ export const smartSheetController = {
                 rowData[colId] = oldData[colId];
               }
             });
+            rowData = { ...oldData, ...rowData };
           }
 
           if (r.id && !r.id.startsWith('new_') && !r.id.startsWith('cuid_') && r.id.length > 20) {
