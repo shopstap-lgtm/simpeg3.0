@@ -2264,7 +2264,7 @@
           
           this.rows.forEach((r, idx) => { r.rowIndex = idx; });
 
-          this.saveImmediately();
+          this.saveImmediately({ fullSync: true });
           this.emitRowsSync();
         },
 
@@ -2281,6 +2281,7 @@
                   r.data[c.id] = '';
                 }
               });
+              this.dirtyRowIds.add(r.id);
             }
           });
 
@@ -2342,7 +2343,7 @@
           });
           this.selectedColMap = {};
           this.lastClickedColIdx = null;
-          this.saveImmediately();
+          this.saveImmediately({ fullSync: true });
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
 
@@ -2485,7 +2486,7 @@
 
         unhideAllColumns() {
           this.sheetData.columns.forEach(c => c.isHidden = false);
-          this.saveImmediately();
+          this.saveImmediately({ fullSync: true });
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
 
@@ -2509,7 +2510,7 @@
           } catch(e) {}
           this.closeHeaderMenu();
           if (this.isSuperAdmin) {
-            this.saveImmediately();
+            this.saveImmediately({ fullSync: true });
           }
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
@@ -2522,7 +2523,7 @@
             sessionStorage.setItem('sheet_frozen_count_' + this.sheetData.id, String(this.frozenCount));
           } catch(e) {}
           if (this.isSuperAdmin) {
-            this.saveImmediately();
+            this.saveImmediately({ fullSync: true });
           }
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
@@ -2538,7 +2539,7 @@
           } catch(e) {}
           this.closeHeaderMenu();
           if (this.isSuperAdmin) {
-            this.saveImmediately();
+            this.saveImmediately({ fullSync: true });
           }
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
@@ -2835,7 +2836,7 @@
           this.currentPage = 1;
           this.closeHeaderMenu();
           if (this.isSuperAdmin) {
-            this.saveImmediately();
+            this.saveImmediately({ fullSync: true });
           }
         },
 
@@ -2860,7 +2861,7 @@
           this.activeMenuColIdx = newVisibleIdx;
           this.activeMenuCol = col;
           
-          this.saveImmediately();
+          this.saveImmediately({ fullSync: true });
 
           this.$nextTick(() => {
             // Reposisi popup agar tetap menempel pada header kolom yang bergeser
@@ -2885,7 +2886,7 @@
           if (!col) return;
           col.isHidden = !col.isHidden;
           this.closeHeaderMenu();
-          this.saveImmediately();
+          this.saveImmediately({ fullSync: true });
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
 
@@ -2905,7 +2906,7 @@
           this.sheetData.columns.splice(originalIdx, 1);
           this.rows.forEach(r => { if (r.data) delete r.data[colId]; });
           this.closeHeaderMenu();
-          this.saveImmediately();
+          this.saveImmediately({ fullSync: true });
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
 
@@ -3031,7 +3032,7 @@
             });
           }
           this.showRowLockSettings = false;
-          this.saveImmediately();
+          this.saveImmediately({ fullSync: true });
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
 
@@ -3403,17 +3404,19 @@
           }, 600);
         },
 
-        async saveImmediately() {
+        async saveImmediately(options = {}) {
           clearTimeout(this.saveTimer);
           this.saveState = 'saving';
           try {
-            // Pengunjung Publik HANYA mengirim baris yang benar-benar mereka edit!
-            // Mencegah race condition tertimpa data lama atau timeout 1060 baris.
-            const rowsToSend = this.isSuperAdmin 
+            const isFullSync = options && options.fullSync === true;
+
+            // Pengunjung Publik & Super Admin saat autosave pengetikan sel HANYA mengirim dirtyRowIds!
+            // Hanya kirim seluruh baris jika terjadi perubahan struktural eksplisit (fullSync: true: tambah/hapus baris, sort, dsb)
+            const rowsToSend = isFullSync 
               ? this.rows 
               : this.rows.filter(r => this.dirtyRowIds.has(r.id));
 
-            if (!this.isSuperAdmin && rowsToSend.length === 0) {
+            if (!isFullSync && rowsToSend.length === 0) {
               this.saveState = 'saved';
               return;
             }
@@ -3422,7 +3425,8 @@
               title: this.sheetData.title,
               description: this.sheetData.description || '',
               columns: this.sheetData.columns,
-              rows: rowsToSend
+              rows: rowsToSend,
+              isFullSync: isFullSync
             };
 
             const endpoint = this.isSuperAdmin 
@@ -3438,9 +3442,7 @@
 
             if (data.success) {
               this.saveState = 'saved';
-              if (!this.isSuperAdmin) {
-                rowsToSend.forEach(r => this.dirtyRowIds.delete(r.id));
-              }
+              rowsToSend.forEach(r => this.dirtyRowIds.delete(r.id));
             } else {
               console.warn('[SmartSheet] Autosave error:', data.message);
               this.saveState = 'error';
@@ -3727,7 +3729,7 @@
             isFrozen: false
           });
           this.rows.forEach(r => { if (r.data) r.data[newId] = ''; });
-          this.saveImmediately();
+          this.saveImmediately({ fullSync: true });
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
 
@@ -3739,7 +3741,7 @@
             this.sheetData.columns.forEach(c => newRow.data[c.id] = '');
             this.rows.push(newRow);
           }
-          this.saveImmediately();
+          this.saveImmediately({ fullSync: true });
           this.emitRowsSync();
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
@@ -3946,7 +3948,7 @@
           }
 
           this.showValidationSidebar = false;
-          this.saveImmediately();
+          this.saveImmediately({ fullSync: true });
           this.emitColumnsSync();
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
@@ -3959,7 +3961,7 @@
           col.options = [];
           col.optionColors = {};
           this.showValidationSidebar = false;
-          this.saveImmediately();
+          this.saveImmediately({ fullSync: true });
           this.emitColumnsSync();
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         },
@@ -4026,7 +4028,7 @@
           this.rows.forEach(r => { if (r.data) delete r.data[colId]; });
           
           this.showColMenu = false;
-          this.saveImmediately();
+          this.saveImmediately({ fullSync: true });
           this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
         }
       };

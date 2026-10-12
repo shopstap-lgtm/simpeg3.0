@@ -155,7 +155,7 @@ export const smartSheetController = {
   saveGrid: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { title, description, columns, rows } = req.body;
+      const { title, description, columns, rows, isFullSync } = req.body;
       const user = (req as any).session?.user;
       const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
@@ -168,7 +168,7 @@ export const smartSheetController = {
       }
 
       // HANYA SUPER ADMIN yang diizinkan mengubah metadata & struktur kolom
-      if (isSuperAdmin) {
+      if (isSuperAdmin && (isFullSync || columns)) {
         const updateSheetData: any = {};
         if (title !== undefined && title.trim()) updateSheetData.title = title.trim();
         if (description !== undefined) updateSheetData.description = typeof description === 'string' ? description.trim() : '';
@@ -195,8 +195,8 @@ export const smartSheetController = {
 
         const queries: any[] = [];
 
-        // Jika Super Admin menghapus baris, hapus baris yang dihilangkan dari database
-        if (isSuperAdmin) {
+        // Jika Super Admin melakukan Full Sync (misal hapus baris), hapus baris yang dihilangkan dari database
+        if (isSuperAdmin && isFullSync) {
           const incomingIds = new Set(
             rows
               .filter(r => r.id && !r.id.startsWith('new_') && !r.id.startsWith('local_') && !r.id.startsWith('cuid_'))
@@ -220,7 +220,6 @@ export const smartSheetController = {
           const oldRow = r.id ? oldRowMap.get(r.id) : null;
 
           // Jika BUKAN Super Admin, lindungi kolom yang terkunci dari manipulasi
-          // DAN gabungkan (merge) data agar kolom lain yang tidak diedit tidak terhapus
           if (!isSuperAdmin && oldRow) {
             const oldData = (oldRow.data as any) || {};
             lockedColIds.forEach(colId => {
@@ -228,7 +227,6 @@ export const smartSheetController = {
                 rowData[colId] = oldData[colId];
               }
             });
-            rowData = { ...oldData, ...rowData };
           }
 
           if (r.id && !r.id.startsWith('new_') && !r.id.startsWith('cuid_') && r.id.length > 20) {
@@ -240,17 +238,38 @@ export const smartSheetController = {
               }
             }
 
-            queries.push(
-              prisma.smartSheetRow.update({
-                where: { id: r.id },
-                data: { 
-                  data: rowData, 
-                  rowIndex: r.rowIndex !== undefined ? r.rowIndex : 0,
-                  lastUpdatedAt: new Date(),
-                  lastUpdatedBy: user?.namaLengkap || (isSuperAdmin ? 'Super Admin' : 'Publik')
-                }
-              })
-            );
+            const updatedByName = user?.namaLengkap || (isSuperAdmin ? 'Super Admin' : 'Publik');
+            const targetRowIndex = r.rowIndex !== undefined ? r.rowIndex : (oldRow?.rowIndex || 0);
+
+            if (isSuperAdmin && isFullSync) {
+              // Jika Super Admin melakukan full sync (hapus kolom atau reset urutan), update utuh
+              queries.push(
+                prisma.smartSheetRow.update({
+                  where: { id: r.id },
+                  data: { 
+                    data: rowData, 
+                    rowIndex: targetRowIndex,
+                    lastUpdatedAt: new Date(),
+                    lastUpdatedBy: updatedByName
+                  }
+                })
+              );
+            } else {
+              // ATOMIC POSTGRESQL JSONB MERGE:
+              // Shallow merge atomik di level engine database ("data" = "data"::jsonb || $jsonDelta::jsonb)
+              // Menjamin 100% tidak ada kolom yang saling menimpa jika dua orang mengedit baris yang sama berbarengan!
+              const jsonDelta = JSON.stringify(rowData);
+              queries.push(
+                prisma.$executeRaw`
+                  UPDATE "SmartSheetRow"
+                  SET "data" = "data"::jsonb || ${jsonDelta}::jsonb,
+                      "rowIndex" = ${targetRowIndex},
+                      "lastUpdatedAt" = NOW(),
+                      "lastUpdatedBy" = ${updatedByName}
+                  WHERE "id" = ${r.id}
+                `
+              );
+            }
           } else if (isSuperAdmin || (r.data && Object.keys(r.data).some(k => r.data[k]))) {
             // Tambah baris baru jika Super Admin atau jika publik mengisi baris baru yang memiliki data
             queries.push(

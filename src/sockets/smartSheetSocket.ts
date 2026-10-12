@@ -59,24 +59,16 @@ export function initSmartSheetSocket(io: SocketIOServer) {
         socketId: socket.id
       });
 
-      // Persist to database in background
+      // Persist to database in background via atomic PostgreSQL JSONB merge
       try {
-        const existingRow = await prisma.smartSheetRow.findUnique({
-          where: { id: rowId }
-        });
-
-        if (existingRow) {
-          const rowData = (existingRow.data as any) || {};
-          rowData[colId] = value;
-          await prisma.smartSheetRow.update({
-            where: { id: rowId },
-            data: {
-              data: rowData,
-              lastUpdatedAt: new Date(),
-              lastUpdatedBy: updatedBy || 'Publik'
-            }
-          });
-        }
+        const jsonDelta = JSON.stringify({ [colId]: value });
+        await prisma.$executeRaw`
+          UPDATE "SmartSheetRow"
+          SET "data" = "data"::jsonb || ${jsonDelta}::jsonb,
+              "lastUpdatedAt" = NOW(),
+              "lastUpdatedBy" = ${updatedBy || 'Publik'}
+          WHERE "id" = ${rowId}
+        `;
       } catch (err) {
         console.error(`[WebSocket] Error updating cell ${rowId}:${colId}:`, err);
       }

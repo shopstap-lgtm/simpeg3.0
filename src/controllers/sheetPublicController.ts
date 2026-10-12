@@ -326,19 +326,20 @@ export const sheetPublicController = {
         }
       }
 
-      const updated = await prisma.dataSheetRow.update({
-        where: { id: rowId },
-        data: {
-          data: parsedData,
-          lastUpdatedAt: new Date(),
-          lastUpdatedBy: nip ? `NIP: ${nip}` : 'Pengisi Publik'
-        }
-      });
+      const jsonDelta = JSON.stringify(parsedData);
+      const updatedBy = nip ? `NIP: ${nip}` : 'Pengisi Publik';
+
+      await prisma.$executeRaw`
+        UPDATE "DataSheetRow"
+        SET "data" = "data"::jsonb || ${jsonDelta}::jsonb,
+            "lastUpdatedAt" = NOW(),
+            "lastUpdatedBy" = ${updatedBy}
+        WHERE "id" = ${rowId}
+      `;
 
       return res.json({
         success: true,
-        message: 'Perubahan berhasil disimpan!',
-        row: updated
+        message: 'Perubahan berhasil disimpan!'
       });
     } catch (error: any) {
       console.error('[sheetPublicController.saveRow] Error:', error);
