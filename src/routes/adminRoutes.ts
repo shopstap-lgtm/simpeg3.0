@@ -234,6 +234,10 @@ router.post('/smart-sheets/:id/save', requireMenuAccess('forms'), smartSheetCont
 router.post('/smart-sheets/:id/upload-cell', requireMenuAccess('forms'), sheetCellUpload.single('file'), smartSheetController.uploadCellFile);
 router.post('/smart-sheets/:id/import', requireMenuAccess('forms'), smartSheetController.importData);
 router.get('/smart-sheets/:id/export', requireMenuAccess('forms'), smartSheetController.exportXlsx);
+router.get('/smart-sheets/:id/versions', requireMenuAccess('forms'), smartSheetController.listVersions);
+router.get('/smart-sheets/:id/versions/:versionId', requireMenuAccess('forms'), smartSheetController.getVersionDetail);
+router.post('/smart-sheets/:id/versions/create', requireMenuAccess('forms'), smartSheetController.createVersion);
+router.post('/smart-sheets/:id/versions/:versionId/restore', requireMenuAccess('forms'), smartSheetController.restoreVersion);
 router.post('/smart-sheets/:id/delete', requireMenuAccess('forms'), smartSheetController.delete);
 
 

@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const prisma = new PrismaClient();
 
@@ -573,6 +575,264 @@ export const smartSheetController = {
     } catch (error: any) {
       console.error('[smartSheetController.exportXlsx] Error:', error);
       res.status(500).send('Gagal mengekspor data ke Excel');
+    }
+  },
+
+  // 8. List Versions
+  listVersions: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const sheet = await prisma.smartSheet.findFirst({
+        where: { OR: [{ id }, { slug: id }] },
+        select: { id: true, title: true, slug: true }
+      });
+      if (!sheet) return res.status(404).json({ success: false, message: 'Spreadsheet tidak ditemukan' });
+
+      const versions: any[] = [];
+      const backupDir = '/var/backups/smart-sheets';
+
+      // 1. Ambil dari file backup server jika ada
+      if (fs.existsSync(backupDir)) {
+        const files = fs.readdirSync(backupDir).filter(f => f.startsWith(`sheet_${sheet.slug}_`) && f.endsWith('.json'));
+        for (const file of files) {
+          try {
+            const fPath = path.join(backupDir, file);
+            const stat = fs.statSync(fPath);
+            const parts = file.replace(`sheet_${sheet.slug}_`, '').replace('.json', '').split('_');
+            const datePart = parts[0];
+            const timePart = parts[1] || '0000';
+            const formattedTime = `${timePart.substring(0, 2)}:${timePart.substring(2, 4)}`;
+
+            versions.push({
+              id: 'file_' + file,
+              type: 'file',
+              filename: file,
+              label: `Snapshot Jam ${formattedTime} WIB`,
+              description: `Cadangan Otomatis (${datePart} • ${(stat.size / 1024).toFixed(0)} KB)`,
+              createdBy: 'Sistem (Server Auto-Backup)',
+              createdAt: stat.mtime.toISOString(),
+              size: stat.size
+            });
+          } catch (e) {}
+        }
+      }
+
+      // 2. Ambil dari database SmartSheetVersion
+      try {
+        const dbVersions = await prisma.smartSheetVersion.findMany({
+          where: { sheetId: sheet.id },
+          select: {
+            id: true,
+            label: true,
+            description: true,
+            rowCount: true,
+            createdBy: true,
+            createdAt: true
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 60
+        });
+
+        dbVersions.forEach(v => {
+          versions.push({
+            id: v.id,
+            type: 'db',
+            label: v.label,
+            description: v.description,
+            rowCount: v.rowCount,
+            createdBy: v.createdBy,
+            createdAt: v.createdAt.toISOString()
+          });
+        });
+      } catch (e) {}
+
+      // Urutkan dari yang terbaru
+      versions.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      res.json({ success: true, versions });
+    } catch (error: any) {
+      console.error('[smartSheetController.listVersions] Error:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  // 9. Get Single Version Detail (Full Snapshot for Preview)
+  getVersionDetail: async (req: Request, res: Response) => {
+    try {
+      const { id, versionId } = req.params;
+      if (versionId.startsWith('file_')) {
+        const filename = versionId.replace('file_', '');
+        const fPath = path.join('/var/backups/smart-sheets', filename);
+        if (!fs.existsSync(fPath)) {
+          return res.status(404).json({ success: false, message: 'File backup tidak ditemukan' });
+        }
+        const fileContent = JSON.parse(fs.readFileSync(fPath, 'utf8'));
+        return res.json({
+          success: true,
+          version: {
+            id: versionId,
+            label: filename,
+            createdAt: fileContent.savedAt,
+            columnsSnapshot: fileContent.columns,
+            rowsSnapshot: fileContent.rows
+          }
+        });
+      }
+
+      const version = await prisma.smartSheetVersion.findUnique({
+        where: { id: versionId }
+      });
+      if (!version) return res.status(404).json({ success: false, message: 'Versi tidak ditemukan' });
+
+      res.json({ success: true, version });
+    } catch (error: any) {
+      console.error('[smartSheetController.getVersionDetail] Error:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  // 10. Create Manual Version Snapshot
+  createVersion: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { label } = req.body;
+      const user = (req as any).session?.user;
+
+      const sheet = await prisma.smartSheet.findFirst({
+        where: { OR: [{ id }, { slug: id }] },
+        include: { rows: { orderBy: { rowIndex: 'asc' } } }
+      });
+      if (!sheet) return res.status(404).json({ success: false, message: 'Spreadsheet tidak ditemukan' });
+
+      let filledCount = 0;
+      sheet.rows.forEach(r => {
+        const d = (r.data as any) || {};
+        if (Object.values(d).some(v => v !== null && v !== undefined && String(v).trim() !== '' && String(v).trim() !== '- Kosong -')) {
+          filledCount++;
+        }
+      });
+
+      const now = new Date();
+      const versionLabel = label || `Snapshot Manual (${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })})`;
+      const version = await prisma.smartSheetVersion.create({
+        data: {
+          sheetId: sheet.id,
+          label: versionLabel,
+          description: `${sheet.rows.length.toLocaleString('id-ID')} baris • ${filledCount.toLocaleString('id-ID')} terisi`,
+          rowCount: sheet.rows.length,
+          columnsSnapshot: sheet.columns as any,
+          rowsSnapshot: sheet.rows.map(r => ({ id: r.id, rowIndex: r.rowIndex, data: r.data })),
+          createdBy: user?.namaLengkap || 'Super Admin'
+        }
+      });
+
+      // Simpan juga ke file backup
+      try {
+        const backupDir = '/var/backups/smart-sheets';
+        if (fs.existsSync(backupDir)) {
+          const pad = (n: number) => String(n).padStart(2, '0');
+          const timestamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+          const filepath = path.join(backupDir, `sheet_${sheet.slug}_manual_${timestamp}.json`);
+          fs.writeFileSync(filepath, JSON.stringify({
+            sheetId: sheet.id,
+            title: sheet.title,
+            slug: sheet.slug,
+            savedAt: now.toISOString(),
+            rowCount: sheet.rows.length,
+            columns: sheet.columns,
+            rows: sheet.rows
+          }, null, 2), 'utf8');
+        }
+      } catch (e) {}
+
+      res.json({ success: true, version });
+    } catch (error: any) {
+      console.error('[smartSheetController.createVersion] Error:', error);
+      res.status(500).json({ success: false, message: error.message });
+    }
+  },
+
+  // 11. Restore Version (Pulihkan Spreadsheet ke Versi Tertentu)
+  restoreVersion: async (req: Request, res: Response) => {
+    try {
+      const { id, versionId } = req.params;
+      const user = (req as any).session?.user;
+      if (user?.role !== 'SUPER_ADMIN') {
+        return res.status(403).json({ success: false, message: 'Hanya Super Admin yang diizinkan memulihkan versi' });
+      }
+
+      const sheet = await prisma.smartSheet.findFirst({
+        where: { OR: [{ id }, { slug: id }] },
+        include: { rows: { orderBy: { rowIndex: 'asc' } } }
+      });
+      if (!sheet) return res.status(404).json({ success: false, message: 'Spreadsheet tidak ditemukan' });
+
+      let targetColumns: any[] = [];
+      let targetRows: any[] = [];
+      let versionLabel = '';
+
+      if (versionId.startsWith('file_')) {
+        const filename = versionId.replace('file_', '');
+        const fPath = path.join('/var/backups/smart-sheets', filename);
+        if (!fs.existsSync(fPath)) {
+          return res.status(404).json({ success: false, message: 'File backup tidak ditemukan' });
+        }
+        const fileContent = JSON.parse(fs.readFileSync(fPath, 'utf8'));
+        targetColumns = fileContent.columns || [];
+        targetRows = fileContent.rows || [];
+        versionLabel = filename;
+      } else {
+        const targetVersion = await prisma.smartSheetVersion.findUnique({
+          where: { id: versionId }
+        });
+        if (!targetVersion) return res.status(404).json({ success: false, message: 'Versi target tidak ditemukan' });
+        targetColumns = targetVersion.columnsSnapshot as any[];
+        targetRows = targetVersion.rowsSnapshot as any[];
+        versionLabel = targetVersion.label || targetVersion.createdAt.toISOString();
+      }
+
+      // 1. Simpan safety snapshot sebelum ditimpa
+      const now = new Date();
+      try {
+        await prisma.smartSheetVersion.create({
+          data: {
+            sheetId: sheet.id,
+            label: `Sebelum Pemulihan (${now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })})`,
+            description: `Disimpan otomatis sebelum memulihkan ke "${versionLabel}"`,
+            rowCount: sheet.rows.length,
+            columnsSnapshot: sheet.columns as any,
+            rowsSnapshot: sheet.rows.map(r => ({ id: r.id, rowIndex: r.rowIndex, data: r.data })),
+            createdBy: 'Sistem (Safety Backup)'
+          }
+        });
+      } catch (e) {}
+
+      // 2. Pulihkan columns dan rows
+      await prisma.$transaction([
+        prisma.smartSheet.update({
+          where: { id: sheet.id },
+          data: { columns: targetColumns }
+        }),
+        prisma.smartSheetRow.deleteMany({
+          where: { sheetId: sheet.id }
+        }),
+        prisma.smartSheetRow.createMany({
+          data: targetRows.map(r => ({
+            sheetId: sheet.id,
+            rowIndex: r.rowIndex !== undefined ? r.rowIndex : 0,
+            data: r.data || {},
+            lastUpdatedBy: `Dipulihkan oleh ${user?.namaLengkap || 'Super Admin'}`
+          }))
+        })
+      ]);
+
+      res.json({
+        success: true,
+        message: `Berhasil memulihkan ke versi "${versionLabel}"`
+      });
+    } catch (error: any) {
+      console.error('[smartSheetController.restoreVersion] Error:', error);
+      res.status(500).json({ success: false, message: error.message });
     }
   }
 };

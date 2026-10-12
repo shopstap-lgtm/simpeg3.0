@@ -345,6 +345,7 @@ model SmartSheet {
   createdBy           String?
 
   rows                SmartSheetRow[]
+  versions            SmartSheetVersion[]
 
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
@@ -368,4 +369,21 @@ model SmartSheetRow {
 
   @@index([sheetId])
   @@index([rowIndex])
+}
+
+model SmartSheetVersion {
+  id              String      @id @default(cuid())
+  sheetId         String
+  label           String?     // e.g. "Snapshot Otomatis 16:00" atau nama manual
+  description     String?     // e.g. "1.060 baris (843 terisi)"
+  rowCount        Int         @default(0)
+  columnsSnapshot Json        // Array of columns at that time
+  rowsSnapshot    Json        // Array of { id, rowIndex, data }
+  createdBy       String      @default("Sistem (Otomatis)")
+
+  sheet           SmartSheet  @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+
+  createdAt       DateTime    @default(now())
+
+  @@index([sheetId, createdAt])
 }
