@@ -23,6 +23,29 @@
   }).replace(/</g, '\\u003c') %>
 </script>
 
+<style>
+  [x-ref="tableScroll"] {
+    overflow: auto !important;
+  }
+  [x-ref="tableScroll"] thead {
+    position: sticky !important;
+    top: 0 !important;
+    z-index: 25 !important;
+  }
+  [x-ref="tableScroll"] thead tr th {
+    position: sticky !important;
+    top: 0 !important;
+    background-color: #f1f5f9 !important;
+    opacity: 1 !important;
+    background-clip: padding-box !important;
+    box-shadow: 0 1px 0 0 #cbd5e1 !important;
+  }
+  [x-ref="tableScroll"] thead th:first-child {
+    left: 0 !important;
+    z-index: 35 !important;
+  }
+</style>
+
 <main class="min-h-screen bg-slate-50/70 py-6 sm:py-10 px-4 sm:px-6 lg:px-8 font-sans"
       x-data="publicSpreadsheetViewer()">
 
@@ -225,9 +248,9 @@
                :class="(isFitToScreen && !isMobile) ? '[&_th]:!w-auto' : ''"
                @paste="handlePublicPaste($event)">
           <!-- Table Header -->
-          <thead class="bg-slate-100/90 sticky top-0 z-20 text-[11px] font-black text-slate-600 uppercase tracking-wider border-b border-slate-300 select-none shadow-2xs">
+          <thead class="bg-slate-100 sticky top-0 z-20 text-[11px] font-black text-slate-600 uppercase tracking-wider border-b border-slate-300 select-none shadow-2xs">
             <tr>
-              <th class="py-3 px-3 w-12 text-center border-r border-slate-200 bg-slate-100 sticky left-0 z-30 shadow-2xs">#</th>
+              <th class="py-3 px-3 w-12 text-center border-r border-slate-200 bg-slate-100 sticky left-0 top-0 z-30 shadow-2xs">#</th>
               
               <!-- Fallback Identitas Columns if not explicitly defined in sheet -->
               <template x-if="!isFieldDefinedInSheet('nama') && !isFieldDefinedInSheet('label') && isIdentColVisible('label')">
