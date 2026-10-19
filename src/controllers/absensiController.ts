@@ -610,6 +610,7 @@ export const absensiController = {
     try {
       let { employeeId, tanggalAbsen, tanggalMulai, tanggalSelesai, isRentang, statusAwal, statusPengganti, alasan } = req.body;
       const file = req.file;
+      const isAjax = req.xhr || req.headers.accept?.includes('application/json') || req.headers['x-requested-with'] === 'XMLHttpRequest';
 
       if (isRentang === 'true' || isRentang === true) {
         if (tanggalMulai && tanggalSelesai) {
@@ -618,10 +619,14 @@ export const absensiController = {
       }
 
       if (!employeeId || !tanggalAbsen || !alasan) {
+        const msg = 'Silakan lengkapi tanggal dan alasan klarifikasi.';
+        if (isAjax) {
+          return res.status(400).json({ success: false, message: msg });
+        }
         if ((req as any).session) {
           (req as any).session.toast = {
             type: 'warning',
-            message: 'Silakan lengkapi tanggal dan alasan klarifikasi.'
+            message: msg
           };
           return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
         }
@@ -683,10 +688,14 @@ export const absensiController = {
 
       if (normStatusAwal === 'EMPTY') {
         if (!monthPolicy?.praRekapEnabled || !isDatePermitted(monthPolicy?.praRekapDates || 'ALL', dayNum)) {
+          const msg = 'Pengajuan klarifikasi untuk status Pra-Rekap (Hari Kosong) pada bulan / tanggal tersebut sedang ditutup oleh Admin.';
+          if (isAjax) {
+            return res.status(400).json({ success: false, message: msg });
+          }
           if ((req as any).session) {
             (req as any).session.toast = {
               type: 'warning',
-              message: 'Pengajuan klarifikasi untuk status Pra-Rekap (Hari Kosong) pada bulan / tanggal tersebut sedang ditutup oleh Admin.'
+              message: msg
             };
             return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
           }
@@ -694,10 +703,14 @@ export const absensiController = {
         }
       } else if (normStatusAwal === 'HADIR' || normStatusAwal === 'NL') {
         if (!monthPolicy?.nlEnabled || !isDatePermitted(monthPolicy?.nlDates || 'ALL', dayNum)) {
+          const msg = 'Pengajuan klarifikasi untuk status Hadir Normal (NL) pada bulan / tanggal tersebut sedang ditutup oleh Admin.';
+          if (isAjax) {
+            return res.status(400).json({ success: false, message: msg });
+          }
           if ((req as any).session) {
             (req as any).session.toast = {
               type: 'warning',
-              message: 'Pengajuan klarifikasi untuk status Hadir Normal (NL) pada bulan / tanggal tersebut sedang ditutup oleh Admin.'
+              message: msg
             };
             return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
           }
@@ -705,10 +718,14 @@ export const absensiController = {
         }
       } else if (normStatusAwal === 'PC' || normStatusAwal === 'TL') {
         if (!monthPolicy?.pcEnabled || !isDatePermitted(monthPolicy?.pcDates || 'ALL', dayNum)) {
+          const msg = 'Pengajuan klarifikasi untuk status Terlambat (TL) & Pulang Cepat (PC) pada bulan / tanggal tersebut sedang ditutup oleh Admin.';
+          if (isAjax) {
+            return res.status(400).json({ success: false, message: msg });
+          }
           if ((req as any).session) {
             (req as any).session.toast = {
               type: 'warning',
-              message: 'Pengajuan klarifikasi untuk status Terlambat (TL) & Pulang Cepat (PC) pada bulan / tanggal tersebut sedang ditutup oleh Admin.'
+              message: msg
             };
             return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
           }
@@ -727,10 +744,14 @@ export const absensiController = {
       if (!isAdmin) {
         const allowedTargets = ['HADIR', 'DL', 'ST', 'CT'];
         if (!allowedTargets.includes(statusPengganti)) {
+          const msg = 'Pengajuan klarifikasi hanya diperbolehkan ke status Hadir Normal (HADIR), Dinas Luar (DL), Sakit (ST), atau Cuti (CT).';
+          if (isAjax) {
+            return res.status(400).json({ success: false, message: msg });
+          }
           if ((req as any).session) {
             (req as any).session.toast = {
               type: 'warning',
-              message: 'Pengajuan klarifikasi hanya diperbolehkan ke status Hadir Normal (HADIR), Dinas Luar (DL), Sakit (ST), atau Cuti (CT).'
+              message: msg
             };
             return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
           }
@@ -739,10 +760,14 @@ export const absensiController = {
       }
 
       if (!file) {
+        const msg = 'Wajib mengunggah berkas bukti klarifikasi berupa dokumen PDF!';
+        if (isAjax) {
+          return res.status(400).json({ success: false, message: msg });
+        }
         if ((req as any).session) {
           (req as any).session.toast = {
             type: 'error',
-            message: 'Wajib mengunggah berkas bukti klarifikasi berupa dokumen PDF!'
+            message: msg
           };
           return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
         }
@@ -750,10 +775,14 @@ export const absensiController = {
       }
 
       if (file.size > 1 * 1024 * 1024) {
+        const msg = 'Ukuran berkas bukti klarifikasi melebihi batas maksimal 1MB!';
+        if (isAjax) {
+          return res.status(400).json({ success: false, message: msg });
+        }
         if ((req as any).session) {
           (req as any).session.toast = {
             type: 'error',
-            message: 'Ukuran berkas bukti klarifikasi melebihi batas maksimal 1MB!'
+            message: msg
           };
           return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
         }
@@ -808,10 +837,22 @@ export const absensiController = {
       });
 
       const redirectUrl = buildAbsensiRedirectUrl(req);
+      const successMsg = 'Permohonan klarifikasi berhasil diajukan dan sedang menunggu review admin.';
+      if (isAjax) {
+        if ((req as any).session) {
+          (req as any).session.toast = {
+            type: 'success',
+            message: successMsg
+          };
+          return (req as any).session.save(() => res.json({ success: true, message: successMsg }));
+        }
+        return res.json({ success: true, message: successMsg });
+      }
+
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'success',
-          message: 'Permohonan klarifikasi berhasil diajukan dan sedang menunggu review admin.'
+          message: successMsg
         };
         return (req as any).session.save(() => res.redirect(redirectUrl));
       }
@@ -819,11 +860,16 @@ export const absensiController = {
       res.redirect(redirectUrl);
     } catch (error: any) {
       console.error('Error in submitKlarifikasi:', error);
+      const errMsg = 'Gagal mengajukan klarifikasi. Silakan coba kembali.';
+      const isAjax = req.xhr || req.headers.accept?.includes('application/json') || req.headers['x-requested-with'] === 'XMLHttpRequest';
+      if (isAjax) {
+        return res.status(500).json({ success: false, message: errMsg });
+      }
       const redirectUrl = buildAbsensiRedirectUrl(req);
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'danger',
-          message: 'Gagal mengajukan klarifikasi. Silakan coba kembali.'
+          message: errMsg
         };
         return (req as any).session.save(() => res.redirect(redirectUrl));
       }

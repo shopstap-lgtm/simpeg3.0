@@ -1418,7 +1418,94 @@
                             <!-- Modal Form (Scrollable body) -->
                             <template x-if="selectedEmployee">
                               <form action="/absensi/klarifikasi" method="POST" enctype="multipart/form-data"
-                                x-data="{ isSubmittingKlarifikasi: false }" @submit="isSubmittingKlarifikasi = true"
+                                x-data="{
+                                  isSubmittingKlarifikasi: false,
+                                  isReadingFile: false,
+                                  cachedFileBlob: null,
+                                  cachedFileName: '',
+                                  async handleFileChange(event) {
+                                    const f = event.target.files && event.target.files[0];
+                                    if (!f) {
+                                      this.cachedFileBlob = null;
+                                      this.cachedFileName = '';
+                                      fileName = '';
+                                      return;
+                                    }
+                                    if (f.size > 1024 * 1024) {
+                                      alert('Ukuran berkas bukti klarifikasi melebihi batas maksimal 1MB!');
+                                      event.target.value = '';
+                                      this.cachedFileBlob = null;
+                                      this.cachedFileName = '';
+                                      fileName = '';
+                                      return;
+                                    }
+                                    this.isReadingFile = true;
+                                    try {
+                                      const buffer = await f.arrayBuffer();
+                                      this.cachedFileBlob = new Blob([buffer], { type: f.type || 'application/pdf' });
+                                      this.cachedFileName = f.name;
+                                      fileName = f.name;
+                                    } catch (err) {
+                                      console.error('Gagal membaca file ke memori:', err);
+                                      alert('Gagal membaca berkas. Silakan pilih kembali berkas PDF Anda.');
+                                      event.target.value = '';
+                                      this.cachedFileBlob = null;
+                                      this.cachedFileName = '';
+                                      fileName = '';
+                                    } finally {
+                                      this.isReadingFile = false;
+                                    }
+                                  },
+                                  async handleKlarifikasiSubmit(event) {
+                                    if (this.isSubmittingKlarifikasi) return;
+                                    if (this.isReadingFile) {
+                                      alert('Sedang memproses berkas, harap tunggu beberapa detik...');
+                                      return;
+                                    }
+                                    
+                                    const form = event.target;
+                                    const fileInput = form.querySelector('#fileProof');
+                                    
+                                    if (!this.cachedFileBlob && (!fileInput || !fileInput.files || !fileInput.files[0])) {
+                                      alert('Wajib mengunggah berkas bukti klarifikasi berupa dokumen PDF!');
+                                      return;
+                                    }
+
+                                    this.isSubmittingKlarifikasi = true;
+
+                                    try {
+                                      const formData = new FormData(form);
+                                      
+                                      if (this.cachedFileBlob) {
+                                        formData.set('file', this.cachedFileBlob, this.cachedFileName || 'Surat_Keterangan.pdf');
+                                      }
+
+                                      const res = await fetch(form.action, {
+                                        method: 'POST',
+                                        body: formData,
+                                        headers: {
+                                          'Accept': 'application/json',
+                                          'X-Requested-With': 'XMLHttpRequest'
+                                        }
+                                      });
+
+                                      const data = await res.json().catch(() => null);
+
+                                      if (res.ok && data && data.success) {
+                                        window.location.reload();
+                                      } else {
+                                        const msg = (data && data.message) ? data.message : 'Gagal mengirim klarifikasi. Silakan coba kembali.';
+                                        alert(msg);
+                                        this.isSubmittingKlarifikasi = false;
+                                      }
+                                    } catch (err) {
+                                      console.error('Fetch error submitting klarifikasi:', err);
+                                      alert('Terjadi gangguan jaringan atau gagal mengunggah berkas. Silakan coba kembali.');
+                                      this.isSubmittingKlarifikasi = false;
+                                    }
+                                  }
+                                }"
+                                @submit.prevent="handleKlarifikasiSubmit($event)"
                                 class="flex flex-col flex-1 min-h-0 overflow-hidden">
                                 <input type="hidden" name="employeeId" :value="selectedEmployee.id">
                                 <input type="hidden" name="statusAwal" :value="currentStatus">
@@ -1818,23 +1905,22 @@
                                     </label>
                                     <div
                                       class="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-2xl p-2.5 sm:p-3 text-center cursor-pointer transition-colors bg-slate-50 relative flex items-center justify-center gap-3">
-                                      <input type="file" name="file" id="fileProof" accept=".pdf" required @change="
-                           const f = $event.target.files[0];
-                           if (f && f.size > 1024 * 1024) {
-                             alert('Ukuran berkas bukti klarifikasi melebihi batas maksimal 1MB!');
-                             $event.target.value = '';
-                             fileName = '';
-                             return;
-                           }
-                           fileName = f ? f.name : '';
-                         " class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                                      <input type="file" name="file" id="fileProof" accept=".pdf" required @change="handleFileChange($event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
                                       <div
                                         class="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
-                                        <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                                        <template x-if="!isReadingFile">
+                                          <i data-lucide="upload-cloud" class="w-4 h-4"></i>
+                                        </template>
+                                        <template x-if="isReadingFile">
+                                          <svg class="animate-spin w-4 h-4 text-indigo-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                          </svg>
+                                        </template>
                                       </div>
                                       <div class="text-left min-w-0">
                                         <p class="text-xs font-semibold text-slate-700 truncate"
-                                          x-text="fileName ? fileName : 'Pilih Berkas PDF (Maks 1MB)'"></p>
+                                          x-text="isReadingFile ? 'Membaca berkas ke memori...' : (fileName ? fileName : 'Pilih Berkas PDF (Maks 1MB)')"></p>
                                         <p class="text-[10.5px] text-slate-400">Surat Dokter / Keterangan / SK Cuti</p>
                                       </div>
                                     </div>
@@ -1845,17 +1931,26 @@
                                 <!-- Modal Actions (Fixed bottom) -->
                                 <div
                                   class="px-5 py-3 sm:px-6 sm:py-3.5 border-t border-slate-100 bg-slate-50/60 flex items-center justify-end gap-2.5 shrink-0">
-                                  <button type="button" @click="klarifikasiModal = false" :disabled="isSubmittingKlarifikasi"
+                                  <button type="button" @click="klarifikasiModal = false" :disabled="isSubmittingKlarifikasi || isReadingFile"
                                     class="btn-secondary py-2 px-4 text-xs">
                                     Batal
                                   </button>
-                                  <button type="submit" :disabled="isSubmittingKlarifikasi"
+                                  <button type="submit" :disabled="isSubmittingKlarifikasi || isReadingFile"
                                     class="btn-primary py-2 px-5 text-xs gap-2"
-                                    :class="isSubmittingKlarifikasi ? 'opacity-75 cursor-not-allowed' : ''">
-                                    <template x-if="!isSubmittingKlarifikasi">
+                                    :class="(isSubmittingKlarifikasi || isReadingFile) ? 'opacity-75 cursor-not-allowed' : ''">
+                                    <template x-if="!isSubmittingKlarifikasi && !isReadingFile">
                                       <span class="inline-flex items-center gap-1.5">
                                         <i data-lucide="send" class="w-4 h-4"></i>
                                         <span>Kirim Klarifikasi</span>
+                                      </span>
+                                    </template>
+                                    <template x-if="isReadingFile">
+                                      <span class="inline-flex items-center gap-1.5">
+                                        <svg class="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                                        </svg>
+                                        <span>Membaca Berkas...</span>
                                       </span>
                                     </template>
                                     <template x-if="isSubmittingKlarifikasi">
