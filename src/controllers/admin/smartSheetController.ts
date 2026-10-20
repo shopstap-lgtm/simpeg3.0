@@ -89,6 +89,52 @@ export const smartSheetController = {
     }
   },
 
+  // 3b. Toggle Status (ACTIVE / CLOSED)
+  toggleStatus: async (req: Request, res: Response) => {
+    try {
+      const user = (req as any).session?.user;
+      if (user?.role !== 'SUPER_ADMIN') {
+        if (req.xhr || req.headers.accept?.includes('application/json')) {
+          return res.status(403).json({ success: false, message: 'Hanya Super Admin yang dapat mengubah status spreadsheet.' });
+        }
+        return res.status(403).send('Hanya Super Admin yang dapat mengubah status spreadsheet.');
+      }
+
+      const { id } = req.params;
+      const sheet = await prisma.smartSheet.findUnique({ where: { id }, select: { status: true, title: true } });
+      if (!sheet) {
+        if (req.xhr || req.headers.accept?.includes('application/json')) {
+          return res.status(404).json({ success: false, message: 'Spreadsheet tidak ditemukan.' });
+        }
+        return res.status(404).send('Spreadsheet tidak ditemukan.');
+      }
+
+      const newStatus = sheet.status === 'ACTIVE' ? 'CLOSED' : 'ACTIVE';
+      await prisma.smartSheet.update({
+        where: { id },
+        data: { status: newStatus }
+      });
+
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'success',
+          message: `Status spreadsheet '${sheet.title}' diubah menjadi: ${newStatus === 'ACTIVE' ? 'DIBUKA' : 'DITUTUP'}`
+        };
+      }
+
+      if (req.xhr || req.headers.accept?.includes('application/json')) {
+        return res.json({ success: true, status: newStatus });
+      }
+      return res.redirect(req.headers.referer || '/admin/smart-sheets');
+    } catch (error: any) {
+      console.error('[smartSheetController.toggleStatus] Error:', error);
+      if (req.xhr || req.headers.accept?.includes('application/json')) {
+        return res.status(500).json({ success: false, message: error.message });
+      }
+      return res.redirect(req.headers.referer || '/admin/smart-sheets');
+    }
+  },
+
   // 4. View Grid UI
   viewGrid: async (req: Request, res: Response) => {
     try {

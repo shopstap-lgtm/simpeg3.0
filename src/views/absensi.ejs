@@ -2,20 +2,36 @@
   <%- include('partials/public-nav') %>
     <%- include('partials/toast') %>
 
-      <% const isAdmin=typeof user !=='undefined' && user !==null; const isSuperAdminOrDinas=typeof user !=='undefined'
-        && user !==null && (user.role==='SUPER_ADMIN' || user.role==='ADMIN_DINAS' ); const
-        isDefaultPeriod=(bulan===activeDefaultMonth && tahun===activeDefaultYear);
-        const resolvedNamaBulan = typeof namaBulan !== 'undefined' ? namaBulan : (['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][(bulan || 1) - 1] || 'Bulan'); %>
+      <% 
+        const isAdmin = typeof user !== 'undefined' && user !== null;
+        const isSuperAdminOrDinas = typeof user !== 'undefined' && user !== null && (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN_DINAS');
+        const isDefaultPeriod = (bulan === activeDefaultMonth && tahun === activeDefaultYear);
+        const rawPolicies = (typeof klarifikasiConfig !== 'undefined' && klarifikasiConfig.policies) ? klarifikasiConfig.policies : {};
+        const currentMonthPolicy = rawPolicies[String(bulan)] || null;
+        const isPolicyOpenForMonth = !!(currentMonthPolicy && (currentMonthPolicy.praRekapEnabled || currentMonthPolicy.nlEnabled || currentMonthPolicy.pcEnabled));
+        const isKlarifikasiPeriodOpen = isDefaultPeriod || isPolicyOpenForMonth;
+        const resolvedNamaBulan = typeof namaBulan !== 'undefined' ? namaBulan : (['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'][(bulan || 1) - 1] || 'Bulan'); 
+      %>
 
         <main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6" x-data="{
         isAdmin: <%= isAdmin ? 'true' : 'false' %>,
         isSuperAdminOrDinas: <%= isSuperAdminOrDinas ? 'true' : 'false' %>,
         currentBulan: <%= bulan %>,
         isDefaultPeriod: <%= isDefaultPeriod ? 'true' : 'false' %>,
+        isPolicyOpenForMonth: <%= isPolicyOpenForMonth ? 'true' : 'false' %>,
+        isKlarifikasiPeriodOpen: <%= isKlarifikasiPeriodOpen ? 'true' : 'false' %>,
         klarifikasiConfig: <%= JSON.stringify(typeof klarifikasiConfig !== 'undefined' ? klarifikasiConfig : { policies: {} }) %>,
 
+        isMonthKlarifikasiOpen(month) {
+          if (month === <%= activeDefaultMonth %> && <%= tahun %> === <%= activeDefaultYear %>) return true;
+          const p = (this.klarifikasiConfig.policies || {})[String(month)];
+          return !!(p && (p.praRekapEnabled || p.nlEnabled || p.pcEnabled));
+        },
+
         isStatusEligibleForKlarifikasi(status, dayNumber) {
-          if (status === 'TK' || status === 'DL_KUNING') return true;
+          if (status === 'TK' || status === 'DL_KUNING') {
+            return this.isAdmin || this.isMonthKlarifikasiOpen(this.currentBulan);
+          }
 
           // Get the policy for the currently viewed month
           const monthPolicy = (this.klarifikasiConfig.policies || {})[String(this.currentBulan)];
@@ -262,8 +278,8 @@
             });
           } else {
             // PUBLIK:
-            if (!this.isDefaultPeriod) {
-              alert('Pengajuan klarifikasi hanya dibuka untuk periode aktif (Bulan <%= activeDefaultMonth %> Tahun <%= activeDefaultYear %>). Periode lainnya hanya untuk dilihat.');
+            if (!this.isMonthKlarifikasiOpen(this.currentBulan)) {
+              alert('Pengajuan klarifikasi untuk Bulan ' + this.currentBulan + ' sedang ditutup. Klarifikasi hanya dibuka untuk periode default (Bulan <%= activeDefaultMonth %> Tahun <%= activeDefaultYear %>) atau bulan/tanggal yang kebijakannya sedang dibuka.');
               return;
             }
 
@@ -309,8 +325,8 @@
         },
 
         openKlarifikasiWithDays(emp, daysList, defaultDate = '', status = 'TK', isRange = false) {
-          if (!this.isAdmin && !this.isDefaultPeriod) {
-            alert('Pengajuan klarifikasi hanya dibuka untuk periode aktif (Bulan <%= activeDefaultMonth %> Tahun <%= activeDefaultYear %>).');
+          if (!this.isAdmin && !this.isMonthKlarifikasiOpen(this.currentBulan)) {
+            alert('Pengajuan klarifikasi untuk Bulan ' + this.currentBulan + ' sedang ditutup.');
             return;
           }
 
@@ -333,7 +349,7 @@
               tanggal: d.tanggal,
               dateStr: dateVal,
               status: d.status,
-              label: 'Tgl ' + d.tanggal + ' ' + '<%= bulan === 7 ? 'Juli' : 'Bulan ' + bulan %>' + ' (' + labelStatus + ')'
+              label: 'Tgl ' + d.tanggal + ' ' + '<%= resolvedNamaBulan %>' + ' (' + labelStatus + ')'
             };
           });
 
@@ -415,16 +431,21 @@
                 <% if (isAdmin) { %>
                   <span class="text-indigo-700 font-bold bg-indigo-50 px-2 py-0.5 rounded">Mode Admin:</span> Klik sel
                   mana saja untuk langsung memperbarui presensi.
-                  <% } else if (isDefaultPeriod) { %>
-                    Pantau presensi harian 1–<%= daysInMonth %>. Klik kotak berstatus <span
-                        class="text-rose-600 font-bold">TK</span> atau <span class="text-amber-700 font-bold">DL
-                        Kuning</span> untuk mengajukan klarifikasi.
-                      <% } else { %>
-                        <span
-                          class="text-amber-800 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Mode
-                          Arsip:</span> Periode ini hanya untuk dilihat. Pengajuan klarifikasi dibuka pada periode aktif
-                        (Bulan <%= activeDefaultMonth %> Tahun <%= activeDefaultYear %>).
-                            <% } %>
+                  <% } else if (isKlarifikasiPeriodOpen) { %>
+                    <% if (isDefaultPeriod) { %>
+                      Pantau presensi harian 1–<%= daysInMonth %>. Klik kotak berstatus <span
+                          class="text-rose-600 font-bold">TK</span> atau <span class="text-amber-700 font-bold">DL
+                          Kuning</span> untuk mengajukan klarifikasi.
+                    <% } else { %>
+                      <span class="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Kebijakan Dibuka:</span>
+                      Klarifikasi Bulan <%= resolvedNamaBulan %> <%= tahun %> dibuka untuk tanggal dan status yang diizinkan Admin.
+                    <% } %>
+                  <% } else { %>
+                    <span
+                      class="text-amber-800 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Mode
+                      Arsip:</span> Periode ini hanya untuk dilihat. Pengajuan klarifikasi dibuka pada periode aktif
+                    (Bulan <%= activeDefaultMonth %> Tahun <%= activeDefaultYear %>) atau bulan yang kebijakannya sedang dibuka.
+                  <% } %>
               </p>
             </div>
 
@@ -437,8 +458,21 @@
             </div>
           </div>
 
-          <!-- Non-Default Period Warning Banner for Public -->
-          <% if (!isAdmin && !isDefaultPeriod) { %>
+          <!-- Non-Default Period Banner for Public: Informative if policy open, locked warning if completely closed -->
+          <% if (!isAdmin && isPolicyOpenForMonth && !isDefaultPeriod) { %>
+            <div
+              class="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-950 flex items-start gap-3 shadow-xs">
+              <div class="p-1 rounded-lg bg-emerald-200 text-emerald-800 shrink-0 mt-0.5">
+                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <span class="font-bold block text-emerald-900">Kebijakan Klarifikasi Presensi Dibuka:</span>
+                <p class="text-emerald-800 mt-0.5">
+                  Admin telah mengaktifkan kebijakan klarifikasi untuk <b>Bulan <%= resolvedNamaBulan %> Tahun <%= tahun %></b> (Pra-Rekap, Hadir Normal, atau TL & PC). Pengunjung dapat mengajukan klarifikasi untuk tanggal dan status yang sedang dibuka.
+                </p>
+              </div>
+            </div>
+          <% } else if (!isAdmin && !isDefaultPeriod && !isPolicyOpenForMonth) { %>
             <div
               class="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-3 shadow-xs">
               <div class="p-1 rounded-lg bg-amber-200 text-amber-800 shrink-0 mt-0.5">
@@ -449,12 +483,11 @@
                 <p class="text-amber-800 mt-0.5">
                   Anda sedang melihat data presensi bulan <b>
                     <%= bulan %> / <%= tahun %>
-                  </b>. Klarifikasi presensi publik hanya dapat diajukan pada periode default yang aktif, yaitu <b>Bulan
-                    <%= activeDefaultMonth %> Tahun <%= activeDefaultYear %></b>.
+                  </b>. Klarifikasi presensi publik hanya dapat diajukan pada periode default yang aktif (Bulan <%= activeDefaultMonth %> Tahun <%= activeDefaultYear %>) atau bulan yang kebijakannya sedang dibuka oleh Admin.
                 </p>
               </div>
             </div>
-            <% } %>
+          <% } %>
               <% const showSelfCheck=!isAdmin || !!nipQuery || (typeof isCekMandiri !=='undefined' && isCekMandiri); %>
 
                 <% if (showSelfCheck) { %>
@@ -1150,7 +1183,7 @@
                                 <!-- Action Button for Consecutive Dates -->
                                 <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
                                   <span class="text-[11px] text-slate-500">Ajukan tanggal berturut-turut:</span>
-                                  <% if (isAdmin || isDefaultPeriod) { %>
+                                  <% if (isAdmin || isKlarifikasiPeriodOpen) { %>
                                     <button @click="openKlarifikasiWithDays(empInfo, empDays, '', 'TK', true)"
                                       class="btn-secondary py-1.5 px-3 text-xs gap-1.5 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 border-indigo-200">
                                       <i data-lucide="calendar-range" class="w-3.5 h-3.5"></i>
@@ -1357,7 +1390,7 @@
                                             <!-- STICKY RIGHT: Ramping Icon-Only Button for Rentang Tanggal -->
                                             <td
                                               class="sticky right-0 z-20 bg-white hover:bg-indigo-50/30 px-1 py-1 text-center whitespace-nowrap sticky-right-shadow w-8 min-w-[32px] align-middle">
-                                              <% if (isAdmin || isDefaultPeriod) { %>
+                                              <% if (isAdmin || isKlarifikasiPeriodOpen) { %>
                                                 <button
                                                   @click="openKlarifikasiWithDays(empInfo, empDays, '', 'TK', true)"
                                                   class="p-1 rounded-md text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 border border-indigo-200 transition-all inline-flex items-center justify-center shadow-2xs"

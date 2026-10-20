@@ -238,6 +238,7 @@ router.get('/smart-sheets/:id/versions', requireMenuAccess('forms'), smartSheetC
 router.get('/smart-sheets/:id/versions/:versionId', requireMenuAccess('forms'), smartSheetController.getVersionDetail);
 router.post('/smart-sheets/:id/versions/create', requireMenuAccess('forms'), smartSheetController.createVersion);
 router.post('/smart-sheets/:id/versions/:versionId/restore', requireMenuAccess('forms'), smartSheetController.restoreVersion);
+router.post('/smart-sheets/:id/toggle-status', requireMenuAccess('forms'), smartSheetController.toggleStatus);
 router.post('/smart-sheets/:id/delete', requireMenuAccess('forms'), smartSheetController.delete);
 
 

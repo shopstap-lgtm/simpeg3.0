@@ -686,7 +686,33 @@ export const absensiController = {
         return arr.includes(day);
       };
 
-      if (normStatusAwal === 'EMPTY') {
+      const sessionUser = (req as any).session?.user;
+      const isAdmin = !!sessionUser && (
+        sessionUser.role === 'SUPER_ADMIN' ||
+        sessionUser.role === 'ADMIN_KORWIL' ||
+        sessionUser.role === 'ADMIN_DINAS'
+      );
+
+      const activeDefaultMonth = cms?.selectedMonth || 7;
+      const isPolicyOpenForMonth = !!(monthPolicy && (monthPolicy.praRekapEnabled || monthPolicy.nlEnabled || monthPolicy.pcEnabled));
+      const isPeriodOpen = (monthNum === activeDefaultMonth) || isPolicyOpenForMonth;
+
+      if (!isAdmin && !isPeriodOpen) {
+        const msg = `Pengajuan klarifikasi presensi untuk Bulan ${monthNum || ''} sedang ditutup oleh Admin.`;
+        if (isAjax) {
+          return res.status(400).json({ success: false, message: msg });
+        }
+        if ((req as any).session) {
+          (req as any).session.toast = {
+            type: 'warning',
+            message: msg
+          };
+          return (req as any).session.save(() => res.redirect(buildAbsensiRedirectUrl(req)));
+        }
+        return res.redirect(buildAbsensiRedirectUrl(req));
+      }
+
+      if (!isAdmin && normStatusAwal === 'EMPTY') {
         if (!monthPolicy?.praRekapEnabled || !isDatePermitted(monthPolicy?.praRekapDates || 'ALL', dayNum)) {
           const msg = 'Pengajuan klarifikasi untuk status Pra-Rekap (Hari Kosong) pada bulan / tanggal tersebut sedang ditutup oleh Admin.';
           if (isAjax) {
@@ -701,7 +727,7 @@ export const absensiController = {
           }
           return res.redirect(buildAbsensiRedirectUrl(req));
         }
-      } else if (normStatusAwal === 'HADIR' || normStatusAwal === 'NL') {
+      } else if (!isAdmin && (normStatusAwal === 'HADIR' || normStatusAwal === 'NL')) {
         if (!monthPolicy?.nlEnabled || !isDatePermitted(monthPolicy?.nlDates || 'ALL', dayNum)) {
           const msg = 'Pengajuan klarifikasi untuk status Hadir Normal (NL) pada bulan / tanggal tersebut sedang ditutup oleh Admin.';
           if (isAjax) {
@@ -716,7 +742,7 @@ export const absensiController = {
           }
           return res.redirect(buildAbsensiRedirectUrl(req));
         }
-      } else if (normStatusAwal === 'PC' || normStatusAwal === 'TL') {
+      } else if (!isAdmin && (normStatusAwal === 'PC' || normStatusAwal === 'TL')) {
         if (!monthPolicy?.pcEnabled || !isDatePermitted(monthPolicy?.pcDates || 'ALL', dayNum)) {
           const msg = 'Pengajuan klarifikasi untuk status Terlambat (TL) & Pulang Cepat (PC) pada bulan / tanggal tersebut sedang ditutup oleh Admin.';
           if (isAjax) {
@@ -732,13 +758,6 @@ export const absensiController = {
           return res.redirect(buildAbsensiRedirectUrl(req));
         }
       }
-
-      const sessionUser = (req as any).session?.user;
-      const isAdmin = !!sessionUser && (
-        sessionUser.role === 'SUPER_ADMIN' ||
-        sessionUser.role === 'ADMIN_KORWIL' ||
-        sessionUser.role === 'ADMIN_DINAS'
-      );
 
       // Pembatasan publik: status absen TK, PC, TL, Pra-rekap (EMPTY), dan Hadir Normal (NL) dapat diajukan klarifikasi ke status HADIR, DL, ST, CT
       if (!isAdmin) {
