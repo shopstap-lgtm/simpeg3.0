@@ -728,7 +728,7 @@
   </div>
 
   <!-- MODAL: Verifikasi NIP untuk Membuka Kunci Pengisian -->
-  <div x-show="showVerifyModal"
+  <div x-show="showVerifyModal && !isClosed"
        x-cloak
        class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl max-w-sm w-full p-6 sm:p-7 shadow-2xl space-y-4 border border-slate-100"
@@ -1672,10 +1672,7 @@
       },
 
       promptUnlockRow(row) {
-        if (this.isClosed) {
-          alert('Pengisian spreadsheet ini sudah DITUTUP oleh administrator. Seluruh data diproteksi dan tidak dapat diubah.');
-          return;
-        }
+        if (this.isClosed) return;
         this.verifyInput.nip = row.identifier || (row.data && row.data.nip) || '';
         this.verifyError = '';
         this.showVerifyModal = true;

@@ -754,9 +754,10 @@
                     
                     <!-- KONDISI 1: CELL DISAMARKAN (MASKED: Tampilkan Ceklis Sudah) -->
                     <template x-if="isCellMasked(row, col)">
-                      <div class="px-2 py-1.5 flex items-center justify-center w-full h-full select-none bg-slate-50 cursor-pointer hover:bg-emerald-50 transition-colors"
-                           @click="!isSuperAdmin && !isRowUnlocked(row) && openRowAuthModal(row)"
-                           title="Data sudah diisi dan terkunci privasi. Klik untuk buka akses jika ini baris Anda.">
+                      <div class="px-2 py-1.5 flex items-center justify-center w-full h-full select-none bg-slate-50 transition-colors"
+                           :class="isClosed ? 'cursor-default' : 'cursor-pointer hover:bg-emerald-50'"
+                           @click="!isClosed && !isSuperAdmin && !isRowUnlocked(row) && openRowAuthModal(row)"
+                           :title="isClosed ? 'Spreadsheet telah ditutup (Read-Only).' : 'Data sudah diisi dan terkunci privasi. Klik untuk buka akses jika ini baris Anda.'">
                         <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[11px] font-bold shadow-2xs">
                           <i data-lucide="check-circle-2" class="w-3 h-3 text-emerald-600"></i> Sudah
                         </span>
@@ -769,7 +770,7 @@
                         <!-- 1. Text & NIP Type -->
                         <template x-if="col.type === 'text' || col.type === 'nip'">
                           <div class="w-full h-full flex items-center" 
-                               @click="if(!canEditCell(row, col) && hasCredentialLock && !isRowUnlocked(row)) openRowAuthModal(row)">
+                               @click="if(!isClosed && !canEditCell(row, col) && hasCredentialLock && !isRowUnlocked(row)) openRowAuthModal(row)">
                             <input type="text" 
                                    x-model="row.data[col.id]" 
                                    @focus="editingCellId = `${row.id}:${col.id}`"
@@ -779,17 +780,17 @@
                                    :class="{
                                      'cell-input-nip font-mono tabular-nums tracking-wider text-slate-800': col.type === 'nip' || (col.name || '').toLowerCase().includes('nip') || (col.id || '').toLowerCase().includes('nip'),
                                      'cell-readonly': !canEditCell(row, col), 
-                                     'cursor-pointer hover:bg-amber-50/40': !canEditCell(row, col) && hasCredentialLock && !isRowUnlocked(row)
+                                     'cursor-pointer hover:bg-amber-50/40': !isClosed && !canEditCell(row, col) && hasCredentialLock && !isRowUnlocked(row)
                                    }"
                                    :readonly="!canEditCell(row, col)"
-                                   :placeholder="!canEditCell(row, col) ? (hasCredentialLock && !isRowUnlocked(row) ? 'Terkunci (Klik buka akses)' : '') : '...'">
+                                   :placeholder="!canEditCell(row, col) ? (!isClosed && hasCredentialLock && !isRowUnlocked(row) ? 'Terkunci (Klik buka akses)' : '') : '...'">
                           </div>
                         </template>
                         
                         <!-- 2. Select Type (Google Sheets Colored Chip Style) -->
                         <template x-if="col.type === 'select'">
                           <div class="w-full h-full flex items-center px-1 py-0.5"
-                               @click="if(!canEditCell(row, col) && hasCredentialLock && !isRowUnlocked(row)) openRowAuthModal(row)">
+                               @click="if(!isClosed && !canEditCell(row, col) && hasCredentialLock && !isRowUnlocked(row)) openRowAuthModal(row)">
                             <div class="relative w-full flex items-center">
                               <select x-model="row.data[col.id]" 
                                       @change="onCellInput(row, col.id); saveImmediately();" 
@@ -797,7 +798,7 @@
                                       :style="getOptionChipStyle(col, row.data[col.id])"
                                       :disabled="!canEditCell(row, col)"
                                       :class="{
-                                        'opacity-60 bg-slate-50 cursor-pointer pointer-events-none': !canEditCell(row, col),
+                                        'opacity-60 bg-slate-50 pointer-events-none': !canEditCell(row, col),
                                         'cursor-pointer': canEditCell(row, col)
                                       }">
                                 <option value="" class="bg-white text-slate-400 font-normal">- Kosong -</option>
@@ -819,7 +820,7 @@
                         <!-- 3. File Upload Cell -->
                         <template x-if="col.type === 'file'">
                           <div class="px-2 py-1 flex items-center justify-between w-full h-full group"
-                               @click="if(!canEditCell(row, col) && hasCredentialLock && !isRowUnlocked(row)) openRowAuthModal(row)">
+                               @click="if(!isClosed && !canEditCell(row, col) && hasCredentialLock && !isRowUnlocked(row)) openRowAuthModal(row)">
                             <!-- File already uploaded -->
                             <template x-if="row.data[col.id]">
                               <div class="flex items-center gap-1.5 w-full min-w-0">
@@ -851,16 +852,16 @@
                                 </template>
                                 <template x-if="uploadingCellKey !== (row.id + '_' + col.id)">
                                   <button type="button" 
-                                          @click.stop="canEditCell(row, col) ? triggerCellUpload(row, col.id) : (hasCredentialLock && !isRowUnlocked(row) ? openRowAuthModal(row) : null)" 
-                                          :disabled="!canEditCell(row, col) && !(hasCredentialLock && !isRowUnlocked(row))"
-                                          class="text-[11px] flex items-center gap-1 border border-dashed px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                                          @click.stop="canEditCell(row, col) ? triggerCellUpload(row, col.id) : (!isClosed && hasCredentialLock && !isRowUnlocked(row) ? openRowAuthModal(row) : null)" 
+                                          :disabled="!canEditCell(row, col) && !(!isClosed && hasCredentialLock && !isRowUnlocked(row))"
+                                          class="text-[11px] flex items-center gap-1 border border-dashed px-2.5 py-1 rounded-lg transition-colors"
                                           :class="canEditCell(row, col) 
-                                            ? 'text-slate-500 hover:text-indigo-600 border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/40' 
-                                            : (hasCredentialLock && !isRowUnlocked(row) 
-                                                ? 'text-amber-700 bg-amber-50/60 border-amber-300 hover:bg-amber-100/70 hover:border-amber-400' 
+                                            ? 'text-slate-500 hover:text-indigo-600 border-slate-300 hover:border-indigo-400 hover:bg-indigo-50/40 cursor-pointer' 
+                                            : (!isClosed && hasCredentialLock && !isRowUnlocked(row) 
+                                                ? 'text-amber-700 bg-amber-50/60 border-amber-300 hover:bg-amber-100/70 hover:border-amber-400 cursor-pointer' 
                                                 : 'text-slate-300 border-slate-200 cursor-not-allowed opacity-50')">
-                                    <i data-lucide="upload" class="w-3 h-3" :class="!canEditCell(row, col) && hasCredentialLock && !isRowUnlocked(row) ? 'text-amber-600' : ''"></i> 
-                                    <span x-text="(!canEditCell(row, col) && hasCredentialLock && !isRowUnlocked(row)) ? 'Perlu Akses' : 'Upload'"></span>
+                                    <i data-lucide="upload" class="w-3 h-3" :class="!isClosed && !canEditCell(row, col) && hasCredentialLock && !isRowUnlocked(row) ? 'text-amber-600' : ''"></i> 
+                                    <span x-text="(!isClosed && !canEditCell(row, col) && hasCredentialLock && !isRowUnlocked(row)) ? 'Perlu Akses' : (isClosed ? 'Ditutup' : 'Upload')"></span>
                                   </button>
                                 </template>
                               </div>
@@ -1638,7 +1639,7 @@
   <!-- ==========================================
        9. Modal: Verifikasi Kredensial Baris Pengunjung
        ========================================== -->
-  <div x-show="showAuthModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-4">
+  <div x-show="showAuthModal && !isClosed" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-xs p-4">
     <div @click.outside="showAuthModal = false"
          class="bg-white rounded-2xl shadow-xl border border-slate-200 w-full max-w-sm overflow-hidden flex flex-col">
       <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-slate-50">
@@ -3008,6 +3009,7 @@
         },
 
         openRowAuthModal(row) {
+          if (this.isClosed) return;
           this.authModalRow = row;
           this.authInput = '';
           this.authError = '';
@@ -3382,6 +3384,10 @@
               if (payload && payload.sheetId === this.sheetData.id) {
                 this.sheetData.status = payload.status;
                 this.isClosed = payload.isClosed;
+                if (this.isClosed) {
+                  this.showAuthModal = false;
+                  this.authModalRow = null;
+                }
                 this.$nextTick(() => {
                   if (window.lucide) window.lucide.createIcons();
                 });
