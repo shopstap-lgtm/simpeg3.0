@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
+import { updateSheetSocketStatus } from '../../sockets/smartSheetSocket';
 
 const prisma = new PrismaClient();
 
@@ -115,6 +116,13 @@ export const smartSheetController = {
         data: { status: newStatus }
       });
 
+      // Broadcast real-time status update to all connected tabs
+      try {
+        updateSheetSocketStatus(id, newStatus);
+      } catch (e) {
+        console.error('[smartSheetController] Failed to broadcast status:', e);
+      }
+
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'success',
@@ -211,6 +219,14 @@ export const smartSheetController = {
       });
       if (!existingSheet) {
         return res.status(404).json({ success: false, message: 'Spreadsheet tidak ditemukan' });
+      }
+
+      // Jika spreadsheet berstatus CLOSED, tolak penyimpanan perubahan data
+      if (existingSheet.status === 'CLOSED') {
+        return res.status(403).json({
+          success: false,
+          message: 'Spreadsheet ini telah DITUTUP oleh admin. Pengisian dan perubahan data dinonaktifkan.'
+        });
       }
 
       // HANYA SUPER ADMIN yang diizinkan mengubah metadata & struktur kolom
@@ -346,6 +362,17 @@ export const smartSheetController = {
   // 6. Upload Berkas ke Sel (Cell File Upload)
   uploadCellFile: async (req: Request, res: Response) => {
     try {
+      const { id } = req.params;
+      if (id) {
+        const sheet = await prisma.smartSheet.findUnique({ where: { id }, select: { status: true } });
+        if (sheet && sheet.status === 'CLOSED') {
+          return res.status(403).json({
+            success: false,
+            message: 'Spreadsheet ini telah DITUTUP oleh admin. Pengunggahan berkas dinonaktifkan.'
+          });
+        }
+      }
+
       if (!req.file) {
         return res.status(400).json({ success: false, message: 'Tidak ada berkas yang dipilih' });
       }
@@ -380,6 +407,12 @@ export const smartSheetController = {
         include: { rows: true }
       });
       if (!sheet) return res.status(404).json({ success: false, message: 'Spreadsheet tidak ditemukan' });
+      if (sheet.status === 'CLOSED') {
+        return res.status(403).json({
+          success: false,
+          message: 'Spreadsheet ini sedang DITUTUP. Buka kembali spreadsheet terlebih dahulu untuk mengimpor data.'
+        });
+      }
 
       let currentColumns = (sheet.columns as any[]) || [];
 

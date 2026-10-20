@@ -227,6 +227,14 @@
             <h1 class="font-extrabold text-base text-slate-900 px-1 py-0.5 truncate max-w-xs sm:max-w-md" x-text="sheetData.title"></h1>
           </template>
 
+          <!-- Status Badge Ditutup -->
+          <template x-if="isClosed">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 font-extrabold text-[10.5px] border border-rose-200 shrink-0 shadow-2xs">
+              <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+              <span>Ditutup</span>
+            </span>
+          </template>
+
           <!-- Tombol Buka Modal Deskripsi & Petunjuk -->
           <button type="button" 
                   @click="showDescModal = true" 
@@ -527,6 +535,31 @@
        3. Main Spreadsheet Table (Data Grid)
        ========================================== -->
   <main class="flex-1 overflow-hidden flex flex-col relative bg-slate-100">
+    <!-- Closed Sheet Banner: Muncul jika spreadsheet ditutup -->
+    <template x-if="isClosed">
+      <div class="bg-rose-50 border-b border-rose-200 px-4 py-2.5 flex items-center justify-between gap-3 text-xs text-rose-900 shrink-0 shadow-2xs">
+        <div class="flex items-center gap-2.5 min-w-0">
+          <span class="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0"></span>
+          <div class="min-w-0 flex items-center gap-2 flex-wrap">
+            <span class="font-extrabold uppercase tracking-wide text-rose-700 bg-rose-100 px-2 py-0.5 rounded text-[10px] border border-rose-200">
+              Spreadsheet Ditutup
+            </span>
+            <span class="text-rose-800 font-medium">
+              Lembar kerja ini telah ditutup oleh admin. Mode hanya lihat (read-only) aktif, pengisian dan perubahan data dinonaktifkan.
+            </span>
+          </div>
+        </div>
+        <template x-if="isSuperAdmin">
+          <form :action="`/admin/smart-sheets/${sheetData.id}/toggle-status`" method="POST" class="inline m-0 shrink-0">
+            <button type="submit" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[11px] font-bold shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5">
+              <i data-lucide="unlock" class="w-3.5 h-3.5"></i>
+              <span>Buka Kembali</span>
+            </button>
+          </form>
+        </template>
+      </div>
+    </template>
+
     <!-- Collapsible Description / Petunjuk Banner -->
     <template x-if="sheetData.description && showDescBanner">
       <div class="bg-indigo-50/80 border-b border-indigo-200/90 px-4 py-2 flex items-start justify-between gap-3 text-xs text-indigo-950 shrink-0">
@@ -849,8 +882,8 @@
             </tr>
           </template>
           
-          <!-- Super Admin: Add Rows Area -->
-          <template x-if="isSuperAdmin">
+          <!-- Super Admin: Add Rows Area (Hanya aktif jika sheet tidak ditutup) -->
+          <template x-if="isSuperAdmin && !isClosed">
             <tr>
               <td class="bg-slate-100 border border-slate-300"></td>
               <td :colspan="visibleColumns.length + 1 + (isSuperAdmin ? 1 : 0)" class="p-2.5 bg-slate-50 border-t border-slate-300">
@@ -2129,6 +2162,7 @@
           title: raw.title || 'Spreadsheet',
           description: raw.description || '',
           slug: raw.slug || '',
+          status: raw.status || 'ACTIVE',
           columns: (raw.columns || []).map(c => ({
             id: c.id,
             name: c.name || 'Kolom',
@@ -2147,6 +2181,7 @@
         },
         rows: parsedRows,
         isSuperAdmin: !!raw.isSuperAdmin,
+        isClosed: raw.status === 'CLOSED',
 
         // WebSocket Realtime State
         socket: null,
@@ -2253,7 +2288,7 @@
         },
 
         bulkDeleteSelectedRows() {
-          if (!this.isSuperAdmin) return;
+          if (this.isClosed || !this.isSuperAdmin) return;
           const count = this.selectedRowCount;
           if (count === 0) return;
           if (!confirm(`Yakin ingin menghapus ${count} baris terpilih secara permanen? Data yang dihapus tidak dapat dikembalikan.`)) return;
@@ -2270,6 +2305,7 @@
         },
 
         bulkClearSelectedRows() {
+          if (this.isClosed) return;
           const count = this.selectedRowCount;
           if (count === 0) return;
           if (!confirm(`Kosongkan semua isi data pada ${count} baris terpilih? (Baris tidak dihapus, hanya isinya yang dikosongkan).`)) return;
@@ -2959,6 +2995,7 @@
         },
 
         canEditCell(row, col) {
+          if (this.isClosed) return false;
           if (this.isSuperAdmin) return true;
           if (col.isLocked) return false;
           // Kolom yang bersifat privasi / butuh otorisasi kredensial (requiresAuth atau isMasked)
@@ -3340,6 +3377,16 @@
                 if (window.lucide) window.lucide.createIcons();
               });
             });
+
+            this.socket.on('sheet:status-changed', (payload) => {
+              if (payload && payload.sheetId === this.sheetData.id) {
+                this.sheetData.status = payload.status;
+                this.isClosed = payload.isClosed;
+                this.$nextTick(() => {
+                  if (window.lucide) window.lucide.createIcons();
+                });
+              }
+            });
           } catch (e) {
             console.error('[SmartSheet Socket] Init error:', e);
           }
@@ -3358,6 +3405,7 @@
         },
 
         onCellInput(row, colId) {
+          if (this.isClosed) return;
           if (row && row.id) this.dirtyRowIds.add(row.id);
           this.triggerAutoSave();
           if (this.socket && this.socketConnected) {
@@ -3372,6 +3420,7 @@
         },
 
         onCellBlur(row, colId) {
+          if (this.isClosed) return;
           if (row && row.id) this.dirtyRowIds.add(row.id);
           if (this.socket && this.socketConnected) {
             this.socket.emit('sheet:cell-update', {
@@ -3385,6 +3434,7 @@
         },
 
         emitRowsSync() {
+          if (this.isClosed) return;
           if (this.socket && this.socketConnected) {
             this.socket.emit('sheet:sync-rows', {
               sheetId: this.sheetData.id,
@@ -3398,6 +3448,7 @@
         // REALTIME AUTOSAVE (Google Sheets Style)
         // ==========================================
         triggerAutoSave() {
+          if (this.isClosed) return;
           this.saveState = 'dirty';
           clearTimeout(this.saveTimer);
           this.saveTimer = setTimeout(() => {
@@ -3407,6 +3458,10 @@
 
         async saveImmediately(options = {}) {
           clearTimeout(this.saveTimer);
+          if (this.isClosed) {
+            this.saveState = 'saved';
+            return;
+          }
           this.saveState = 'saving';
           try {
             const isFullSync = options && options.fullSync === true;
@@ -3458,6 +3513,7 @@
         // CELL FILE UPLOAD
         // ==========================================
         triggerCellUpload(row, colId) {
+          if (this.isClosed) return;
           this.activeUploadRow = row;
           this.activeUploadColId = colId;
           this.$refs.cellFileInput.value = '';
@@ -3465,6 +3521,7 @@
         },
 
         async onCellFileSelected(e) {
+          if (this.isClosed) return;
           const file = e.target.files?.[0];
           if (!file || !this.activeUploadRow || !this.activeUploadColId) return;
 
@@ -3505,6 +3562,7 @@
         },
 
         removeCellFile(row, colId) {
+          if (this.isClosed) return;
           if (!confirm('Hapus berkas dari baris ini?')) return;
           row.data[colId] = '';
           this.onCellInput(row, colId);
@@ -3735,7 +3793,7 @@
         },
 
         addRows(count = 10) {
-          if (!this.isSuperAdmin) return;
+          if (this.isClosed || !this.isSuperAdmin) return;
           const maxRowIdx = this.rows.length > 0 ? Math.max(...this.rows.map(r => r.rowIndex || 0)) : -1;
           for (let i = 0; i < count; i++) {
             const newRow = { id: 'new_' + Date.now() + '_' + i, _localId: 'new_' + Date.now() + '_' + i, rowIndex: maxRowIdx + 1 + i, data: {} };
