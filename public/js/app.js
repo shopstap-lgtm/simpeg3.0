@@ -2,12 +2,70 @@
  * SIMPEG Korwil Cibitung 2.0 - Client Utilities
  */
 
-document.addEventListener('DOMContentLoaded', () => {
-  // Initialize Lucide icons
-  if (window.lucide) {
-    window.lucide.createIcons();
+// Global Auto-Renderer for Lucide Icons
+// Ensures dynamically created DOM nodes (e.g., Alpine.js templates, modals, x-for loops)
+// immediately have their lucide icons rendered without needing any user click!
+(function initLucideAutoObserver() {
+  let debounceFrame = null;
+  function triggerLucideIcons() {
+    if (!window.lucide || typeof window.lucide.createIcons !== 'function') return;
+    if (debounceFrame) cancelAnimationFrame(debounceFrame);
+    debounceFrame = requestAnimationFrame(() => {
+      window.lucide.createIcons();
+    });
   }
 
+  // Initial rendering
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', triggerLucideIcons);
+  } else {
+    triggerLucideIcons();
+  }
+
+  // Observe DOM additions and attribute changes for [data-lucide]
+  if (typeof MutationObserver !== 'undefined') {
+    const observer = new MutationObserver((mutations) => {
+      let needsRefresh = false;
+      for (let i = 0; i < mutations.length; i++) {
+        const m = mutations[i];
+        if (m.type === 'childList' && m.addedNodes.length > 0) {
+          for (let j = 0; j < m.addedNodes.length; j++) {
+            const node = m.addedNodes[j];
+            if (node.nodeType === 1) { // ELEMENT_NODE
+              if (node.hasAttribute('data-lucide') || (node.querySelector && node.querySelector('[data-lucide]'))) {
+                needsRefresh = true;
+                break;
+              }
+            }
+          }
+        } else if (m.type === 'attributes' && m.attributeName === 'data-lucide') {
+          needsRefresh = true;
+        }
+        if (needsRefresh) break;
+      }
+      if (needsRefresh) {
+        triggerLucideIcons();
+      }
+    });
+
+    const startObserving = () => {
+      const target = document.body || document.documentElement;
+      if (target) {
+        observer.observe(target, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['data-lucide']
+        });
+      } else {
+        document.addEventListener('DOMContentLoaded', startObserving);
+      }
+    };
+    startObserving();
+  }
+})();
+
+document.addEventListener('DOMContentLoaded', () => {
   console.log('SIMPEG Korwil Cibitung 2.0 Frontend Loaded.');
 
   // Real-time visitor heartbeat (ultra-lightweight, 0% DB load)
