@@ -564,18 +564,18 @@
       </div>
 
       <!-- Desktop Table -->
-      <div class="hidden lg:block w-full overflow-hidden">
-        <table class="w-full text-left text-xs border-collapse table-auto">
+      <div class="hidden lg:block w-full overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left text-xs border-collapse table-auto min-w-[900px]">
           <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
             <tr>
-              <th class="px-3.5 py-3 w-[18%]">Pegawai & NIP</th>
-              <th class="px-3 py-3 w-[14%]">Unit Kerja</th>
-              <th class="px-2.5 py-3 text-center w-[9%]">Tgl Absen</th>
-              <th class="px-2.5 py-3 text-center w-[11%]">Waktu Kirim</th>
-              <th class="px-2.5 py-3 text-center w-[12%]">Perubahan Status</th>
-              <th class="px-3 py-3 w-[17%]">Alasan Pegawai</th>
-              <th class="px-2.5 py-3 text-center w-[8%]">Bukti</th>
-              <th class="px-3 py-3 text-right w-[11%]">Aksi</th>
+              <th class="px-3.5 py-3 w-[17%] min-w-[150px]">Pegawai & NIP</th>
+              <th class="px-3 py-3 w-[13%] min-w-[120px]">Unit Kerja</th>
+              <th class="px-2.5 py-3 text-center w-[8%] min-w-[80px]">Tgl Absen</th>
+              <th class="px-2.5 py-3 text-center w-[9%] min-w-[85px]">Waktu Kirim</th>
+              <th class="px-2.5 py-3 text-center w-[11%] min-w-[105px]">Perubahan Status</th>
+              <th class="px-3 py-3 w-[18%] min-w-[140px]">Alasan Pegawai</th>
+              <th class="px-2.5 py-3 text-center w-[6%] min-w-[65px]">Bukti</th>
+              <th class="px-3 py-3 text-right w-[18%] min-w-[175px]">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -628,17 +628,17 @@
                   <% } %>
                 </td>
 
-                <td class="px-3 py-3 text-right align-middle whitespace-nowrap">
-                  <div class="flex items-center justify-end gap-1">
-                    <button @click="openAction(allPendingItems[<%= idx %>], 'approve')" class="px-2 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[11px] hover:bg-emerald-700 transition-colors flex items-center gap-1 shadow-xs" title="Setujui Klarifikasi">
+                <td class="px-3 py-3 text-right align-middle whitespace-nowrap min-w-[175px]">
+                  <div class="inline-flex items-center justify-end gap-1.5 shrink-0">
+                    <button @click="openAction(allPendingItems[<%= idx %>], 'approve')" class="px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-bold text-[11px] hover:bg-emerald-700 transition-colors inline-flex items-center gap-1 shadow-xs shrink-0" title="Setujui Klarifikasi">
                       <i data-lucide="check" class="w-3 h-3"></i>
                       <span>Setujui</span>
                     </button>
-                    <button @click="openAction(allPendingItems[<%= idx %>], 'reject')" class="px-2 py-1 rounded-lg bg-amber-600 text-white font-bold text-[11px] hover:bg-amber-700 transition-colors flex items-center gap-1 shadow-xs" title="Tolak Klarifikasi">
+                    <button @click="openAction(allPendingItems[<%= idx %>], 'reject')" class="px-2.5 py-1 rounded-lg bg-amber-600 text-white font-bold text-[11px] hover:bg-amber-700 transition-colors inline-flex items-center gap-1 shadow-xs shrink-0" title="Tolak Klarifikasi">
                       <i data-lucide="x" class="w-3 h-3"></i>
                       <span>Tolak</span>
                     </button>
-                    <button @click="openDelete(allPendingItems[<%= idx %>])" class="p-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors" title="Hapus Pengajuan">
+                    <button @click="openDelete(allPendingItems[<%= idx %>])" class="p-1 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors shrink-0" title="Hapus Pengajuan">
                       <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                     </button>
                   </div>
@@ -796,8 +796,8 @@
       </div>
 
       <!-- Desktop Archive Table -->
-      <div class="hidden lg:block w-full overflow-hidden">
-        <table class="w-full text-left text-xs border-collapse table-auto">
+      <div class="hidden lg:block w-full overflow-x-auto custom-scrollbar">
+        <table class="w-full text-left text-xs border-collapse table-auto min-w-[900px]">
           <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
             <tr>
               <th class="px-3.5 py-3 w-[18%]">Pegawai & NIP</th>
