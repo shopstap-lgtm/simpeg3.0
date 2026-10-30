@@ -44,6 +44,29 @@
   body {
     @apply bg-slate-50 text-slate-800 antialiased selection:bg-indigo-500 selection:text-white min-h-screen flex flex-col;
   }
+
+  /* Universal Icon Pointer-Events Fix for Clickable Elements:
+     Ensures clicking directly on an icon inside a button/link triggers the button immediately */
+  button svg,
+  button svg *,
+  button [data-lucide],
+  button [data-lucide] *,
+  button i,
+  button i *,
+  a svg,
+  a svg *,
+  a [data-lucide],
+  a [data-lucide] *,
+  a i,
+  a i *,
+  [role="button"] svg,
+  [role="button"] svg *,
+  [role="button"] [data-lucide],
+  [role="button"] [data-lucide] *,
+  .cursor-pointer svg,
+  .cursor-pointer svg * {
+    pointer-events: none !important;
+  }
 }
 
 @layer components {
