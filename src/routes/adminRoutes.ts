@@ -252,6 +252,7 @@ router.post('/smart-sheets', requireMenuAccess('forms'), smartSheetController.cr
 router.get('/smart-sheets/:slug', requireMenuAccess('forms'), smartSheetController.viewGrid);
 router.post('/smart-sheets/:id/save', requireMenuAccess('forms'), smartSheetController.saveGrid);
 router.post('/smart-sheets/:id/upload-cell', requireMenuAccess('forms'), sheetCellUpload.single('file'), smartSheetController.uploadCellFile);
+router.post('/smart-sheets/:id/rename-cell-file', requireMenuAccess('forms'), smartSheetController.renameCellFile);
 router.post('/smart-sheets/:id/import', requireMenuAccess('forms'), smartSheetController.importData);
 router.get('/smart-sheets/:id/export', requireMenuAccess('forms'), smartSheetController.exportXlsx);
 router.get('/smart-sheets/:id/versions', requireMenuAccess('forms'), smartSheetController.listVersions);

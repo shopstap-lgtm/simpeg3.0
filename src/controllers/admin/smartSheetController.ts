@@ -7,6 +7,75 @@ import { updateSheetSocketStatus } from '../../sockets/smartSheetSocket';
 
 const prisma = new PrismaClient();
 
+function findMetaFromSmartSheetRow(columns: any[], rowData: Record<string, any>, colId: string) {
+  let nip = '';
+  let nama = '';
+  let unit = '';
+  let colName = '';
+
+  for (const c of columns) {
+    if (c.id === colId) {
+      colName = c.name || '';
+    }
+    const val = rowData[c.id];
+    if (val && typeof val === 'string') {
+      const lowerName = (c.name || '').toLowerCase();
+      if (c.type === 'nip' || lowerName.includes('nip') || (!nip && /^\d{16,18}$/.test(val.trim()))) {
+        nip = val.trim();
+      } else if (lowerName.includes('nama') && !lowerName.includes('unit') && !lowerName.includes('sekolah') && !lowerName.includes('operator')) {
+        nama = val.trim();
+      } else if (lowerName.includes('unit') || lowerName.includes('sekolah')) {
+        unit = val.trim();
+      }
+    }
+  }
+
+  return { nip, nama, unit, colName };
+}
+
+function generateSmartSheetRenamedFilename(
+  originalFilename: string,
+  pattern: string | undefined,
+  meta: { nip?: string; nama?: string; unit?: string; colName?: string }
+): { physicalName: string; displayName: string } {
+  const ext = path.extname(originalFilename);
+  const baseName = path.basename(originalFilename, ext);
+
+  if (!pattern || !pattern.trim()) {
+    const safeBase = baseName.replace(/[^a-zA-Z0-9-_]/g, '_').slice(0, 50) || 'BERKAS';
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e6);
+    const physical = `sheet-${uniqueSuffix}-${safeBase}${ext}`;
+    return { physicalName: physical, displayName: originalFilename };
+  }
+
+  const cleanNip = (meta.nip || 'NONIP').replace(/[^0-9]/g, '') || 'NONIP';
+  const cleanNama = (meta.nama || 'ANONIM').toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_') || 'ANONIM';
+  const cleanUnit = (meta.unit || 'NOUNIT').toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_') || 'NOUNIT';
+  const cleanCol = (meta.colName || 'BERKAS').toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_') || 'BERKAS';
+  const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+  const cleanBaseName = baseName.replace(/[^a-zA-Z0-9-_]/g, '_') || 'FILE';
+
+  let result = pattern
+    .replace(/\{NIP\}/gi, cleanNip)
+    .replace(/\{NAMA\}/gi, cleanNama)
+    .replace(/\{SEKOLAH\}/gi, cleanUnit)
+    .replace(/\{UNIT\}/gi, cleanUnit)
+    .replace(/\{KOLOM\}/gi, cleanCol)
+    .replace(/\{TANGGAL\}/gi, dateStr)
+    .replace(/\{TGL\}/gi, dateStr)
+    .replace(/\{NAMA_FILE\}/gi, cleanBaseName)
+    .replace(/\{ORIGINAL\}/gi, cleanBaseName);
+
+  result = result.replace(/[^a-zA-Z0-9-_]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+  if (!result) result = `BERKAS_${Date.now()}`;
+
+  const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e4);
+  const displayName = `${result}${ext}`;
+  const physicalName = `sheet-${uniqueSuffix}-${result}${ext}`;
+
+  return { physicalName, displayName };
+}
+
 export const smartSheetController = {
   // 1. List all SmartSheets
   index: async (req: Request, res: Response) => {
@@ -365,42 +434,70 @@ export const smartSheetController = {
       const { id } = req.params;
       const colId = (req.body?.colId || req.query?.colId) as string;
 
+      if (!req.file) {
+        return res.status(400).json({ success: false, message: 'Tidak ada berkas yang dipilih' });
+      }
+
+      let finalFilename = req.file.filename;
+      let finalDisplayName = req.file.originalname;
+
       if (id) {
         const sheet = await prisma.smartSheet.findUnique({ where: { id }, select: { status: true, columns: true } });
         if (sheet && sheet.status === 'CLOSED') {
+          if (req.file.path && fs.existsSync(req.file.path)) {
+            try { fs.unlinkSync(req.file.path); } catch (e) {}
+          }
           return res.status(403).json({
             success: false,
             message: 'Spreadsheet ini telah DITUTUP oleh admin. Pengunggahan berkas dinonaktifkan.'
           });
         }
 
-        // Validate allowed extensions if colId provided
-        if (sheet && colId && req.file) {
-          const cols = (sheet.columns as any[]) || [];
-          const col = cols.find(c => c.id === colId);
-          if (col && col.allowedExtensions && col.allowedExtensions.trim() !== '' && col.allowedExtensions.trim() !== '*') {
-            const allowed = col.allowedExtensions.split(',').map((e: string) => e.trim().toLowerCase());
-            const originalExt = '.' + (req.file.originalname.split('.').pop() || '').toLowerCase();
-            if (!allowed.includes(originalExt)) {
-              const fs = await import('fs');
-              if (req.file.path && fs.existsSync(req.file.path)) {
-                try { fs.unlinkSync(req.file.path); } catch (e) {}
-              }
-              return res.status(400).json({
-                success: false,
-                message: `Format file ${originalExt} tidak diizinkan. Ekstensi yang diperbolehkan: ${col.allowedExtensions}`
-              });
+        const cols = (sheet?.columns as any[]) || [];
+        const col = cols.find(c => c.id === colId);
+
+        // 1. Validate allowed extensions if colId provided
+        if (col && col.allowedExtensions && col.allowedExtensions.trim() !== '' && col.allowedExtensions.trim() !== '*') {
+          const allowed = col.allowedExtensions.split(',').map((e: string) => e.trim().toLowerCase());
+          const originalExt = '.' + (req.file.originalname.split('.').pop() || '').toLowerCase();
+          if (!allowed.includes(originalExt)) {
+            if (req.file.path && fs.existsSync(req.file.path)) {
+              try { fs.unlinkSync(req.file.path); } catch (e) {}
             }
+            return res.status(400).json({
+              success: false,
+              message: `Format file ${originalExt} tidak diizinkan. Ekstensi yang diperbolehkan: ${col.allowedExtensions}`
+            });
+          }
+        }
+
+        // 2. Auto-Rename if fileNamingPattern or renamePattern is configured on the column
+        const pattern = (col.fileNamingPattern || col.renamePattern || '').trim();
+        if (col && pattern !== '') {
+          let rowData: Record<string, any> = {};
+          if (req.body?.rowData) {
+            try {
+              rowData = typeof req.body.rowData === 'string' ? JSON.parse(req.body.rowData) : req.body.rowData;
+            } catch (e) {
+              rowData = {};
+            }
+          }
+          const meta = findMetaFromSmartSheetRow(cols, rowData, colId);
+          const renameInfo = generateSmartSheetRenamedFilename(req.file.originalname, pattern, meta);
+          const uploadDir = path.dirname(req.file.path);
+          const newPath = path.join(uploadDir, renameInfo.physicalName);
+          try {
+            fs.renameSync(req.file.path, newPath);
+            finalFilename = renameInfo.physicalName;
+            finalDisplayName = renameInfo.displayName;
+          } catch (renameErr) {
+            console.warn('[smartSheetController] Auto-rename error:', renameErr);
           }
         }
       }
 
-      if (!req.file) {
-        return res.status(400).json({ success: false, message: 'Tidak ada berkas yang dipilih' });
-      }
-
-      const fileUrl = `/uploads/${req.file.filename}`;
-      const fileName = req.file.originalname;
+      const fileUrl = `/uploads/${finalFilename}`;
+      const fileName = finalDisplayName;
 
       res.json({
         success: true,
@@ -410,6 +507,52 @@ export const smartSheetController = {
     } catch (error: any) {
       console.error('[smartSheetController.uploadCellFile] Error:', error);
       res.status(500).json({ success: false, message: 'Gagal mengunggah berkas' });
+    }
+  },
+
+  // 6b. Rename Berkas Sel (Rename File)
+  renameCellFile: async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { fileUrl, newName } = req.body;
+
+      if (!fileUrl || !newName || !newName.trim()) {
+        return res.status(400).json({ success: false, message: 'URL berkas dan nama baru wajib diisi.' });
+      }
+
+      if (id) {
+        const sheet = await prisma.smartSheet.findUnique({ where: { id }, select: { status: true } });
+        if (sheet && sheet.status === 'CLOSED') {
+          return res.status(403).json({ success: false, message: 'Spreadsheet ini telah DITUTUP oleh admin.' });
+        }
+      }
+
+      const oldFilename = path.basename(fileUrl);
+      const uploadDir = path.join(process.cwd(), 'public', 'uploads');
+      const oldFilePath = path.join(uploadDir, oldFilename);
+
+      if (!fs.existsSync(oldFilePath)) {
+        return res.status(404).json({ success: false, message: 'Berkas fisik tidak ditemukan di server.' });
+      }
+
+      const ext = path.extname(oldFilename);
+      let cleanNewBase = path.basename(newName.trim(), ext).replace(/[^a-zA-Z0-9-_]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+      if (!cleanNewBase) cleanNewBase = 'BERKAS';
+
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e4);
+      const newFilename = `sheet-${uniqueSuffix}-${cleanNewBase}${ext}`;
+      const newFilePath = path.join(uploadDir, newFilename);
+
+      fs.renameSync(oldFilePath, newFilePath);
+
+      return res.json({
+        success: true,
+        newFileUrl: `/uploads/${newFilename}`,
+        newFileName: `${cleanNewBase}${ext}`
+      });
+    } catch (err: any) {
+      console.error('[smartSheetController.renameCellFile] Error:', err);
+      return res.status(500).json({ success: false, message: 'Gagal mengubah nama berkas.' });
     }
   },
 
