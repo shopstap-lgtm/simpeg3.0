@@ -26,7 +26,7 @@
   }
 </script>
 
-<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-8" x-data="publicCutiApp()">
+<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-6" x-data="publicCutiApp()">
   
   <!-- Hero Section -->
   <div class="relative overflow-hidden bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 rounded-3xl p-6 sm:p-10 text-white shadow-xl">
@@ -40,11 +40,11 @@
       </div>
       
       <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
-        Rekapitulasi Cuti & Penerbitan Surat Cuti
+        Rekapitulasi & Surat Cuti Pegawai
       </h1>
       
       <p class="text-slate-300 text-xs sm:text-base leading-relaxed">
-        Periksa riwayat cuti tahunan, cuti sakit, melahirkan, atau cuti haji Anda secara transparan. Anda juga dapat langsung mengunduh berkas Surat Cuti resmi yang telah diterbitkan oleh pengelola kepegawaian.
+        Cek riwayat pengajuan cuti secara transparan dan unduh salinan Surat Cuti resmi bertanda tangan yang telah diterbitkan pengelola kepegawaian.
       </p>
     </div>
 
@@ -195,12 +195,12 @@
       </form>
     </div>
 
-    <!-- Tabel / Daftar Riwayat Cuti -->
+    <!-- Tabel / Daftar Riwayat Cuti (Rapi, Simple, Tanpa Redundansi) -->
     <div class="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
       
       <div class="p-4 border-b border-slate-200/80 flex items-center justify-between bg-slate-50/60">
         <div class="flex items-center gap-2">
-          <i data-lucide="history" class="w-4 h-4 text-indigo-600"></i>
+          <i data-lucide="calendar-check" class="w-4 h-4 text-indigo-600"></i>
           <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">Daftar Riwayat Cuti</span>
         </div>
         <div class="text-xs text-slate-500">
@@ -211,7 +211,7 @@
       <% if (cutiList.length === 0) { %>
         <div class="py-12 px-4 text-center">
           <div class="w-12 h-12 mx-auto mb-2 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
-            <i data-lucide="calendar-check" class="w-6 h-6"></i>
+            <i data-lucide="calendar-x" class="w-6 h-6"></i>
           </div>
           <h4 class="text-sm font-bold text-slate-800">Tidak Ada Catatan Cuti</h4>
           <p class="text-xs text-slate-500 max-w-sm mx-auto mt-1">
@@ -220,17 +220,16 @@
         </div>
       <% } else { %>
 
-        <!-- Desktop Table -->
+        <!-- Desktop Table: Rapi & Simple -->
         <div class="hidden md:block overflow-x-auto">
           <table class="w-full text-left text-xs border-collapse">
             <thead>
               <tr class="border-b border-slate-200 bg-slate-50/80 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
-                <th class="py-3.5 px-4 w-12 text-center">No</th>
-                <th class="py-3.5 px-4">Periode</th>
-                <th class="py-3.5 px-4">Tanggal Cuti</th>
-                <th class="py-3.5 px-4">Jenis Cuti</th>
-                <th class="py-3.5 px-4">Keterangan / Alasan</th>
-                <th class="py-3.5 px-4 text-center">Dokumen Surat Cuti</th>
+                <th class="py-3 px-4 w-12 text-center">No</th>
+                <th class="py-3 px-4">Tanggal Cuti & Durasi</th>
+                <th class="py-3 px-4">Jenis Cuti</th>
+                <th class="py-3 px-4">Keterangan / Keperluan</th>
+                <th class="py-3 px-4 text-center">Dokumen Surat Cuti</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -238,18 +237,14 @@
                 <tr class="hover:bg-slate-50/70 transition-colors">
                   <td class="py-3.5 px-4 text-center font-medium text-slate-400"><%= index + 1 %></td>
 
-                  <!-- Periode -->
+                  <!-- Tanggal Cuti Rapi & Durasi -->
                   <td class="py-3.5 px-4">
-                    <div class="font-bold text-slate-900"><%= BULAN_NAMES[item.bulan] %> <%= item.tahun %></div>
-                    <div class="text-[10px] text-slate-400">Bulan <%= item.bulan %></div>
-                  </td>
-
-                  <!-- Tanggal Cuti -->
-                  <td class="py-3.5 px-4">
-                    <div class="font-semibold text-slate-800"><%= item.tanggalCuti %></div>
-                    <% if (item.tanggalMulai && item.tanggalSelesai) { %>
-                      <div class="text-[10px] text-slate-500"><%= item.tanggalMulai %> s/d <%= item.tanggalSelesai %></div>
-                    <% } %>
+                    <div class="flex items-center gap-2">
+                      <span class="font-bold text-slate-900 text-xs"><%= item.tanggalRapi %></span>
+                      <span class="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 text-[10px]">
+                        <%= item.jumlahHari %> Hari
+                      </span>
+                    </div>
                   </td>
 
                   <!-- Jenis Cuti -->
@@ -292,7 +287,7 @@
                            download="<%= item.fileSuratName || 'Surat_Cuti.pdf' %>" 
                            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors">
                           <i data-lucide="download" class="w-3.5 h-3.5"></i>
-                          <span>Unduh</span>
+                          <span>Unduh Surat</span>
                         </a>
                       </div>
                     <% } else { %>
@@ -308,14 +303,16 @@
           </table>
         </div>
 
-        <!-- Mobile Cards -->
+        <!-- Mobile Cards: Simple & Bersih -->
         <div class="block md:hidden divide-y divide-slate-100">
           <% cutiList.forEach((item, index) => { %>
-            <div class="p-4 space-y-3">
+            <div class="p-4 space-y-2.5">
               <div class="flex items-start justify-between gap-3">
-                <div>
-                  <div class="text-[11px] font-medium text-slate-400">Periode: <%= BULAN_NAMES[item.bulan] %> <%= item.tahun %></div>
-                  <h4 class="text-sm font-bold text-slate-900 mt-0.5"><%= item.tanggalCuti %></h4>
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-bold text-slate-900"><%= item.tanggalRapi %></span>
+                  <span class="font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md text-[10px]">
+                    <%= item.jumlahHari %> Hari
+                  </span>
                 </div>
 
                 <% 
@@ -396,7 +393,7 @@
         </div>
         <h3 class="text-sm font-bold text-slate-900">Verifikasi Riwayat Cuti</h3>
         <p class="text-xs text-slate-500 leading-relaxed">
-          Lihat daftar pengajuan cuti, tanggal pelaksanaan, jenis cuti, serta status penerbitan berkas resmi dari bagian kepegawaian.
+          Lihat daftar pengajuan cuti, tanggal pelaksanaan, durasi hari, serta status penerbitan berkas resmi dari bagian kepegawaian.
         </p>
       </div>
 
@@ -528,4 +525,3 @@
 </main>
 
 <%- include('partials/footer') %>
-

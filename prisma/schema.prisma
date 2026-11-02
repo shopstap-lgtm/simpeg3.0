@@ -119,6 +119,7 @@ model Cuti {
   tanggalMulai   String    // YYYY-MM-DD
   tanggalSelesai String    // YYYY-MM-DD
   tanggalCuti    String    // e.g. "2026-03-02 s/d 2026-03-05" atau "2026-03-02"
+  jumlahHari     Int       @default(1) // Jumlah hari kerja cuti
   jenisCuti      String    // "Cuti Tahunan" | "Cuti Sakit" | "Cuti Melahirkan" | "Cuti Haji" | "Lainnya"
   alasan         String?   // Keterangan / alasan cuti
   fileSuratUrl   String?   // URL berkas surat cuti resmi

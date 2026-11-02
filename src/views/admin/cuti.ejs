@@ -46,7 +46,7 @@
         tahun: '<%= filterTahun !== "all" ? filterTahun : new Date().getFullYear() %>',
         tanggalMulai: '',
         tanggalSelesai: '',
-        tanggalCuti: '',
+        jumlahHari: 1,
         jenisCuti: 'Cuti Tahunan',
         alasan: '',
         catatanAdmin: ''
@@ -63,7 +63,7 @@
         tahun: 2026,
         tanggalMulai: '',
         tanggalSelesai: '',
-        tanggalCuti: '',
+        jumlahHari: 1,
         jenisCuti: 'Cuti Tahunan',
         alasan: '',
         catatanAdmin: ''
@@ -87,6 +87,38 @@
         });
       },
 
+      calculateDays(start, end) {
+        if (!start) return 1;
+        const d1 = new Date(start);
+        const d2 = end ? new Date(end) : d1;
+        if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return 1;
+        const diff = Math.abs(d2.getTime() - d1.getTime());
+        return Math.max(1, Math.round(diff / (1000 * 60 * 60 * 24)) + 1);
+      },
+
+      onDateChangeAdd() {
+        if (this.addData.tanggalMulai) {
+          if (!this.addData.tanggalSelesai) {
+            this.addData.tanggalSelesai = this.addData.tanggalMulai;
+          }
+          this.addData.jumlahHari = this.calculateDays(this.addData.tanggalMulai, this.addData.tanggalSelesai);
+          const d = new Date(this.addData.tanggalMulai);
+          if (!isNaN(d.getTime())) {
+            this.addData.bulan = d.getMonth() + 1;
+            this.addData.tahun = d.getFullYear();
+          }
+        }
+      },
+
+      onDateChangeEdit() {
+        if (this.editData.tanggalMulai) {
+          if (!this.editData.tanggalSelesai) {
+            this.editData.tanggalSelesai = this.editData.tanggalMulai;
+          }
+          this.editData.jumlahHari = this.calculateDays(this.editData.tanggalMulai, this.editData.tanggalSelesai);
+        }
+      },
+
       onEmployeeSearchAdd(e) {
         const val = e.target.value.trim();
         const found = this.employees.find(emp => emp.nip === val || emp.nama.toLowerCase() === val.toLowerCase());
@@ -108,7 +140,7 @@
           tahun: '<%= filterTahun !== "all" ? filterTahun : new Date().getFullYear() %>',
           tanggalMulai: '',
           tanggalSelesai: '',
-          tanggalCuti: '',
+          jumlahHari: 1,
           jenisCuti: 'Cuti Tahunan',
           alasan: '',
           catatanAdmin: ''
@@ -128,7 +160,7 @@
           tahun: item.tahun,
           tanggalMulai: item.tanggalMulai || '',
           tanggalSelesai: item.tanggalSelesai || '',
-          tanggalCuti: item.tanggalCuti || '',
+          jumlahHari: item.jumlahHari || 1,
           jenisCuti: item.jenisCuti,
           alasan: item.alasan === '-' ? '' : item.alasan,
           catatanAdmin: item.catatanAdmin === '-' ? '' : item.catatanAdmin
@@ -166,19 +198,17 @@
   }
 </script>
 
-<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-8" x-data="adminCutiApp()">
+<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-6" x-data="adminCutiApp()">
   
   <!-- Header Title & Action Buttons -->
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-xs border border-slate-200/80">
-    <div>
-      <div class="flex items-center gap-3">
-        <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
-          <i data-lucide="calendar-days" class="w-5 h-5"></i>
-        </div>
-        <div>
-          <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">Rekapitulasi Cuti Pegawai</h1>
-          <p class="text-xs sm:text-sm text-slate-500">Kelola riwayat pengajuan cuti pegawai dan penerbitan berkas Surat Cuti resmi.</p>
-        </div>
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs shrink-0">
+        <i data-lucide="calendar-days" class="w-5 h-5"></i>
+      </div>
+      <div>
+        <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">Rekapitulasi Cuti Pegawai</h1>
+        <p class="text-xs sm:text-sm text-slate-500">Kelola riwayat pengajuan cuti pegawai. Saat surat cuti diupload, status absensi otomatis menjadi <span class="font-bold text-indigo-600">CT</span>.</p>
       </div>
     </div>
     
@@ -238,11 +268,11 @@
 
     <div class="bg-white p-4 rounded-xl border border-emerald-200/80 shadow-xs bg-emerald-50/20">
       <div class="flex items-center justify-between text-emerald-600 mb-1">
-        <span class="text-[11px] font-bold uppercase tracking-wider">Surat Terbit</span>
+        <span class="text-[11px] font-bold uppercase tracking-wider">Surat Terbit (CT)</span>
         <i data-lucide="file-check-2" class="w-4 h-4 text-emerald-500"></i>
       </div>
       <div class="text-xl sm:text-2xl font-extrabold text-emerald-700"><%= stats.suratTerbitCount %></div>
-      <div class="text-[10px] text-emerald-500 mt-0.5">Dokumen Resmi Diupload</div>
+      <div class="text-[10px] text-emerald-600 mt-0.5">Absensi Otomatis CT</div>
     </div>
 
     <div class="bg-white p-4 rounded-xl border border-amber-200/80 shadow-xs bg-amber-50/20">
@@ -332,7 +362,7 @@
     </form>
   </div>
 
-  <!-- Table Data Cuti (Desktop) & Cards (Mobile) -->
+  <!-- Table Data Cuti (Rapi, Simple, Tanpa Pengulangan Informasi) -->
   <div class="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
     
     <!-- Table Header Info Bar -->
@@ -340,12 +370,12 @@
       <div class="flex items-center gap-2">
         <input type="checkbox" 
                x-model="selectAll" 
-               class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+               class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer">
         <span class="text-xs font-semibold text-slate-700">Pilih Semua (<span x-text="items.length"></span> Data)</span>
       </div>
       
       <div class="text-xs text-slate-500">
-        Menampilkan <span class="font-bold text-slate-800"><%= cutiList.length %></span> rekaman cuti
+        Menampilkan <span class="font-bold text-slate-800"><%= cutiList.length %></span> pengajuan cuti
       </div>
     </div>
 
@@ -366,21 +396,20 @@
       </div>
     <% } else { %>
 
-      <!-- Desktop View Table -->
+      <!-- Desktop View Table: Kolom Bersih, Rapi, Simple -->
       <div class="hidden lg:block overflow-x-auto">
         <table class="w-full text-left text-xs border-collapse">
           <thead>
             <tr class="border-b border-slate-200 bg-slate-50/80 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
-              <th class="py-3.5 px-4 w-10 text-center">
+              <th class="py-3 px-4 w-10 text-center">
                 <span class="sr-only">Pilih</span>
               </th>
-              <th class="py-3.5 px-4">Pegawai</th>
-              <th class="py-3.5 px-4">Periode</th>
-              <th class="py-3.5 px-4">Tanggal Cuti</th>
-              <th class="py-3.5 px-4">Jenis Cuti</th>
-              <th class="py-3.5 px-4">Alasan / Catatan</th>
-              <th class="py-3.5 px-4 text-center">Surat Cuti</th>
-              <th class="py-3.5 px-4 text-right">Aksi</th>
+              <th class="py-3 px-4">Pegawai</th>
+              <th class="py-3 px-4">Tanggal Cuti & Durasi</th>
+              <th class="py-3 px-4">Jenis Cuti</th>
+              <th class="py-3 px-4">Alasan / Catatan</th>
+              <th class="py-3 px-4 text-center">Surat Cuti (Status Absensi)</th>
+              <th class="py-3 px-4 text-right">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
@@ -392,31 +421,27 @@
                   <input type="checkbox" 
                          value="<%= item.id %>" 
                          x-model="selectedIds"
-                         class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                         class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer">
                 </td>
 
-                <!-- Pegawai -->
+                <!-- Pegawai (Nama, NIP, Unit) -->
                 <td class="py-3 px-4">
                   <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors"><%= item.employeeName %></div>
                   <div class="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
-                    <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-medium"><%= item.employeeNip %></span>
+                    <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-medium"><%= item.employeeNip %></span>
                     <span>•</span>
-                    <span class="truncate max-w-[180px]"><%= item.unitNama %></span>
+                    <span class="truncate max-w-[200px] text-slate-600"><%= item.unitNama %></span>
                   </div>
                 </td>
 
-                <!-- Periode -->
+                <!-- Tanggal Cuti Rapi & Durasi Hari -->
                 <td class="py-3 px-4">
-                  <div class="font-semibold text-slate-800"><%= item.namaBulan %> <%= item.tahun %></div>
-                  <div class="text-[10px] text-slate-400">Bulan <%= item.bulan %></div>
-                </td>
-
-                <!-- Tanggal Cuti -->
-                <td class="py-3 px-4">
-                  <div class="font-medium text-slate-800"><%= item.tanggalCuti %></div>
-                  <% if (item.tanggalMulai && item.tanggalSelesai) { %>
-                    <div class="text-[10px] text-slate-500"><%= item.tanggalMulai %> s/d <%= item.tanggalSelesai %></div>
-                  <% } %>
+                  <div class="flex items-center gap-2">
+                    <span class="font-bold text-slate-900 text-xs"><%= item.tanggalRapi %></span>
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-md font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/80 text-[10px]">
+                      <%= item.jumlahHari %> Hari
+                    </span>
+                  </div>
                 </td>
 
                 <!-- Jenis Cuti -->
@@ -438,52 +463,52 @@
 
                 <!-- Alasan / Catatan -->
                 <td class="py-3 px-4 max-w-xs">
-                  <div class="text-slate-700 line-clamp-2"><%= item.alasan %></div>
+                  <div class="text-slate-700 line-clamp-1"><%= item.alasan %></div>
                   <% if (item.catatanAdmin && item.catatanAdmin !== '-') { %>
                     <div class="text-[10px] text-indigo-600 mt-0.5 line-clamp-1 italic">Ket: <%= item.catatanAdmin %></div>
                   <% } %>
                 </td>
 
-                <!-- Surat Cuti -->
+                <!-- Surat Cuti & Status Absensi CT -->
                 <td class="py-3 px-4 text-center">
                   <% if (item.fileSuratUrl) { %>
                     <div class="inline-flex flex-col items-center gap-1">
-                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                         <i data-lucide="check-circle" class="w-3 h-3 text-emerald-600"></i>
-                        <span>Terbit</span>
+                        <span>Terbit (Status CT)</span>
                       </span>
-                      <div class="flex items-center gap-1.5 mt-0.5">
+                      <div class="flex items-center gap-1 mt-0.5">
                         <button type="button" 
                                 @click="openPdf('<%= item.fileSuratUrl %>', 'Surat Cuti - <%= item.employeeName.replace(/'/g, "\\'") %>', '<%= item.fileSuratName.replace(/'/g, "\\'") %>')" 
                                 title="Lihat Berkas" 
-                                class="p-1 rounded-lg text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
+                                class="p-1.5 rounded-lg text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
                           <i data-lucide="eye" class="w-3.5 h-3.5"></i>
                         </button>
                         <a href="<%= item.fileSuratUrl %>" 
                            download="<%= item.fileSuratName %>" 
                            title="Download File" 
-                           class="p-1 rounded-lg text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 transition-colors">
+                           class="p-1.5 rounded-lg text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 transition-colors">
                           <i data-lucide="download" class="w-3.5 h-3.5"></i>
                         </a>
                         <button type="button" 
                                 @click="openUpload(items[<%= index %>])" 
                                 title="Ganti Berkas Surat" 
-                                class="p-1 rounded-lg text-slate-600 hover:text-amber-600 hover:bg-amber-50 transition-colors">
+                                class="p-1.5 rounded-lg text-slate-600 hover:text-amber-600 hover:bg-amber-50 transition-colors">
                           <i data-lucide="file-up" class="w-3.5 h-3.5"></i>
                         </button>
                       </div>
                     </div>
                   <% } else { %>
                     <div class="inline-flex flex-col items-center gap-1">
-                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                      <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                         <i data-lucide="clock" class="w-3 h-3 text-amber-500"></i>
-                        <span>Menunggu</span>
+                        <span>Menunggu Surat</span>
                       </span>
                       <button type="button" 
                               @click="openUpload(items[<%= index %>])" 
-                              class="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1">
-                        <i data-lucide="upload" class="w-2.5 h-2.5"></i>
-                        <span>Upload</span>
+                              class="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 mt-0.5">
+                        <i data-lucide="upload" class="w-3 h-3"></i>
+                        <span>Upload Surat</span>
                       </button>
                     </div>
                   <% } %>
@@ -513,19 +538,19 @@
         </table>
       </div>
 
-      <!-- Mobile View Cards -->
+      <!-- Mobile View Cards: Simple & Bersih -->
       <div class="block lg:hidden divide-y divide-slate-100">
         <% cutiList.forEach((item, index) => { %>
-          <div class="p-4 space-y-3">
+          <div class="p-4 space-y-2.5">
             <div class="flex items-start justify-between gap-3">
               <div class="flex items-center gap-2.5">
                 <input type="checkbox" 
                        value="<%= item.id %>" 
                        x-model="selectedIds"
-                       class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                       class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer">
                 <div>
                   <h4 class="font-bold text-slate-900 text-sm leading-snug"><%= item.employeeName %></h4>
-                  <div class="text-[11px] text-slate-500 font-mono"><%= item.employeeNip %></div>
+                  <div class="text-[11px] text-slate-500 font-mono"><%= item.employeeNip %> • <%= item.unitNama %></div>
                 </div>
               </div>
 
@@ -544,25 +569,19 @@
               </span>
             </div>
 
-            <div class="bg-slate-50/80 p-2.5 rounded-xl text-xs space-y-1">
-              <div class="flex items-center justify-between text-slate-600">
-                <span>Unit:</span>
-                <span class="font-medium text-slate-800"><%= item.unitNama %></span>
-              </div>
-              <div class="flex items-center justify-between text-slate-600">
-                <span>Periode:</span>
-                <span class="font-medium text-slate-800"><%= item.namaBulan %> <%= item.tahun %></span>
-              </div>
-              <div class="flex items-center justify-between text-slate-600">
-                <span>Tanggal Cuti:</span>
-                <span class="font-semibold text-slate-900"><%= item.tanggalCuti %></span>
-              </div>
-              <% if (item.alasan && item.alasan !== '-') { %>
-                <div class="pt-1 border-t border-slate-200 text-slate-600 text-[11px]">
-                  <span class="font-medium">Alasan:</span> <%= item.alasan %>
-                </div>
-              <% } %>
+            <!-- Tanggal Cuti & Hari Rapi -->
+            <div class="flex items-center justify-between bg-slate-50/80 px-3 py-2 rounded-xl text-xs">
+              <span class="font-semibold text-slate-800"><%= item.tanggalRapi %></span>
+              <span class="font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md text-[11px]">
+                <%= item.jumlahHari %> Hari
+              </span>
             </div>
+
+            <% if (item.alasan && item.alasan !== '-') { %>
+              <div class="text-xs text-slate-600 line-clamp-2 px-1">
+                <span class="font-medium text-slate-700">Keperluan:</span> <%= item.alasan %>
+              </div>
+            <% } %>
 
             <!-- Mobile Footer Action -->
             <div class="flex items-center justify-between pt-1">
@@ -570,21 +589,21 @@
                 <% if (item.fileSuratUrl) { %>
                   <button type="button" 
                           @click="openPdf('<%= item.fileSuratUrl %>', 'Surat Cuti - <%= item.employeeName.replace(/'/g, "\\'") %>', '<%= item.fileSuratName.replace(/'/g, "\\'") %>')" 
-                          class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
-                    <span>Lihat Surat Cuti</span>
+                          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-xl bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <i data-lucide="file-check" class="w-3.5 h-3.5"></i>
+                    <span>Surat Terbit (CT)</span>
                   </button>
                 <% } else { %>
                   <button type="button" 
                           @click="openUpload(items[<%= index %>])" 
-                          class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
+                          class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-xl bg-amber-50 text-amber-700 border border-amber-200">
                     <i data-lucide="upload" class="w-3.5 h-3.5"></i>
-                    <span>Upload Surat</span>
+                    <span>Upload Surat (Jadikan CT)</span>
                   </button>
                 <% } %>
               </div>
 
-              <div class="flex items-center gap-2">
+              <div class="flex items-center gap-1.5">
                 <button type="button" 
                         @click="openEdit(items[<%= index %>])" 
                         class="p-2 text-slate-600 hover:text-indigo-600 bg-slate-100 rounded-lg">
@@ -638,7 +657,7 @@
   </div>
 
   <!-- ======================================================== -->
-  <!-- MODAL 1: TAMBAH DATA CUTI -->
+  <!-- MODAL 1: TAMBAH DATA CUTI (DENGAN KOLOM HARI) -->
   <!-- ======================================================== -->
   <div x-cloak 
        x-show="addModal" 
@@ -673,7 +692,7 @@
             </div>
             <div>
               <h3 class="text-lg font-bold text-slate-900">Tambah Data Cuti Pegawai</h3>
-              <p class="text-xs text-slate-500">Isi formulir pengajuan cuti dan upload berkas surat cuti resmi jika tersedia.</p>
+              <p class="text-xs text-slate-500">Isi formulir pengajuan cuti. Berkas surat cuti resmi dapat dilampirkan sekarang atau menyusul.</p>
             </div>
           </div>
           <button @click="addModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100">
@@ -718,7 +737,41 @@
             </div>
           </div>
 
-          <!-- Periode Bulan & Tahun -->
+          <!-- Rentang Tanggal Cuti & Kolom Hari (Lama Cuti) -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Mulai Cuti</label>
+              <input type="date" 
+                     name="tanggalMulai" 
+                     x-model="addData.tanggalMulai" 
+                     @change="onDateChangeAdd()" 
+                     class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" 
+                     required>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Selesai Cuti</label>
+              <input type="date" 
+                     name="tanggalSelesai" 
+                     x-model="addData.tanggalSelesai" 
+                     @change="onDateChangeAdd()" 
+                     class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" 
+                     required>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Lama Cuti (Hari)</label>
+              <div class="relative">
+                <input type="number" 
+                       name="jumlahHari" 
+                       x-model="addData.jumlahHari" 
+                       min="1" 
+                       class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2 pr-12 font-bold text-slate-900" 
+                       required>
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">Hari</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Periode Bulan & Tahun (Otomatis menyesuaikan tanggal) -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Bulan Cuti</label>
@@ -731,18 +784,6 @@
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Tahun Cuti</label>
               <input type="number" name="tahun" x-model="addData.tahun" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
-            </div>
-          </div>
-
-          <!-- Rentang Tanggal Cuti -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Mulai Cuti</label>
-              <input type="date" name="tanggalMulai" x-model="addData.tanggalMulai" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Selesai Cuti</label>
-              <input type="date" name="tanggalSelesai" x-model="addData.tanggalSelesai" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
             </div>
           </div>
 
@@ -759,17 +800,20 @@
           <!-- Alasan / Keperluan -->
           <div>
             <label class="block text-xs font-semibold text-slate-700 mb-1">Alasan / Keperluan Cuti</label>
-            <textarea name="alasan" x-model="addData.alasan" rows="2" placeholder="Contoh: Menunaikan ibadah umroh/haji, pemulihan pasca operasi, dll." class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2"></textarea>
+            <textarea name="alasan" x-model="addData.alasan" rows="2" placeholder="Contoh: Menunaikan ibadah umroh/haji, pemulihan pasca operasi, keperluan keluarga, dll." class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2"></textarea>
           </div>
 
           <!-- Upload Berkas Surat Cuti -->
           <div class="p-3.5 bg-indigo-50/40 rounded-xl border border-indigo-100 space-y-1.5">
-            <label class="block text-xs font-bold text-indigo-900">Upload Berkas Surat Cuti (PDF / Gambar)</label>
+            <div class="flex items-center justify-between">
+              <label class="block text-xs font-bold text-indigo-900">Upload Berkas Surat Cuti (PDF / Gambar)</label>
+              <span class="text-[10px] font-semibold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Otomatis ubah absensi ke CT</span>
+            </div>
             <input type="file" 
                    name="suratCuti" 
                    accept=".pdf,image/png,image/jpeg,image/webp" 
                    class="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer">
-            <p class="text-[10px] text-slate-500">Format: PDF, PNG, JPG (Maks. 15MB). Boleh dikosongkan jika surat resmi belum terbit.</p>
+            <p class="text-[10px] text-slate-500">Jika berkas diupload, status absensi pegawai pada tanggal cuti bersangkutan otomatis diubah menjadi <strong>CT</strong>.</p>
           </div>
 
           <!-- Submit Buttons -->
@@ -789,7 +833,7 @@
   </div>
 
   <!-- ======================================================== -->
-  <!-- MODAL 2: EDIT DATA CUTI -->
+  <!-- MODAL 2: EDIT DATA CUTI (DENGAN KOLOM HARI) -->
   <!-- ======================================================== -->
   <div x-cloak 
        x-show="editModal" 
@@ -838,6 +882,40 @@
             </div>
           </div>
 
+          <!-- Rentang Tanggal Cuti & Kolom Hari (Lama Cuti) -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Mulai Cuti</label>
+              <input type="date" 
+                     name="tanggalMulai" 
+                     x-model="editData.tanggalMulai" 
+                     @change="onDateChangeEdit()" 
+                     class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" 
+                     required>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Selesai Cuti</label>
+              <input type="date" 
+                     name="tanggalSelesai" 
+                     x-model="editData.tanggalSelesai" 
+                     @change="onDateChangeEdit()" 
+                     class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" 
+                     required>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Lama Cuti (Hari)</label>
+              <div class="relative">
+                <input type="number" 
+                       name="jumlahHari" 
+                       x-model="editData.jumlahHari" 
+                       min="1" 
+                       class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2 pr-12 font-bold text-slate-900" 
+                       required>
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-[11px] font-bold text-slate-400 pointer-events-none">Hari</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Periode Bulan & Tahun -->
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
@@ -851,18 +929,6 @@
             <div>
               <label class="block text-xs font-semibold text-slate-700 mb-1">Tahun Cuti</label>
               <input type="number" name="tahun" x-model="editData.tahun" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
-            </div>
-          </div>
-
-          <!-- Rentang Tanggal Cuti -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Mulai Cuti</label>
-              <input type="date" name="tanggalMulai" x-model="editData.tanggalMulai" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
-            </div>
-            <div>
-              <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Selesai Cuti</label>
-              <input type="date" name="tanggalSelesai" x-model="editData.tanggalSelesai" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
             </div>
           </div>
 
@@ -909,7 +975,7 @@
   </div>
 
   <!-- ======================================================== -->
-  <!-- MODAL 3: UPLOAD / GANTI SURAT CUTI -->
+  <!-- MODAL 3: UPLOAD / GANTI SURAT CUTI (AUTO UBAH ABSENSI CT) -->
   <!-- ======================================================== -->
   <div x-cloak 
        x-show="uploadModal" 
@@ -950,7 +1016,12 @@
           <div class="p-3 bg-slate-50 rounded-xl text-xs space-y-1">
             <div class="font-bold text-slate-900" x-text="selectedItem ? selectedItem.employeeName : ''"></div>
             <div class="text-slate-500 font-mono" x-text="selectedItem ? selectedItem.employeeNip : ''"></div>
-            <div class="text-indigo-600 font-semibold" x-text="selectedItem ? (selectedItem.jenisCuti + ' (' + selectedItem.tanggalCuti + ')') : ''"></div>
+            <div class="text-indigo-600 font-semibold" x-text="selectedItem ? (selectedItem.jenisCuti + ' (' + (selectedItem.tanggalRapi || selectedItem.tanggalCuti) + ' - ' + selectedItem.jumlahHari + ' Hari)') : ''"></div>
+          </div>
+
+          <div class="p-3 bg-emerald-50/60 rounded-xl border border-emerald-200/70 text-emerald-800 text-xs flex items-center gap-2">
+            <i data-lucide="zap" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+            <span>Status absensi pegawai pada tanggal cuti bersangkutan otomatis diubah menjadi <strong>CT</strong> saat surat diunggah.</span>
           </div>
 
           <div>
@@ -977,7 +1048,7 @@
             </button>
             <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors">
               <i data-lucide="upload" class="w-4 h-4"></i>
-              <span>Upload Sekarang</span>
+              <span>Upload & Sinkronkan ke CT</span>
             </button>
           </div>
         </form>
@@ -1014,7 +1085,7 @@
         </div>
 
         <p class="text-xs text-slate-600 mb-4">
-          Apakah Anda yakin ingin menghapus data cuti untuk <strong class="text-slate-900" x-text="selectedItem ? selectedItem.employeeName : ''"></strong>? File berkas surat cuti fisik yang terhubung juga akan dihapus.
+          Apakah Anda yakin ingin menghapus data cuti untuk <strong class="text-slate-900" x-text="selectedItem ? selectedItem.employeeName : ''"></strong>? Berkas fisik yang terhubung juga akan dibersihkan.
         </p>
 
         <form :action="'/admin/cuti/' + (selectedItem ? selectedItem.id : '') + '/delete'" method="POST" class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
@@ -1152,4 +1223,3 @@
 </main>
 
 <%- include('../partials/footer') %>
-

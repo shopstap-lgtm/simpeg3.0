@@ -3,6 +3,7 @@ import prisma from '../../lib/prisma';
 import * as XLSX from 'xlsx';
 import path from 'path';
 import fs from 'fs';
+import { holidayService } from '../../services/holidayService';
 
 const BULAN_NAMES = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -16,6 +17,36 @@ const JENIS_CUTI_LIST = [
   'Cuti Besar',
   'Cuti Lainnya'
 ];
+
+export const formatTanggalCutiRapi = (tglMulai: string, tglSelesai: string): string => {
+  if (!tglMulai) return '-';
+  const MONTHS_SHORT = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+  const MONTHS_FULL = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+  const sParts = tglMulai.split('-');
+  if (sParts.length !== 3) return tglMulai;
+  const sY = parseInt(sParts[0], 10);
+  const sM = parseInt(sParts[1], 10);
+  const sD = parseInt(sParts[2], 10);
+
+  if (!tglSelesai || tglMulai === tglSelesai) {
+    return `${sD} ${MONTHS_FULL[sM]} ${sY}`;
+  }
+
+  const eParts = tglSelesai.split('-');
+  if (eParts.length !== 3) return `${tglMulai} s/d ${tglSelesai}`;
+  const eY = parseInt(eParts[0], 10);
+  const eM = parseInt(eParts[1], 10);
+  const eD = parseInt(eParts[2], 10);
+
+  if (sY === eY && sM === eM) {
+    return `${sD} - ${eD} ${MONTHS_FULL[sM]} ${sY}`;
+  }
+  if (sY === eY) {
+    return `${sD} ${MONTHS_SHORT[sM]} - ${eD} ${MONTHS_SHORT[eM]} ${sY}`;
+  }
+  return `${sD} ${MONTHS_SHORT[sM]} ${sY} - ${eD} ${MONTHS_SHORT[eM]} ${eY}`;
+};
 
 const formatWIB = (date: Date | string | null | undefined): string => {
   if (!date) return '-';
@@ -42,6 +73,70 @@ const safeDeleteLocalFile = (fileUrl: string | null | undefined) => {
     }
   } catch (err) {
     console.error('[cutiAdminController] Gagal menghapus file fisik:', err);
+  }
+};
+
+/**
+ * Otomatis ubah status absensi pegawai pada tanggal cuti menjadi 'CT' (Cuti)
+ * ketika surat cuti telah diupload oleh admin.
+ */
+const syncAttendanceCuti = async (cutiItem: {
+  employeeId: string;
+  tanggalMulai: string;
+  tanggalSelesai: string;
+  jenisCuti: string;
+}) => {
+  try {
+    if (!cutiItem.tanggalMulai) return;
+    const start = new Date(cutiItem.tanggalMulai);
+    const end = cutiItem.tanggalSelesai ? new Date(cutiItem.tanggalSelesai) : new Date(cutiItem.tanggalMulai);
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
+
+    const startDate = start <= end ? start : end;
+    const endDate = start <= end ? end : start;
+
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const yr = d.getFullYear();
+      const mo = d.getMonth() + 1;
+      const dt = d.getDate();
+      const dayOfWeek = d.getDay();
+
+      // Skip akhir pekan (Minggu = 0, Sabtu = 6) dan Hari Libur Nasional
+      if (dayOfWeek === 0 || dayOfWeek === 6 || holidayService.isHoliday(yr, mo, dt)) {
+        continue;
+      }
+
+      // Upsert AttendancePeriod untuk bulan & tahun bersangkutan
+      const period = await prisma.attendancePeriod.upsert({
+        where: { bulan_tahun: { bulan: mo, tahun: yr } },
+        update: {},
+        create: { bulan: mo, tahun: yr }
+      });
+
+      // Upsert AttendanceDay menjadi status 'CT'
+      await prisma.attendanceDay.upsert({
+        where: {
+          employeeId_periodId_tanggal: {
+            employeeId: cutiItem.employeeId,
+            periodId: period.id,
+            tanggal: dt
+          }
+        },
+        update: {
+          status: 'CT',
+          keterangan: `${cutiItem.jenisCuti} (Surat Terbit)`
+        },
+        create: {
+          employeeId: cutiItem.employeeId,
+          periodId: period.id,
+          tanggal: dt,
+          status: 'CT',
+          keterangan: `${cutiItem.jenisCuti} (Surat Terbit)`
+        }
+      });
+    }
+  } catch (err) {
+    console.error('[syncAttendanceCuti] Gagal sinkronisasi status absensi ke CT:', err);
   }
 };
 
@@ -115,8 +210,12 @@ export const cutiAdminController = {
         };
       }
 
+      // Ambil data unit, cuti, dan pegawai aktif
       const [allUnits, allActiveEmployees, cutiRecords] = await Promise.all([
-        prisma.unit.findMany({ orderBy: { namaUnit: 'asc' } }),
+        prisma.unit.findMany({
+          orderBy: { namaUnit: 'asc' },
+          select: { id: true, namaUnit: true }
+        }),
         prisma.employee.findMany({
           where: { aktif: true },
           include: { unit: true },
@@ -147,6 +246,8 @@ export const cutiAdminController = {
         tanggalMulai: c.tanggalMulai,
         tanggalSelesai: c.tanggalSelesai,
         tanggalCuti: c.tanggalCuti,
+        tanggalRapi: formatTanggalCutiRapi(c.tanggalMulai, c.tanggalSelesai),
+        jumlahHari: (c as any).jumlahHari || 1,
         jenisCuti: c.jenisCuti,
         alasan: c.alasan || '-',
         fileSuratUrl: c.fileSuratUrl,
@@ -226,6 +327,7 @@ export const cutiAdminController = {
         tahun,
         tanggalMulai,
         tanggalSelesai,
+        jumlahHari,
         jenisCuti,
         alasan,
         catatanAdmin
@@ -253,6 +355,19 @@ export const cutiAdminController = {
         ? tglMulai
         : `${tglMulai} s/d ${tglSelesai}`;
 
+      // Hitung atau parsing hari cuti
+      let parsedHari = parseInt(jumlahHari, 10);
+      if (isNaN(parsedHari) || parsedHari <= 0) {
+        if (tglMulai && tglSelesai) {
+          const d1 = new Date(tglMulai);
+          const d2 = new Date(tglSelesai);
+          const diff = Math.abs(d2.getTime() - d1.getTime());
+          parsedHari = Math.max(1, Math.round(diff / (1000 * 60 * 60 * 24)) + 1);
+        } else {
+          parsedHari = 1;
+        }
+      }
+
       const numBulan = parseInt(bulan, 10) || (tglMulai ? new Date(tglMulai).getMonth() + 1 : new Date().getMonth() + 1);
       const numTahun = parseInt(tahun, 10) || (tglMulai ? new Date(tglMulai).getFullYear() : new Date().getFullYear());
 
@@ -269,6 +384,7 @@ export const cutiAdminController = {
           tanggalMulai: tglMulai,
           tanggalSelesai: tglSelesai,
           tanggalCuti: formattedTanggalCuti,
+          jumlahHari: parsedHari,
           jenisCuti: jenisCuti || 'Cuti Tahunan',
           alasan: alasan?.trim() || null,
           catatanAdmin: catatanAdmin?.trim() || null,
@@ -281,10 +397,20 @@ export const cutiAdminController = {
         include: { employee: true }
       });
 
+      // Jika surat cuti langsung diunggah saat create, otomatis ubah status absensi menjadi 'CT'
+      if (file) {
+        await syncAttendanceCuti({
+          employeeId: targetEmpId,
+          tanggalMulai: tglMulai,
+          tanggalSelesai: tglSelesai,
+          jenisCuti: jenisCuti || 'Cuti Tahunan'
+        });
+      }
+
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'success',
-          message: `Data cuti untuk ${newCuti.employee.nama} berhasil ditambahkan.${file ? ' Surat cuti telah tersimpan.' : ''}`
+          message: `Data cuti (${parsedHari} hari) untuk ${newCuti.employee.nama} berhasil ditambahkan.${file ? ' Surat cuti tersimpan dan status absensi otomatis menjadi CT.' : ''}`
         };
       }
 
@@ -311,6 +437,7 @@ export const cutiAdminController = {
         tahun,
         tanggalMulai,
         tanggalSelesai,
+        jumlahHari,
         jenisCuti,
         alasan,
         catatanAdmin
@@ -337,12 +464,18 @@ export const cutiAdminController = {
         ? tglMulai
         : `${tglMulai} s/d ${tglSelesai}`;
 
+      let parsedHari = parseInt(jumlahHari, 10);
+      if (isNaN(parsedHari) || parsedHari <= 0) {
+        parsedHari = (existing as any).jumlahHari || 1;
+      }
+
       const updateData: any = {
         bulan: parseInt(bulan, 10) || existing.bulan,
         tahun: parseInt(tahun, 10) || existing.tahun,
         tanggalMulai: tglMulai,
         tanggalSelesai: tglSelesai,
         tanggalCuti: formattedTanggalCuti,
+        jumlahHari: parsedHari,
         jenisCuti: jenisCuti || existing.jenisCuti,
         alasan: alasan !== undefined ? alasan.trim() : existing.alasan,
         catatanAdmin: catatanAdmin !== undefined ? catatanAdmin.trim() : existing.catatanAdmin
@@ -350,7 +483,6 @@ export const cutiAdminController = {
 
       const file = req.file;
       if (file) {
-        // Hapus file fisik lama jika ada
         if (existing.fileSuratUrl) {
           safeDeleteLocalFile(existing.fileSuratUrl);
         }
@@ -366,10 +498,20 @@ export const cutiAdminController = {
         data: updateData
       });
 
+      // Jika surat cuti diupload atau memang sudah ada surat cuti, sinkronkan absensi ke CT
+      if (file || existing.fileSuratUrl) {
+        await syncAttendanceCuti({
+          employeeId: existing.employeeId,
+          tanggalMulai: tglMulai,
+          tanggalSelesai: tglSelesai,
+          jenisCuti: jenisCuti || existing.jenisCuti
+        });
+      }
+
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'success',
-          message: `Data cuti untuk ${existing.employee.nama} berhasil diperbarui.`
+          message: `Data cuti untuk ${existing.employee.nama} berhasil diperbarui.${file ? ' Berkas surat diperbarui dan absensi disinkronkan ke CT.' : ''}`
         };
       }
 
@@ -423,7 +565,7 @@ export const cutiAdminController = {
         safeDeleteLocalFile(existing.fileSuratUrl);
       }
 
-      await prisma.cuti.update({
+      const updatedCuti = await prisma.cuti.update({
         where: { id },
         data: {
           fileSuratUrl: `/uploads/${file.filename}`,
@@ -434,10 +576,18 @@ export const cutiAdminController = {
         }
       });
 
+      // Otomatis ubah status absensi pegawai pada tanggal cutinya menjadi CT (Cuti)
+      await syncAttendanceCuti({
+        employeeId: existing.employeeId,
+        tanggalMulai: existing.tanggalMulai,
+        tanggalSelesai: existing.tanggalSelesai,
+        jenisCuti: existing.jenisCuti
+      });
+
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'success',
-          message: `Surat cuti untuk ${existing.employee.nama} berhasil diunggah dan siap diunduh oleh pegawai.`
+          message: `Surat cuti untuk ${existing.employee.nama} berhasil diunggah. Status absensi pada tanggal cuti otomatis disesuaikan menjadi CT.`
         };
       }
 
@@ -454,33 +604,48 @@ export const cutiAdminController = {
     }
   },
 
-  // 5. Hapus 1 Data Cuti
+  // 5. Hapus Data Cuti Satuan
   delete: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
 
-      const item = await prisma.cuti.findUnique({
+      const existing = await prisma.cuti.findUnique({
         where: { id },
         include: { employee: true }
       });
 
-      if (item) {
-        if (item.fileSuratUrl) {
-          safeDeleteLocalFile(item.fileSuratUrl);
-        }
-        await prisma.cuti.delete({ where: { id } });
-
+      if (!existing) {
         if ((req as any).session) {
           (req as any).session.toast = {
-            type: 'success',
-            message: `Data cuti untuk ${item.employee.nama} berhasil dihapus.`
+            type: 'error',
+            message: 'Data cuti tidak ditemukan.'
           };
         }
+        return res.redirect(buildRedirectUrl(req));
+      }
+
+      if (existing.fileSuratUrl) {
+        safeDeleteLocalFile(existing.fileSuratUrl);
+      }
+
+      await prisma.cuti.delete({ where: { id } });
+
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'success',
+          message: `Data cuti untuk ${existing.employee.nama} berhasil dihapus.`
+        };
       }
 
       res.redirect(buildRedirectUrl(req));
     } catch (error: any) {
       console.error('Error in cutiAdminController.delete:', error);
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'error',
+          message: error.message || 'Gagal menghapus data cuti.'
+        };
+      }
       res.redirect(buildRedirectUrl(req));
     }
   },
@@ -500,44 +665,52 @@ export const cutiAdminController = {
         return res.redirect(buildRedirectUrl(req));
       }
 
-      const items = await prisma.cuti.findMany({
-        where: { id: { in: ids } }
+      const recordsToDelete = await prisma.cuti.findMany({
+        where: { id: { in: ids } },
+        select: { id: true, fileSuratUrl: true }
       });
 
-      for (const it of items) {
-        if (it.fileSuratUrl) {
-          safeDeleteLocalFile(it.fileSuratUrl);
+      recordsToDelete.forEach(r => {
+        if (r.fileSuratUrl) {
+          safeDeleteLocalFile(r.fileSuratUrl);
         }
-      }
+      });
 
-      const result = await prisma.cuti.deleteMany({
+      const deleteResult = await prisma.cuti.deleteMany({
         where: { id: { in: ids } }
       });
 
       if ((req as any).session) {
         (req as any).session.toast = {
           type: 'success',
-          message: `${result.count} data cuti berhasil dihapus.`
+          message: `Berhasil menghapus ${deleteResult.count} data cuti terpilih beserta berkas lampirannya.`
         };
       }
 
       res.redirect(buildRedirectUrl(req));
     } catch (error: any) {
       console.error('Error in cutiAdminController.bulkDelete:', error);
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'error',
+          message: error.message || 'Gagal menghapus massal data cuti.'
+        };
+      }
       res.redirect(buildRedirectUrl(req));
     }
   },
 
-  // 7. Export Excel (.xlsx)
+  // 7. Export Rekap Cuti ke Excel (.xlsx)
   exportExcel: async (req: Request, res: Response) => {
     try {
       const filterUnit = (req.query.unit as string) || 'unit-all';
       const filterBulan = (req.query.bulan as string) || 'all';
-      const filterTahun = (req.query.tahun as string) || String(new Date().getFullYear());
+      const filterTahun = (req.query.tahun as string) || 'all';
       const filterJenisCuti = (req.query.jenisCuti as string) || 'ALL';
       const search = ((req.query.search as string) || '').trim();
 
       const whereClause: any = {};
+
       if (filterUnit !== 'unit-all') {
         whereClause.employee = { ...whereClause.employee, unitId: filterUnit };
       }
@@ -572,9 +745,10 @@ export const cutiAdminController = {
         'Nama Pegawai': c.employee.nama,
         'Unit Kerja / Sekolah': c.employee.unit?.namaUnit || '-',
         'Jenis Cuti': c.jenisCuti,
+        'Tanggal Cuti': formatTanggalCutiRapi(c.tanggalMulai, c.tanggalSelesai),
+        'Lama Cuti (Hari)': (c as any).jumlahHari || 1,
         'Bulan': BULAN_NAMES[c.bulan] || c.bulan,
         'Tahun': c.tahun,
-        'Tanggal Cuti': c.tanggalCuti,
         'Alasan / Keterangan': c.alasan || '-',
         'Status Surat Cuti': c.fileSuratUrl ? 'Surat Terbit (Diunggah)' : 'Menunggu Surat',
         'Nama Berkas Surat': c.fileSuratName || '-',
@@ -585,35 +759,33 @@ export const cutiAdminController = {
       const wb = XLSX.utils.book_new();
       const ws = XLSX.utils.json_to_sheet(excelData);
 
-      // Set column widths
       ws['!cols'] = [
         { wch: 5 },  // No
         { wch: 22 }, // NIP
         { wch: 30 }, // Nama Pegawai
         { wch: 30 }, // Unit Kerja
         { wch: 18 }, // Jenis Cuti
+        { wch: 26 }, // Tanggal Cuti
+        { wch: 16 }, // Lama Cuti
         { wch: 14 }, // Bulan
         { wch: 8 },  // Tahun
-        { wch: 24 }, // Tanggal Cuti
         { wch: 30 }, // Alasan
         { wch: 24 }, // Status Surat
         { wch: 25 }, // Nama Berkas
-        { wch: 18 }, // Petugas
+        { wch: 20 }, // Petugas
         { wch: 18 }  // Waktu Input
       ];
 
-      XLSX.utils.book_append_sheet(wb, ws, 'Rekap Cuti');
-
+      XLSX.utils.book_append_sheet(wb, ws, 'Rekap_Cuti');
       const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
-      const filename = `Rekap_Cuti_Pegawai_${filterTahun}_${Date.now()}.xlsx`;
 
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      const filename = `REKAP_CUTI_PEGAWAI_${new Date().toISOString().slice(0, 10)}.xlsx`;
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       return res.send(buffer);
     } catch (error: any) {
       console.error('Error in cutiAdminController.exportExcel:', error);
-      res.status(500).send('Gagal mengunduh berkas Excel rekap cuti.');
+      res.status(500).send('Gagal mengekspor data cuti ke Excel.');
     }
   }
 };
-

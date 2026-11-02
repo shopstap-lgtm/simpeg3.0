@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
+import { formatTanggalCutiRapi } from './admin/cutiAdminController';
 
 const BULAN_NAMES = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -9,7 +10,6 @@ export const cutiPublicController = {
     try {
       const cms = await prisma.cmsConfig.findUnique({ where: { id: 'cms-main' } });
       const currentYear = new Date().getFullYear();
-      const currentMonth = new Date().getMonth() + 1;
 
       const rawNip = (req.query.nip as string) || '';
       const cleanNip = rawNip.replace(/\s+/g, '').trim();
@@ -59,7 +59,7 @@ export const cutiPublicController = {
             whereClause.tahun = parseInt(filterTahun, 10);
           }
 
-          cutiList = await prisma.cuti.findMany({
+          const rawCutiList = await prisma.cuti.findMany({
             where: whereClause,
             orderBy: [
               { tahun: 'desc' },
@@ -67,6 +67,23 @@ export const cutiPublicController = {
               { createdAt: 'desc' }
             ]
           });
+
+          cutiList = rawCutiList.map(c => ({
+            id: c.id,
+            bulan: c.bulan,
+            tahun: c.tahun,
+            tanggalMulai: c.tanggalMulai,
+            tanggalSelesai: c.tanggalSelesai,
+            tanggalCuti: c.tanggalCuti,
+            tanggalRapi: formatTanggalCutiRapi(c.tanggalMulai, c.tanggalSelesai),
+            jumlahHari: (c as any).jumlahHari || 1,
+            jenisCuti: c.jenisCuti,
+            alasan: c.alasan,
+            fileSuratUrl: c.fileSuratUrl,
+            fileSuratName: c.fileSuratName,
+            statusSurat: c.statusSurat,
+            catatanAdmin: c.catatanAdmin
+          }));
 
           // Hitung statistik untuk tahun yang dipilih (atau seluruh riwayat jika tahun all)
           const allRecordsForStats = await prisma.cuti.findMany({
@@ -122,4 +139,3 @@ export const cutiPublicController = {
     }
   }
 };
-
