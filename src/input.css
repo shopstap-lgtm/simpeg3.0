@@ -121,6 +121,9 @@
   .cell-day-ct {
     @apply bg-purple-600 text-white font-bold;
   }
+  .cell-day-ll {
+    @apply bg-teal-600 text-white font-bold;
+  }
   .cell-day-pending {
     @apply bg-amber-300 text-amber-950 font-extrabold ring-1 ring-amber-500 ring-inset;
   }

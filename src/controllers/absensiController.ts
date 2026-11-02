@@ -218,7 +218,7 @@ export const absensiController = {
         const dayOfWeek = date.getDay();
         daysMeta.push({
           day,
-          isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+          isWeekend: dayOfWeek === 0, // Hanya hari Minggu yang otomatis libur akhir pekan, Sabtu merupakan hari aktif
           nationalHoliday: holidaysMap.get(day) || null
         });
       }
@@ -237,6 +237,7 @@ export const absensiController = {
         let pcCount = 0;
         let stCount = 0;
         let ctCount = 0;
+        let llCount = 0;
         let totalEfektif = 0;
 
         for (const meta of daysMeta) {
@@ -291,16 +292,20 @@ export const absensiController = {
             }
           }
 
-          if (!isHolidayOrWeekend && status !== 'EMPTY') {
-            totalEfektif++;
-            if (status === 'HADIR') hadirCount++;
-            else if (status === 'TK') tkCount++;
-            else if (status === 'DL') dlCount++;
-            else if (status === 'DL_KUNING') dlKuningCount++;
-            else if (status === 'TL') tlCount++;
-            else if (status === 'PC') pcCount++;
-            else if (status === 'ST') stCount++;
-            else if (status === 'CT') ctCount++;
+          if (!isHolidayOrWeekend && status !== 'EMPTY' && status !== 'LIBUR') {
+            if (status === 'LL') {
+              llCount++;
+            } else {
+              totalEfektif++;
+              if (status === 'HADIR') hadirCount++;
+              else if (status === 'TK') tkCount++;
+              else if (status === 'DL') dlCount++;
+              else if (status === 'DL_KUNING') dlKuningCount++;
+              else if (status === 'TL') tlCount++;
+              else if (status === 'PC') pcCount++;
+              else if (status === 'ST') stCount++;
+              else if (status === 'CT') ctCount++;
+            }
           }
 
           days.push({
@@ -336,6 +341,7 @@ export const absensiController = {
             pc: pcCount,
             st: stCount,
             ct: ctCount,
+            ll: llCount,
             totalEfektif,
             persentase
           }
@@ -976,7 +982,7 @@ export const absensiController = {
         const dayOfWeek = date.getDay();
         daysMeta.push({
           day,
-          isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+          isWeekend: dayOfWeek === 0, // Hanya hari Minggu
           nationalHoliday: holidaysMap.get(day) || null
         });
       }
@@ -991,6 +997,7 @@ export const absensiController = {
         let pcCount = 0;
         let stCount = 0;
         let ctCount = 0;
+        let llCount = 0;
         let totalEfektif = 0;
 
         const rowObj: Record<string, any> = {
@@ -1019,15 +1026,19 @@ export const absensiController = {
           } else {
             status = 'EMPTY';
           }
-          if (!isHolidayOrWeekend && status !== 'EMPTY') {
-            totalEfektif++;
-            if (status === 'HADIR') hadirCount++;
-            else if (status === 'TK') tkCount++;
-            else if (status === 'DL' || status === 'DL_KUNING') dlCount++;
-            else if (status === 'TL') tlCount++;
-            else if (status === 'PC') pcCount++;
-            else if (status === 'ST') stCount++;
-            else if (status === 'CT') ctCount++;
+          if (!isHolidayOrWeekend && status !== 'EMPTY' && status !== 'LIBUR') {
+            if (status === 'LL') {
+              llCount++;
+            } else {
+              totalEfektif++;
+              if (status === 'HADIR') hadirCount++;
+              else if (status === 'TK') tkCount++;
+              else if (status === 'DL' || status === 'DL_KUNING') dlCount++;
+              else if (status === 'TL') tlCount++;
+              else if (status === 'PC') pcCount++;
+              else if (status === 'ST') stCount++;
+              else if (status === 'CT') ctCount++;
+            }
           }
 
           let displayCode = '-';
@@ -1038,7 +1049,8 @@ export const absensiController = {
           else if (status === 'PC') displayCode = 'PC';
           else if (status === 'ST') displayCode = 'S';
           else if (status === 'CT') displayCode = 'C';
-          else if (status === 'LIBUR') displayCode = 'L';
+          else if (status === 'LL') displayCode = 'LL';
+          else if (status === 'LIBUR') displayCode = meta.nationalHoliday ? 'LN' : 'L';
 
           rowObj[`Tgl ${day}`] = displayCode;
         }
@@ -1053,6 +1065,7 @@ export const absensiController = {
         rowObj['PC (Pulang Cepat)'] = pcCount;
         rowObj['S (Sakit)'] = stCount;
         rowObj['C (Cuti)'] = ctCount;
+        rowObj['LL (Libur Lainnya)'] = llCount;
         rowObj['Efektif'] = totalEfektif;
         rowObj['Persentase (%)'] = `${persentase}%`;
 
@@ -1188,7 +1201,7 @@ export const absensiController = {
         const dayOfWeek = date.getDay();
         daysMeta.push({
           day,
-          isWeekend: dayOfWeek === 0 || dayOfWeek === 6,
+          isWeekend: dayOfWeek === 0, // Hanya hari Minggu
           nationalHoliday: holidaysMap.get(day) || null
         });
       }
@@ -1234,6 +1247,7 @@ export const absensiController = {
   .code-PC { background-color: #fef3c7; color: #b45309; font-weight: bold; }
   .code-S { background-color: #f3e8ff; color: #7e22ce; font-weight: bold; }
   .code-C { background-color: #fae8ff; color: #86198f; font-weight: bold; }
+  .code-LL { background-color: #ccfbf1; color: #0f766e; font-weight: bold; }
 
   .legend-box { display: flex; flex-wrap: wrap; gap: 8px; font-size: 8.5px; margin-top: 6px; padding: 6px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; }
   .legend-item { display: flex; align-items: center; gap: 4px; }
@@ -1322,6 +1336,7 @@ export const absensiController = {
       let pcCount = 0;
       let stCount = 0;
       let ctCount = 0;
+      let llCount = 0;
       let totalEfektif = 0;
       const dayCells = daysMeta.map(meta => {
         const day = meta.day;
@@ -1338,15 +1353,19 @@ export const absensiController = {
         } else if (meta.nationalHoliday || meta.isWeekend) {
           status = 'LIBUR';
         }
-        if (!isHolidayOrWeekend && status !== 'EMPTY') {
-          totalEfektif++;
-          if (status === 'HADIR') hadirCount++;
-          else if (status === 'TK') tkCount++;
-          else if (status === 'DL' || status === 'DL_KUNING') dlCount++;
-          else if (status === 'TL') tlCount++;
-          else if (status === 'PC') pcCount++;
-          else if (status === 'ST') stCount++;
-          else if (status === 'CT') ctCount++;
+        if (!isHolidayOrWeekend && status !== 'EMPTY' && status !== 'LIBUR') {
+          if (status === 'LL') {
+            llCount++;
+          } else {
+            totalEfektif++;
+            if (status === 'HADIR') hadirCount++;
+            else if (status === 'TK') tkCount++;
+            else if (status === 'DL' || status === 'DL_KUNING') dlCount++;
+            else if (status === 'TL') tlCount++;
+            else if (status === 'PC') pcCount++;
+            else if (status === 'ST') stCount++;
+            else if (status === 'CT') ctCount++;
+          }
         }
 
         let displayCode = '';
@@ -1358,6 +1377,7 @@ export const absensiController = {
         else if (status === 'PC') { displayCode = 'PC'; cellClass = 'code-PC'; }
         else if (status === 'ST') { displayCode = 'S'; cellClass = 'code-S'; }
         else if (status === 'CT') { displayCode = 'C'; cellClass = 'code-C'; }
+        else if (status === 'LL') { displayCode = 'LL'; cellClass = 'code-LL'; }
         else if (status === 'LIBUR') {
           displayCode = meta.nationalHoliday ? 'LN' : 'L';
           cellClass = meta.nationalHoliday ? 'bg-holiday' : 'bg-weekend';
@@ -1396,6 +1416,7 @@ export const absensiController = {
   <div class="legend-item"><span class="legend-color code-PC">PC</span> Pulang Cepat</div>
   <div class="legend-item"><span class="legend-color code-S">S</span> Sakit</div>
   <div class="legend-item"><span class="legend-color code-C">C</span> Cuti</div>
+  <div class="legend-item"><span class="legend-color code-LL">LL</span> Libur Lainnya</div>
   <div class="legend-item"><span class="legend-color bg-weekend">L</span> Akhir Pekan</div>
   <div class="legend-item"><span class="legend-color bg-holiday">LN</span> Libur Nasional</div>
 </div>

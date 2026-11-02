@@ -132,6 +132,11 @@ function mapSkpdStatus(rawStatus: any): string {
   if (!rawStatus) return 'HADIR';
   const s = String(rawStatus).trim().toUpperCase();
 
+  // LL = Libur Lainnya
+  if (s === 'LL' || s.includes('LIBUR LAINNYA') || s.includes('LIBUR LAIN')) {
+    return 'LL';
+  }
+
   // NL = Hadir Normal
   if (s === 'NL' || s === 'NORMAL' || s === 'HADIR' || s === 'H' || s.includes('NORMAL')) {
     return 'HADIR';
@@ -385,9 +390,10 @@ export const uploadAbsensiController = {
               }
             });
 
-            // If teacher already has an approved DL, ST, CT from pre-recap clarification, do NOT overwrite it with TK!
+            // If teacher already has an approved DL, ST, CT from pre-recap clarification, do NOT overwrite it with TK or LL!
             const isProtectedStatus = existingDay && ['DL', 'ST', 'CT'].includes(existingDay.status);
-            const finalStatus = (isProtectedStatus && mappedStatus === 'TK') ? existingDay.status : mappedStatus;
+            const shouldProtect = isProtectedStatus && (mappedStatus === 'TK' || mappedStatus === 'LL');
+            const finalStatus = shouldProtect ? existingDay.status : mappedStatus;
 
             await prisma.attendanceDay.upsert({
               where: {
@@ -399,7 +405,7 @@ export const uploadAbsensiController = {
               },
               update: {
                 status: finalStatus,
-                keterangan: isProtectedStatus && mappedStatus === 'TK'
+                keterangan: shouldProtect
                   ? `Klarifikasi Pra-Rekap Terjaga (${existingDay.status})`
                   : null
               },

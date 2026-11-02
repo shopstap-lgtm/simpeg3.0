@@ -228,7 +228,7 @@ export async function importEmployeesFromExcel(fileBuffer: Buffer): Promise<Impo
         for (let day = 1; day <= daysInMonth; day++) {
           const date = new Date(activeTahun, activeBulan - 1, day);
           const dayOfWeek = date.getDay();
-          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+          const isWeekend = dayOfWeek === 0;
 
           await prisma.attendanceDay.create({
             data: {

@@ -29,7 +29,7 @@
         },
 
         isStatusEligibleForKlarifikasi(status, dayNumber) {
-          if (status === 'TK' || status === 'DL_KUNING') {
+          if (status === 'TK' || status === 'DL_KUNING' || status === 'LL') {
             return this.isAdmin || this.isMonthKlarifikasiOpen(this.currentBulan);
           }
 
@@ -161,6 +161,7 @@
             'PC': 'Pulang Cepat (PC)',
             'ST': 'Sakit (ST)',
             'CT': 'Cuti (CT)',
+            'LL': 'Libur Lainnya (LL)',
             'EMPTY': '🗑️ Kosongkan / Hapus Record'
           };
           return map[code] || code || 'Pilih Status...';
@@ -177,6 +178,7 @@
             'PC': 'bg-amber-600',
             'ST': 'bg-purple-500',
             'CT': 'bg-sky-500',
+            'LL': 'bg-teal-500',
             'EMPTY': 'bg-rose-600'
           };
           return map[code] || 'bg-slate-300';
@@ -192,6 +194,7 @@
           { value: 'PC', label: 'Pulang Cepat (PC)', dot: 'bg-amber-600' },
           { value: 'ST', label: 'Sakit (ST)', dot: 'bg-purple-500' },
           { value: 'CT', label: 'Cuti (CT)', dot: 'bg-sky-500' },
+          { value: 'LL', label: 'Libur Lainnya (LL)', dot: 'bg-teal-500' },
           { value: 'EMPTY', label: '🗑️ Kosongkan / Hapus Record (Status Kembali Kosong)', dot: 'bg-rose-600' }
         ],
 
@@ -205,6 +208,7 @@
           { value: 'PC', label: 'Pulang Cepat (PC)', dot: 'bg-amber-600' },
           { value: 'ST', label: 'Sakit (ST)', dot: 'bg-purple-500' },
           { value: 'CT', label: 'Cuti (CT)', dot: 'bg-sky-500' },
+          { value: 'LL', label: 'Libur Lainnya (LL)', dot: 'bg-teal-500' },
           { value: 'EMPTY', label: '🗑️ Kosongkan / Hapus Record (Kembali Kosong)', dot: 'bg-rose-600' }
         ],
 
@@ -216,6 +220,7 @@
           { value: 'PC', label: 'Pulang Cepat (PC)', dot: 'bg-amber-600' },
           { value: 'ST', label: 'Sakit (ST)', dot: 'bg-purple-500' },
           { value: 'CT', label: 'Cuti (CT)', dot: 'bg-sky-500' },
+          { value: 'LL', label: 'Libur Lainnya (LL)', dot: 'bg-teal-500' },
           { value: 'TK', label: 'Tanpa Keterangan (TK)', dot: 'bg-rose-500' }
         ],
 
@@ -300,7 +305,7 @@
               alert('Pengajuan klarifikasi pra-rekap (hari kosong) untuk tanggal ' + dayObj.tanggal + ' belum dibuka oleh Admin Korwil.');
             } else {
               const _mp = (this.klarifikasiConfig.policies || {})[String(this.currentBulan)] || {};
-              let msg = 'Hanya presensi berstatus Tanpa Keterangan (TK) dan DL Belum Sesuai (DL Kuning)';
+              let msg = 'Hanya presensi berstatus Tanpa Keterangan (TK), DL Belum Sesuai (DL Kuning), dan Libur Lainnya (LL)';
               if (_mp.praRekapEnabled) msg += ', serta Pra-Rekap (Hari Kosong) pada tanggal yang dibuka';
               if (_mp.nlEnabled) msg += ', serta Hadir Normal (NL) pada tanggal yang dibuka';
               if (_mp.pcEnabled) msg += ', serta Terlambat (TL) & Pulang Cepat (PC) pada tanggal yang dibuka';
@@ -340,6 +345,7 @@
             let labelStatus = d.status;
             if (d.status === 'TK') labelStatus = 'Tanpa Keterangan (TK)';
             else if (d.status === 'DL_KUNING') labelStatus = 'DL Belum Sesuai (DL Kuning)';
+            else if (d.status === 'LL') labelStatus = 'Libur Lainnya (LL)';
             else if (d.status === 'EMPTY') labelStatus = 'Pra-Rekap (Kosong)';
             else if (d.status === 'HADIR' || d.status === 'NL') labelStatus = 'Hadir Normal (NL)';
             else if (d.status === 'PC') labelStatus = 'Pulang Cepat (PC)';
@@ -355,7 +361,7 @@
 
           if (!this.isAdmin && this.eligibleDays.length === 0) {
             const _mp2 = (this.klarifikasiConfig.policies || {})[String(this.currentBulan)] || {};
-            let msg = 'Pegawai ' + emp.nama + ' tidak memiliki presensi berstatus TK atau DL Kuning';
+            let msg = 'Pegawai ' + emp.nama + ' tidak memiliki presensi berstatus TK, DL Kuning, atau Libur Lainnya (LL)';
             if (_mp2.praRekapEnabled) msg += ' / Pra-Rekap';
             if (_mp2.nlEnabled) msg += ' / NL';
             if (_mp2.pcEnabled) msg += ' / TL & PC';
@@ -1123,7 +1129,8 @@
                                       badgeClass='cell-day-tl' ; shortCode='TL' ; } else if (d.status==='PC' ) {
                                       badgeClass='cell-day-pc' ; shortCode='PC' ; } else if (d.status==='ST' ) {
                                       badgeClass='cell-day-st' ; shortCode='ST' ; } else if (d.status==='CT' ) {
-                                      badgeClass='cell-day-ct' ; shortCode='CT' ; } else if (d.status==='LIBUR' ) {
+                                      badgeClass='cell-day-ct' ; shortCode='CT' ; } else if (d.status==='LL' ) {
+                                      badgeClass='cell-day-ll' ; shortCode='LL' ; } else if (d.status==='LIBUR' ) {
                                       badgeClass='cell-day-weekend' ; shortCode='L' ; } else if (d.status==='EMPTY' ) {
                                       badgeClass='bg-transparent text-transparent border-0' ; shortCode='' ; } %>
                                       <div class="flex flex-col items-center shrink-0 w-7 relative">
@@ -1230,12 +1237,13 @@
                                 <% for(let d=1; d <=daysInMonth; d++) { 
                                   const holiName=typeof holidays !=='undefined' && holidays[d] ? holidays[d] : null; 
                                   const dDate=new Date(tahun, bulan - 1, d); 
-                                  const isWknd=(dDate.getDay()===0 || dDate.getDay()===6); 
-                                  const isHolidayOrWeekend=(isWknd || !!holiName);
+                                  const isSunday = (dDate.getDay() === 0); 
+                                  const isSaturday = (dDate.getDay() === 6); 
+                                  const isHolidayOrSunday = (isSunday || !!holiName);
                                 %>
                                   <th
-                                    class="p-0 text-center min-w-[21px] max-w-[22px] w-[21.5px] border-r border-slate-200/60 font-bold text-[9.5px] align-middle <%= isHolidayOrWeekend ? 'bg-rose-50/70 text-rose-700 font-extrabold' : 'text-slate-600' %> <%= isSuperAdminOrDinas ? 'cursor-pointer hover:bg-violet-100 hover:text-violet-800 transition-colors group' : '' %>"
-                                    title="<%= holiName ? 'Tanggal ' + d + ' • Libur Nasional: ' + holiName : (isWknd ? 'Tanggal ' + d + ' (Akhir Pekan)' : 'Tanggal ' + d) %>"
+                                    class="p-0 text-center min-w-[21px] max-w-[22px] w-[21.5px] border-r border-slate-200/60 font-bold text-[9.5px] align-middle <%= isHolidayOrSunday ? 'bg-rose-50/70 text-rose-700 font-extrabold' : (isSaturday ? 'bg-slate-50 text-slate-700 font-bold' : 'text-slate-600') %> <%= isSuperAdminOrDinas ? 'cursor-pointer hover:bg-violet-100 hover:text-violet-800 transition-colors group' : '' %>"
+                                    title="<%= holiName ? 'Tanggal ' + d + ' • Libur Nasional: ' + holiName : (isSunday ? 'Tanggal ' + d + ' (Hari Minggu)' : (isSaturday ? 'Tanggal ' + d + ' (Hari Sabtu)' : 'Tanggal ' + d)) %>"
                                     <% if (isSuperAdminOrDinas) { %>
                                     @click="openBulkDateModal(<%= d %>)"
                                       <% } %>>
@@ -1309,8 +1317,8 @@
                                           let isWithoutBadge=(d.status==='EMPTY' && !d.clarificationStatus); 
                                           const holiName = typeof holidays !== 'undefined' && holidays[d.tanggal] ? holidays[d.tanggal] : null;
                                           const dDate = new Date(tahun, bulan - 1, d.tanggal);
-                                          const isWknd = (dDate.getDay() === 0 || dDate.getDay() === 6);
-                                          const isHolidayOrWeekend = (isWknd || !!holiName || d.status === 'LIBUR');
+                                          const isSunday = (dDate.getDay() === 0);
+                                          const isHolidayOrSunday = (isSunday || !!holiName || d.status === 'LIBUR');
 
                                           if (d.clarificationStatus==='PENDING' ) { bgCol='cell-day-pending' ; char='⏳' ; }
                                           else if (d.status==='HADIR' ) { bgCol='cell-day-hadir' ; char='H' ; } 
@@ -1321,11 +1329,12 @@
                                           else if (d.status==='PC' ) { bgCol='cell-day-pc' ; char='PC' ; } 
                                           else if (d.status==='ST' ) { bgCol='cell-day-st' ; char='ST' ; } 
                                           else if (d.status==='CT' ) { bgCol='cell-day-ct' ; char='CT' ; } 
+                                          else if (d.status==='LL' ) { bgCol='cell-day-ll' ; char='LL' ; } 
                                           else if (d.status==='LIBUR' ) { bgCol='cell-day-weekend bg-rose-100 text-rose-700 border border-rose-200 font-bold' ; char='L' ; } 
                                           else if (d.status==='EMPTY' ) { bgCol='bg-transparent text-transparent border-0' ; char='' ; } 
                                         %>
                                           <td
-                                            class="p-0 text-center border-r border-slate-100/50 min-w-[21px] max-w-[22px] w-[21.5px] align-middle <%= isHolidayOrWeekend ? 'bg-rose-50/40' : '' %>">
+                                            class="p-0 text-center border-r border-slate-100/50 min-w-[21px] max-w-[22px] w-[21.5px] align-middle <%= isHolidayOrSunday ? 'bg-rose-50/40' : '' %>">
                                             <% if (isWithoutBadge) { %>
                                               <% if (isAdmin) { %>
                                                 <button type="button"

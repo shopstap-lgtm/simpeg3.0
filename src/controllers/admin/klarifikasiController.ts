@@ -103,8 +103,8 @@ const applyAttendanceApproval = async (item: any) => {
       const mo = d.getMonth() + 1;
       const dt = d.getDate();
       const dayOfWeek = d.getDay();
-      // Skip akhir pekan (Sabtu & Minggu) dan Hari Libur Nasional
-      if (dayOfWeek === 0 || dayOfWeek === 6 || holidayService.isHoliday(yr, mo, dt)) {
+      // Skip akhir pekan (Hanya Minggu) dan Hari Libur Nasional; Sabtu merupakan hari kerja/aktif
+      if (dayOfWeek === 0 || holidayService.isHoliday(yr, mo, dt)) {
         continue;
       }
       await updateDay(yr, mo, dt);
@@ -117,8 +117,8 @@ const applyAttendanceApproval = async (item: any) => {
       const dt = parseInt(parts[2]);
       const checkDate = new Date(yr, mo - 1, dt);
       const dayOfWeek = checkDate.getDay();
-      // Skip akhir pekan dan Hari Libur Nasional jika ada pengajuan pada hari libur
-      if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidayService.isHoliday(yr, mo, dt)) {
+      // Skip hari Minggu dan Hari Libur Nasional jika ada pengajuan pada hari libur
+      if (dayOfWeek !== 0 && !holidayService.isHoliday(yr, mo, dt)) {
         await updateDay(yr, mo, dt);
       }
     }
