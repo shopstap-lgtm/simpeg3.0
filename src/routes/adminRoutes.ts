@@ -17,6 +17,7 @@ import { ncrAdminController } from '../controllers/admin/ncrAdminController';
 import { formController } from '../controllers/admin/formController';
 import { sheetAdminController } from '../controllers/admin/sheetAdminController';
 import { smartSheetController } from '../controllers/admin/smartSheetController';
+import { cutiAdminController } from '../controllers/admin/cutiAdminController';
 import { requireAdmin, requireSuperAdmin, requireSuperAdminOrDinas, requireNonDinas, requireMenuAccess } from '../middleware/requireAdmin';
 import { presenceService } from '../services/presenceService';
 
@@ -79,6 +80,22 @@ const sheetCellUpload = multer({
     }
   }),
   limits: { fileSize: 50 * 1024 * 1024 }
+});
+
+// Surat Cuti file upload (PDF/gambar up to 15MB)
+const cutiUpload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, getUploadDir());
+    },
+    filename: (req, file, cb) => {
+      const ext = path.extname(file.originalname).toLowerCase();
+      const cleanBase = path.basename(file.originalname, ext).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 50);
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e6);
+      cb(null, `SURAT_CUTI_${uniqueSuffix}_${cleanBase}${ext}`);
+    }
+  }),
+  limits: { fileSize: 15 * 1024 * 1024 }
 });
 
 // 1. Public Admin Auth Routes
@@ -244,8 +261,18 @@ router.post('/smart-sheets/:id/versions/:versionId/restore', requireMenuAccess('
 router.post('/smart-sheets/:id/toggle-status', requireMenuAccess('forms'), smartSheetController.toggleStatus);
 router.post('/smart-sheets/:id/delete', requireMenuAccess('forms'), smartSheetController.delete);
 
+// ==========================================
+// 11. REKAP CUTI PEGAWAI (ADMIN)
+// ==========================================
+router.get('/cuti', requireMenuAccess('cuti'), cutiAdminController.show);
+router.get('/cuti/export/excel', requireMenuAccess('cuti'), cutiAdminController.exportExcel);
+router.post('/cuti', requireMenuAccess('cuti'), cutiUpload.single('suratCuti'), cutiAdminController.create);
+router.post('/cuti/bulk-delete', requireMenuAccess('cuti'), cutiAdminController.bulkDelete);
+router.post('/cuti/:id/update', requireMenuAccess('cuti'), cutiUpload.single('suratCuti'), cutiAdminController.update);
+router.post('/cuti/:id/upload', requireMenuAccess('cuti'), cutiUpload.single('suratCuti'), cutiAdminController.uploadSurat);
+router.post('/cuti/:id/delete', requireMenuAccess('cuti'), cutiAdminController.delete);
 
-// 11. Real-time Online Users Stats (Admin Only)
+// 12. Real-time Online Users Stats (Admin Only)
 router.get('/api/online-users', requireAdmin, (_req, res) => {
   res.json({
     success: true,

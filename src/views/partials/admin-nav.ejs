@@ -3,11 +3,11 @@
     ? canAccessMenu 
     : ((menuId) => {
         if (typeof user === 'undefined' || user?.role === 'SUPER_ADMIN') return true;
-        if (user?.role === 'ADMIN_DINAS') return ['klarifikasi', 'upload_absensi'].includes(menuId);
-        return ['klarifikasi', 'ekinerja', 'ncr_gaji', 'forms'].includes(menuId);
+        if (user?.role === 'ADMIN_DINAS') return ['klarifikasi', 'upload_absensi', 'cuti'].includes(menuId);
+        return ['klarifikasi', 'ekinerja', 'ncr_gaji', 'forms', 'cuti'].includes(menuId);
       });
 
-  const showOperasionalGroup = checkAccess('klarifikasi') || checkAccess('ekinerja') || checkAccess('upload_absensi') || checkAccess('ncr_gaji') || checkAccess('forms');
+  const showOperasionalGroup = checkAccess('klarifikasi') || checkAccess('ekinerja') || checkAccess('upload_absensi') || checkAccess('ncr_gaji') || checkAccess('forms') || checkAccess('cuti');
   const showMasterGroup = checkAccess('pegawai') || checkAccess('unit_kerja') || checkAccess('cms') || checkAccess('users') || checkAccess('files');
 %>
 
@@ -127,6 +127,14 @@
                  class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-ncr') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
                 <i data-lucide="banknote" class="w-4 h-4 text-amber-400"></i>
                 <span>Kelola NCR Gaji</span>
+              </a>
+            <% } %>
+
+            <% if (checkAccess('cuti')) { %>
+              <a href="/admin/cuti" 
+                 class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all <%= (typeof page !== 'undefined' && page === 'admin-cuti') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-md shadow-indigo-950 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>">
+                <i data-lucide="calendar-days" class="w-4 h-4 text-amber-400"></i>
+                <span>Rekap Cuti Pegawai</span>
               </a>
             <% } %>
 
@@ -407,14 +415,14 @@
               </a>
             <% } %>
 
-            <% if (checkAccess('forms')) { %>
-              <!-- Form Builder -->
-              <a href="/admin/forms" 
-                 class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-forms') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
+            <% if (checkAccess('cuti')) { %>
+              <!-- Rekap Cuti Pegawai -->
+              <a href="/admin/cuti" 
+                 class="relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all duration-200 group <%= (typeof page !== 'undefined' && page === 'admin-cuti') ? 'bg-gradient-to-r from-indigo-600 to-indigo-500 text-white shadow-lg shadow-indigo-900/40 font-bold' : 'text-slate-300 hover:text-white hover:bg-slate-800/80' %>"
                  :class="sidebarCollapsed ? 'justify-center px-0' : ''">
                 
                 <div class="w-5 h-5 flex items-center justify-center shrink-0">
-                  <i data-lucide="form-input" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-forms') ? 'text-white' : 'text-violet-400 group-hover:text-violet-300' %>"></i>
+                  <i data-lucide="calendar-days" class="w-4 h-4 <%= (typeof page !== 'undefined' && page === 'admin-cuti') ? 'text-white' : 'text-amber-400 group-hover:text-amber-300' %>"></i>
                 </div>
                 
                 <span x-show="!sidebarCollapsed" 
@@ -425,14 +433,14 @@
                       x-transition:leave-start="opacity-100 translate-x-0"
                       x-transition:leave-end="opacity-0 -translate-x-2"
                       class="truncate whitespace-nowrap overflow-hidden">
-                  Form Builder
+                  Rekap Cuti Pegawai
                 </span>
 
                 <!-- Tooltip on Collapsed Hover -->
                 <div x-show="sidebarCollapsed" 
                      class="absolute left-full ml-3 px-3 py-1.5 bg-slate-800 text-white text-xs font-semibold rounded-xl shadow-2xl border border-slate-700/80 whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity duration-200 z-50"
                      style="display: none;">
-                  Form Builder (Dinamis)
+                  Rekap Cuti Pegawai
                 </div>
               </a>
             <% } %>
@@ -744,6 +752,8 @@
           <span class="font-bold text-slate-800">
             <% if (typeof page !== 'undefined' && page === 'admin-klarifikasi') { %>
               Klarifikasi Absensi
+            <% } else if (typeof page !== 'undefined' && page === 'admin-cuti') { %>
+              Rekap Cuti Pegawai
             <% } else if (typeof page !== 'undefined' && page === 'admin-ekinerja') { %>
               Review Laporan E-Kinerja
             <% } else if (typeof page !== 'undefined' && page === 'admin-upload-absensi') { %>

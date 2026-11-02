@@ -51,6 +51,14 @@ export const ADMIN_MENU_CONFIG: AdminMenuItem[] = [
     defaultRoles: ['SUPER_ADMIN', 'ADMIN_KORWIL'] 
   },
   { 
+    id: 'cuti', 
+    label: 'Rekap Cuti Pegawai', 
+    route: '/admin/cuti', 
+    icon: 'calendar-days', 
+    group: 'operasional', 
+    defaultRoles: ['SUPER_ADMIN', 'ADMIN_KORWIL', 'ADMIN_DINAS'] 
+  },
+  { 
     id: 'pegawai', 
     label: 'Data Pegawai', 
     route: '/admin/pegawai', 

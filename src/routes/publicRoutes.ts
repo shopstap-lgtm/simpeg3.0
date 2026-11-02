@@ -10,6 +10,7 @@ import { ncrPublicController } from '../controllers/ncrPublicController';
 import { publicFormController } from '../controllers/publicFormController';
 import { sheetPublicController } from '../controllers/sheetPublicController';
 import { smartSheetController } from '../controllers/admin/smartSheetController';
+import { cutiPublicController } from '../controllers/cutiPublicController';
 import { checkMaintenance } from '../middleware/maintenanceMiddleware';
 import { presenceService } from '../services/presenceService';
 
@@ -95,6 +96,9 @@ router.get('/ncr-gaji', checkMaintenance('ncr', 'NCR Gaji Pegawai'), ncrPublicCo
 router.get('/ncr-gaji/search-employees', ncrPublicController.searchEmployees);
 router.post('/ncr-gaji/check', checkMaintenance('ncr', 'NCR Gaji Pegawai'), ncrPublicController.checkEligibility);
 router.post('/ncr-gaji/download', checkMaintenance('ncr', 'NCR Gaji Pegawai'), ncrPublicController.downloadSlip);
+
+// Rekap Cuti Pegawai (Cek Mandiri Pengunjung)
+router.get('/cuti', cutiPublicController.show);
 
 // Dynamic Forms (Public & Pegawai)
 router.get('/form/:slug', publicFormController.renderForm);

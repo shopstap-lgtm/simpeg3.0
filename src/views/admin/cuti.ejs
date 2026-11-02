@@ -1,0 +1,1155 @@
+<%- include('../partials/head') %>
+<%- include('../partials/admin-nav') %>
+<%- include('../partials/toast') %>
+
+<script id="cuti-data-raw" type="application/json">
+  <%- JSON.stringify(cutiList || []) %>
+</script>
+<script id="cuti-employees-raw" type="application/json">
+  <%- JSON.stringify(employees || []) %>
+</script>
+
+<script>
+  window.cutiData = JSON.parse(document.getElementById('cuti-data-raw')?.textContent || '[]');
+  window.cutiEmployees = JSON.parse(document.getElementById('cuti-employees-raw')?.textContent || '[]');
+
+  function adminCutiApp() {
+    return {
+      items: window.cutiData || [],
+      employees: window.cutiEmployees || [],
+      selectedIds: [],
+      selectAll: false,
+
+      // Modals
+      addModal: false,
+      editModal: false,
+      uploadModal: false,
+      deleteModal: false,
+      pdfModal: false,
+      bulkDeleteModal: false,
+
+      // PDF Viewer
+      pdfUrl: '',
+      pdfTitle: '',
+      pdfFileName: '',
+
+      // Active selected item for Edit / Upload / Delete
+      selectedItem: null,
+
+      // Form Data Tambah
+      addData: {
+        employeeId: '',
+        nip: '',
+        nama: '',
+        unitNama: '',
+        bulan: '<%= filterBulan !== "all" ? filterBulan : (new Date().getMonth() + 1) %>',
+        tahun: '<%= filterTahun !== "all" ? filterTahun : new Date().getFullYear() %>',
+        tanggalMulai: '',
+        tanggalSelesai: '',
+        tanggalCuti: '',
+        jenisCuti: 'Cuti Tahunan',
+        alasan: '',
+        catatanAdmin: ''
+      },
+
+      // Form Data Edit
+      editData: {
+        id: '',
+        employeeId: '',
+        nip: '',
+        nama: '',
+        unitNama: '',
+        bulan: 1,
+        tahun: 2026,
+        tanggalMulai: '',
+        tanggalSelesai: '',
+        tanggalCuti: '',
+        jenisCuti: 'Cuti Tahunan',
+        alasan: '',
+        catatanAdmin: ''
+      },
+
+      init() {
+        this.$watch('selectAll', val => {
+          if (val) {
+            this.selectedIds = this.items.map(item => item.id);
+          } else {
+            this.selectedIds = [];
+          }
+        });
+
+        this.$watch('selectedIds', val => {
+          if (this.items.length > 0 && val.length === this.items.length) {
+            this.selectAll = true;
+          } else {
+            this.selectAll = false;
+          }
+        });
+      },
+
+      onEmployeeSearchAdd(e) {
+        const val = e.target.value.trim();
+        const found = this.employees.find(emp => emp.nip === val || emp.nama.toLowerCase() === val.toLowerCase());
+        if (found) {
+          this.addData.employeeId = found.id;
+          this.addData.nip = found.nip;
+          this.addData.nama = found.nama;
+          this.addData.unitNama = found.unitNama;
+        }
+      },
+
+      openAdd() {
+        this.addData = {
+          employeeId: '',
+          nip: '',
+          nama: '',
+          unitNama: '',
+          bulan: '<%= filterBulan !== "all" ? filterBulan : (new Date().getMonth() + 1) %>',
+          tahun: '<%= filterTahun !== "all" ? filterTahun : new Date().getFullYear() %>',
+          tanggalMulai: '',
+          tanggalSelesai: '',
+          tanggalCuti: '',
+          jenisCuti: 'Cuti Tahunan',
+          alasan: '',
+          catatanAdmin: ''
+        };
+        this.addModal = true;
+      },
+
+      openEdit(item) {
+        this.selectedItem = item;
+        this.editData = {
+          id: item.id,
+          employeeId: item.employeeId,
+          nip: item.employeeNip,
+          nama: item.employeeName,
+          unitNama: item.unitNama,
+          bulan: item.bulan,
+          tahun: item.tahun,
+          tanggalMulai: item.tanggalMulai || '',
+          tanggalSelesai: item.tanggalSelesai || '',
+          tanggalCuti: item.tanggalCuti || '',
+          jenisCuti: item.jenisCuti,
+          alasan: item.alasan === '-' ? '' : item.alasan,
+          catatanAdmin: item.catatanAdmin === '-' ? '' : item.catatanAdmin
+        };
+        this.editModal = true;
+      },
+
+      openUpload(item) {
+        this.selectedItem = item;
+        this.uploadModal = true;
+      },
+
+      openDelete(item) {
+        this.selectedItem = item;
+        this.deleteModal = true;
+      },
+
+      openBulkDelete() {
+        if (this.selectedIds.length === 0) return;
+        this.bulkDeleteModal = true;
+      },
+
+      openPdf(url, title, filename) {
+        this.pdfUrl = url;
+        this.pdfTitle = title || 'Dokumen Surat Cuti';
+        this.pdfFileName = filename || 'Surat_Cuti.pdf';
+        this.pdfModal = true;
+      },
+
+      closePdf() {
+        this.pdfModal = false;
+        this.pdfUrl = '';
+      }
+    };
+  }
+</script>
+
+<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-8" x-data="adminCutiApp()">
+  
+  <!-- Header Title & Action Buttons -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl shadow-xs border border-slate-200/80">
+    <div>
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
+          <i data-lucide="calendar-days" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-slate-900">Rekapitulasi Cuti Pegawai</h1>
+          <p class="text-xs sm:text-sm text-slate-500">Kelola riwayat pengajuan cuti pegawai dan penerbitan berkas Surat Cuti resmi.</p>
+        </div>
+      </div>
+    </div>
+    
+    <div class="flex items-center gap-2.5 flex-wrap">
+      <a href="/admin/cuti/export/excel?unit=<%= filterUnit %>&bulan=<%= filterBulan %>&tahun=<%= filterTahun %>&jenisCuti=<%= filterJenisCuti %>&search=<%= search %>" 
+         class="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-all">
+        <i data-lucide="file-spreadsheet" class="w-4 h-4"></i>
+        <span>Export Excel</span>
+      </a>
+
+      <button @click="openAdd()" 
+              type="button"
+              class="inline-flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white text-xs sm:text-sm font-semibold rounded-xl shadow-xs transition-all">
+        <i data-lucide="plus-circle" class="w-4 h-4"></i>
+        <span>Tambah Cuti</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI / Summary Cards -->
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+    <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
+      <div class="flex items-center justify-between text-slate-500 mb-1">
+        <span class="text-[11px] font-bold uppercase tracking-wider">Total Cuti</span>
+        <i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i>
+      </div>
+      <div class="text-xl sm:text-2xl font-extrabold text-slate-900"><%= stats.totalCount %></div>
+      <div class="text-[10px] text-slate-400 mt-0.5">Sesuai filter aktif</div>
+    </div>
+
+    <div class="bg-white p-4 rounded-xl border border-blue-200/80 shadow-xs bg-blue-50/20">
+      <div class="flex items-center justify-between text-blue-600 mb-1">
+        <span class="text-[11px] font-bold uppercase tracking-wider">Tahunan</span>
+        <i data-lucide="sun" class="w-4 h-4 text-blue-500"></i>
+      </div>
+      <div class="text-xl sm:text-2xl font-extrabold text-blue-700"><%= stats.cutiTahunanCount %></div>
+      <div class="text-[10px] text-blue-500 mt-0.5">Cuti Tahunan</div>
+    </div>
+
+    <div class="bg-white p-4 rounded-xl border border-rose-200/80 shadow-xs bg-rose-50/20">
+      <div class="flex items-center justify-between text-rose-600 mb-1">
+        <span class="text-[11px] font-bold uppercase tracking-wider">Sakit</span>
+        <i data-lucide="activity" class="w-4 h-4 text-rose-500"></i>
+      </div>
+      <div class="text-xl sm:text-2xl font-extrabold text-rose-700"><%= stats.cutiSakitCount %></div>
+      <div class="text-[10px] text-rose-500 mt-0.5">Cuti Sakit</div>
+    </div>
+
+    <div class="bg-white p-4 rounded-xl border border-pink-200/80 shadow-xs bg-pink-50/20">
+      <div class="flex items-center justify-between text-pink-600 mb-1">
+        <span class="text-[11px] font-bold uppercase tracking-wider">Melahirkan</span>
+        <i data-lucide="heart" class="w-4 h-4 text-pink-500"></i>
+      </div>
+      <div class="text-xl sm:text-2xl font-extrabold text-pink-700"><%= stats.cutiMelahirkanCount %></div>
+      <div class="text-[10px] text-pink-500 mt-0.5">Cuti Melahirkan</div>
+    </div>
+
+    <div class="bg-white p-4 rounded-xl border border-emerald-200/80 shadow-xs bg-emerald-50/20">
+      <div class="flex items-center justify-between text-emerald-600 mb-1">
+        <span class="text-[11px] font-bold uppercase tracking-wider">Surat Terbit</span>
+        <i data-lucide="file-check-2" class="w-4 h-4 text-emerald-500"></i>
+      </div>
+      <div class="text-xl sm:text-2xl font-extrabold text-emerald-700"><%= stats.suratTerbitCount %></div>
+      <div class="text-[10px] text-emerald-500 mt-0.5">Dokumen Resmi Diupload</div>
+    </div>
+
+    <div class="bg-white p-4 rounded-xl border border-amber-200/80 shadow-xs bg-amber-50/20">
+      <div class="flex items-center justify-between text-amber-600 mb-1">
+        <span class="text-[11px] font-bold uppercase tracking-wider">Menunggu Surat</span>
+        <i data-lucide="clock" class="w-4 h-4 text-amber-500"></i>
+      </div>
+      <div class="text-xl sm:text-2xl font-extrabold text-amber-700"><%= stats.suratMenungguCount %></div>
+      <div class="text-[10px] text-amber-500 mt-0.5">Belum Upload Berkas</div>
+    </div>
+  </div>
+
+  <!-- Filter Card -->
+  <div class="bg-white rounded-2xl shadow-xs border border-slate-200/80 p-5">
+    <form method="GET" action="/admin/cuti" class="space-y-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+        
+        <!-- Unit Kerja -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">Unit Kerja</label>
+          <select name="unit" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 bg-slate-50/50 py-2">
+            <% units.forEach(u => { %>
+              <option value="<%= u.id %>" <%= filterUnit === u.id ? 'selected' : '' %>><%= u.namaUnit %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <!-- Bulan -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">Bulan Cuti</label>
+          <select name="bulan" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 bg-slate-50/50 py-2">
+            <option value="all" <%= filterBulan === 'all' ? 'selected' : '' %>>Semua Bulan</option>
+            <% for (let b = 1; b <= 12; b++) { %>
+              <option value="<%= b %>" <%= String(filterBulan) === String(b) ? 'selected' : '' %>><%= BULAN_NAMES[b] %></option>
+            <% } %>
+          </select>
+        </div>
+
+        <!-- Tahun -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">Tahun</label>
+          <select name="tahun" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 bg-slate-50/50 py-2">
+            <option value="all" <%= filterTahun === 'all' ? 'selected' : '' %>>Semua Tahun</option>
+            <% const curY = new Date().getFullYear(); %>
+            <% for (let y = curY + 1; y >= curY - 3; y--) { %>
+              <option value="<%= y %>" <%= String(filterTahun) === String(y) ? 'selected' : '' %>><%= y %></option>
+            <% } %>
+          </select>
+        </div>
+
+        <!-- Jenis Cuti -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">Jenis Cuti</label>
+          <select name="jenisCuti" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 bg-slate-50/50 py-2">
+            <option value="ALL" <%= filterJenisCuti === 'ALL' ? 'selected' : '' %>>Semua Jenis Cuti</option>
+            <% JENIS_CUTI_LIST.forEach(jc => { %>
+              <option value="<%= jc %>" <%= filterJenisCuti === jc ? 'selected' : '' %>><%= jc %></option>
+            <% }) %>
+          </select>
+        </div>
+
+        <!-- Pencarian -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-700 mb-1.5">Cari NIP / Nama</label>
+          <div class="relative">
+            <input type="text" 
+                   name="search" 
+                   value="<%= search %>" 
+                   placeholder="Ketik NIP atau Nama..." 
+                   class="w-full text-xs rounded-xl border-slate-300 pl-8 pr-3 py-2 focus:border-indigo-500 focus:ring-indigo-500 bg-slate-50/50">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+        <a href="/admin/cuti" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          <span>Reset</span>
+        </a>
+        <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs transition-colors">
+          <i data-lucide="filter" class="w-3.5 h-3.5"></i>
+          <span>Terapkan Filter</span>
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Table Data Cuti (Desktop) & Cards (Mobile) -->
+  <div class="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
+    
+    <!-- Table Header Info Bar -->
+    <div class="p-4 border-b border-slate-200/80 flex items-center justify-between flex-wrap gap-2 bg-slate-50/60">
+      <div class="flex items-center gap-2">
+        <input type="checkbox" 
+               x-model="selectAll" 
+               class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+        <span class="text-xs font-semibold text-slate-700">Pilih Semua (<span x-text="items.length"></span> Data)</span>
+      </div>
+      
+      <div class="text-xs text-slate-500">
+        Menampilkan <span class="font-bold text-slate-800"><%= cutiList.length %></span> rekaman cuti
+      </div>
+    </div>
+
+    <!-- Empty State -->
+    <% if (cutiList.length === 0) { %>
+      <div class="py-16 px-4 text-center">
+        <div class="w-16 h-16 mx-auto mb-3 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-500 shadow-xs">
+          <i data-lucide="calendar-x" class="w-8 h-8"></i>
+        </div>
+        <h3 class="text-base font-bold text-slate-800 mb-1">Belum Ada Data Cuti</h3>
+        <p class="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mb-4">
+          Tidak ditemukan data cuti pegawai berdasarkan filter yang Anda pilih. Silakan sesuaikan filter atau tambahkan data cuti baru.
+        </p>
+        <button @click="openAdd()" type="button" class="btn-primary text-xs inline-flex items-center gap-2">
+          <i data-lucide="plus-circle" class="w-4 h-4"></i>
+          <span>Tambah Data Cuti Pertama</span>
+        </button>
+      </div>
+    <% } else { %>
+
+      <!-- Desktop View Table -->
+      <div class="hidden lg:block overflow-x-auto">
+        <table class="w-full text-left text-xs border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 bg-slate-50/80 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+              <th class="py-3.5 px-4 w-10 text-center">
+                <span class="sr-only">Pilih</span>
+              </th>
+              <th class="py-3.5 px-4">Pegawai</th>
+              <th class="py-3.5 px-4">Periode</th>
+              <th class="py-3.5 px-4">Tanggal Cuti</th>
+              <th class="py-3.5 px-4">Jenis Cuti</th>
+              <th class="py-3.5 px-4">Alasan / Catatan</th>
+              <th class="py-3.5 px-4 text-center">Surat Cuti</th>
+              <th class="py-3.5 px-4 text-right">Aksi</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100">
+            <% cutiList.forEach((item, index) => { %>
+              <tr class="hover:bg-slate-50/70 transition-colors group">
+                
+                <!-- Checkbox -->
+                <td class="py-3 px-4 text-center">
+                  <input type="checkbox" 
+                         value="<%= item.id %>" 
+                         x-model="selectedIds"
+                         class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                </td>
+
+                <!-- Pegawai -->
+                <td class="py-3 px-4">
+                  <div class="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors"><%= item.employeeName %></div>
+                  <div class="flex items-center gap-1.5 text-[11px] text-slate-500 mt-0.5">
+                    <span class="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 font-medium"><%= item.employeeNip %></span>
+                    <span>•</span>
+                    <span class="truncate max-w-[180px]"><%= item.unitNama %></span>
+                  </div>
+                </td>
+
+                <!-- Periode -->
+                <td class="py-3 px-4">
+                  <div class="font-semibold text-slate-800"><%= item.namaBulan %> <%= item.tahun %></div>
+                  <div class="text-[10px] text-slate-400">Bulan <%= item.bulan %></div>
+                </td>
+
+                <!-- Tanggal Cuti -->
+                <td class="py-3 px-4">
+                  <div class="font-medium text-slate-800"><%= item.tanggalCuti %></div>
+                  <% if (item.tanggalMulai && item.tanggalSelesai) { %>
+                    <div class="text-[10px] text-slate-500"><%= item.tanggalMulai %> s/d <%= item.tanggalSelesai %></div>
+                  <% } %>
+                </td>
+
+                <!-- Jenis Cuti -->
+                <td class="py-3 px-4">
+                  <% 
+                    let badgeClass = 'bg-slate-100 text-slate-700 border-slate-200';
+                    const jcLower = (item.jenisCuti || '').toLowerCase();
+                    if (jcLower.includes('tahunan')) badgeClass = 'bg-blue-50 text-blue-700 border-blue-200';
+                    else if (jcLower.includes('sakit')) badgeClass = 'bg-rose-50 text-rose-700 border-rose-200';
+                    else if (jcLower.includes('melahirkan')) badgeClass = 'bg-pink-50 text-pink-700 border-pink-200';
+                    else if (jcLower.includes('haji')) badgeClass = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                    else if (jcLower.includes('penting')) badgeClass = 'bg-amber-50 text-amber-700 border-amber-200';
+                    else if (jcLower.includes('besar')) badgeClass = 'bg-purple-50 text-purple-700 border-purple-200';
+                  %>
+                  <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border <%= badgeClass %>">
+                    <%= item.jenisCuti %>
+                  </span>
+                </td>
+
+                <!-- Alasan / Catatan -->
+                <td class="py-3 px-4 max-w-xs">
+                  <div class="text-slate-700 line-clamp-2"><%= item.alasan %></div>
+                  <% if (item.catatanAdmin && item.catatanAdmin !== '-') { %>
+                    <div class="text-[10px] text-indigo-600 mt-0.5 line-clamp-1 italic">Ket: <%= item.catatanAdmin %></div>
+                  <% } %>
+                </td>
+
+                <!-- Surat Cuti -->
+                <td class="py-3 px-4 text-center">
+                  <% if (item.fileSuratUrl) { %>
+                    <div class="inline-flex flex-col items-center gap-1">
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        <i data-lucide="check-circle" class="w-3 h-3 text-emerald-600"></i>
+                        <span>Terbit</span>
+                      </span>
+                      <div class="flex items-center gap-1.5 mt-0.5">
+                        <button type="button" 
+                                @click="openPdf('<%= item.fileSuratUrl %>', 'Surat Cuti - <%= item.employeeName.replace(/'/g, "\\'") %>', '<%= item.fileSuratName.replace(/'/g, "\\'") %>')" 
+                                title="Lihat Berkas" 
+                                class="p-1 rounded-lg text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
+                          <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <a href="<%= item.fileSuratUrl %>" 
+                           download="<%= item.fileSuratName %>" 
+                           title="Download File" 
+                           class="p-1 rounded-lg text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 transition-colors">
+                          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                        </a>
+                        <button type="button" 
+                                @click="openUpload(items[<%= index %>])" 
+                                title="Ganti Berkas Surat" 
+                                class="p-1 rounded-lg text-slate-600 hover:text-amber-600 hover:bg-amber-50 transition-colors">
+                          <i data-lucide="file-up" class="w-3.5 h-3.5"></i>
+                        </button>
+                      </div>
+                    </div>
+                  <% } else { %>
+                    <div class="inline-flex flex-col items-center gap-1">
+                      <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                        <i data-lucide="clock" class="w-3 h-3 text-amber-500"></i>
+                        <span>Menunggu</span>
+                      </span>
+                      <button type="button" 
+                              @click="openUpload(items[<%= index %>])" 
+                              class="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1">
+                        <i data-lucide="upload" class="w-2.5 h-2.5"></i>
+                        <span>Upload</span>
+                      </button>
+                    </div>
+                  <% } %>
+                </td>
+
+                <!-- Aksi -->
+                <td class="py-3 px-4 text-right">
+                  <div class="inline-flex items-center gap-1">
+                    <button type="button" 
+                            @click="openEdit(items[<%= index %>])" 
+                            title="Edit Data Cuti" 
+                            class="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors">
+                      <i data-lucide="edit-3" class="w-4 h-4"></i>
+                    </button>
+                    <button type="button" 
+                            @click="openDelete(items[<%= index %>])" 
+                            title="Hapus Data Cuti" 
+                            class="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors">
+                      <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                  </div>
+                </td>
+
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile View Cards -->
+      <div class="block lg:hidden divide-y divide-slate-100">
+        <% cutiList.forEach((item, index) => { %>
+          <div class="p-4 space-y-3">
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex items-center gap-2.5">
+                <input type="checkbox" 
+                       value="<%= item.id %>" 
+                       x-model="selectedIds"
+                       class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 h-4 w-4">
+                <div>
+                  <h4 class="font-bold text-slate-900 text-sm leading-snug"><%= item.employeeName %></h4>
+                  <div class="text-[11px] text-slate-500 font-mono"><%= item.employeeNip %></div>
+                </div>
+              </div>
+
+              <% 
+                let mBadge = 'bg-slate-100 text-slate-700 border-slate-200';
+                const jcM = (item.jenisCuti || '').toLowerCase();
+                if (jcM.includes('tahunan')) mBadge = 'bg-blue-50 text-blue-700 border-blue-200';
+                else if (jcM.includes('sakit')) mBadge = 'bg-rose-50 text-rose-700 border-rose-200';
+                else if (jcM.includes('melahirkan')) mBadge = 'bg-pink-50 text-pink-700 border-pink-200';
+                else if (jcM.includes('haji')) mBadge = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                else if (jcM.includes('penting')) mBadge = 'bg-amber-50 text-amber-700 border-amber-200';
+                else if (jcM.includes('besar')) mBadge = 'bg-purple-50 text-purple-700 border-purple-200';
+              %>
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border <%= mBadge %>">
+                <%= item.jenisCuti %>
+              </span>
+            </div>
+
+            <div class="bg-slate-50/80 p-2.5 rounded-xl text-xs space-y-1">
+              <div class="flex items-center justify-between text-slate-600">
+                <span>Unit:</span>
+                <span class="font-medium text-slate-800"><%= item.unitNama %></span>
+              </div>
+              <div class="flex items-center justify-between text-slate-600">
+                <span>Periode:</span>
+                <span class="font-medium text-slate-800"><%= item.namaBulan %> <%= item.tahun %></span>
+              </div>
+              <div class="flex items-center justify-between text-slate-600">
+                <span>Tanggal Cuti:</span>
+                <span class="font-semibold text-slate-900"><%= item.tanggalCuti %></span>
+              </div>
+              <% if (item.alasan && item.alasan !== '-') { %>
+                <div class="pt-1 border-t border-slate-200 text-slate-600 text-[11px]">
+                  <span class="font-medium">Alasan:</span> <%= item.alasan %>
+                </div>
+              <% } %>
+            </div>
+
+            <!-- Mobile Footer Action -->
+            <div class="flex items-center justify-between pt-1">
+              <div>
+                <% if (item.fileSuratUrl) { %>
+                  <button type="button" 
+                          @click="openPdf('<%= item.fileSuratUrl %>', 'Surat Cuti - <%= item.employeeName.replace(/'/g, "\\'") %>', '<%= item.fileSuratName.replace(/'/g, "\\'") %>')" 
+                          class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                    <span>Lihat Surat Cuti</span>
+                  </button>
+                <% } else { %>
+                  <button type="button" 
+                          @click="openUpload(items[<%= index %>])" 
+                          class="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-lg bg-amber-50 text-amber-700 border border-amber-200">
+                    <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                    <span>Upload Surat</span>
+                  </button>
+                <% } %>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <button type="button" 
+                        @click="openEdit(items[<%= index %>])" 
+                        class="p-2 text-slate-600 hover:text-indigo-600 bg-slate-100 rounded-lg">
+                  <i data-lucide="edit-3" class="w-3.5 h-3.5"></i>
+                </button>
+                <button type="button" 
+                        @click="openDelete(items[<%= index %>])" 
+                        class="p-2 text-slate-600 hover:text-rose-600 bg-slate-100 rounded-lg">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        <% }) %>
+      </div>
+
+    <% } %>
+
+  </div>
+
+  <!-- Floating Bulk Action Bar -->
+  <div x-cloak 
+       x-show="selectedIds.length > 0"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0 translate-y-8"
+       x-transition:enter-end="opacity-100 translate-y-0"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100 translate-y-0"
+       x-transition:leave-end="opacity-0 translate-y-8"
+       class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 text-white px-5 py-3 rounded-2xl shadow-2xl backdrop-blur-md border border-slate-700 flex items-center gap-4">
+    <div class="text-xs sm:text-sm font-semibold">
+      <span class="bg-indigo-500 text-white px-2 py-0.5 rounded-full text-xs font-bold" x-text="selectedIds.length"></span>
+      <span class="ml-1.5 text-slate-200">Data Cuti Terpilih</span>
+    </div>
+
+    <div class="h-4 w-px bg-slate-700"></div>
+
+    <button @click="openBulkDelete()" 
+            type="button" 
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-colors">
+      <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+      <span>Hapus Terpilih</span>
+    </button>
+
+    <button @click="selectedIds = []; selectAll = false;" 
+            type="button" 
+            class="text-xs text-slate-400 hover:text-white transition-colors">
+      Batal
+    </button>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL 1: TAMBAH DATA CUTI -->
+  <!-- ======================================================== -->
+  <div x-cloak 
+       x-show="addModal" 
+       class="fixed inset-0 z-50 overflow-y-auto"
+       aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+      <div x-show="addModal" 
+           x-transition:enter="ease-out duration-200"
+           x-transition:enter-start="opacity-0"
+           x-transition:enter-end="opacity-100"
+           x-transition:leave="ease-in duration-150"
+           x-transition:leave-start="opacity-100"
+           x-transition:leave-end="opacity-0"
+           class="fixed inset-0 transition-opacity bg-slate-900/50 backdrop-blur-xs" 
+           @click="addModal = false"></div>
+
+      <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+      <div x-show="addModal"
+           x-transition:enter="ease-out duration-200"
+           x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+           x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+           x-transition:leave="ease-in duration-150"
+           x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+           x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+           class="inline-block w-full max-w-2xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-2xl rounded-2xl border border-slate-200/80">
+        
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+              <i data-lucide="calendar-plus" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-slate-900">Tambah Data Cuti Pegawai</h3>
+              <p class="text-xs text-slate-500">Isi formulir pengajuan cuti dan upload berkas surat cuti resmi jika tersedia.</p>
+            </div>
+          </div>
+          <button @click="addModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <form action="/admin/cuti" method="POST" enctype="multipart/form-data" class="mt-5 space-y-4">
+          <input type="hidden" name="filterUnit" value="<%= filterUnit %>">
+          <input type="hidden" name="filterBulan" value="<%= filterBulan %>">
+          <input type="hidden" name="filterTahun" value="<%= filterTahun %>">
+          <input type="hidden" name="filterJenisCuti" value="<%= filterJenisCuti %>">
+          <input type="hidden" name="filterSearch" value="<%= search %>">
+          <input type="hidden" name="employeeId" :value="addData.employeeId">
+
+          <!-- Auto-fill NIP & Nama Pegawai -->
+          <div class="space-y-3 p-4 bg-slate-50 rounded-xl border border-slate-200/70">
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Pilih Pegawai (Cari Nama / NIP)</label>
+            <div>
+              <input type="text" 
+                     list="employee-add-list" 
+                     @input="onEmployeeSearchAdd($event)"
+                     placeholder="Ketik NIP atau Nama Pegawai..."
+                     class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2 bg-white"
+                     required>
+              <datalist id="employee-add-list">
+                <% employees.forEach(e => { %>
+                  <option value="<%= e.nip %>"><%= e.nama %> - <%= e.unitNama %></option>
+                <% }) %>
+              </datalist>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-slate-200/60" x-show="addData.employeeId">
+              <div>
+                <span class="text-[10px] text-slate-400 font-semibold block">NAMA PEGAWAI</span>
+                <span class="text-xs font-bold text-slate-800" x-text="addData.nama"></span>
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-400 font-semibold block">UNIT KERJA</span>
+                <span class="text-xs font-medium text-slate-700" x-text="addData.unitNama"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Periode Bulan & Tahun -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Bulan Cuti</label>
+              <select name="bulan" x-model="addData.bulan" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
+                <% for (let b = 1; b <= 12; b++) { %>
+                  <option value="<%= b %>"><%= BULAN_NAMES[b] %></option>
+                <% } %>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Tahun Cuti</label>
+              <input type="number" name="tahun" x-model="addData.tahun" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
+            </div>
+          </div>
+
+          <!-- Rentang Tanggal Cuti -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Mulai Cuti</label>
+              <input type="date" name="tanggalMulai" x-model="addData.tanggalMulai" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Selesai Cuti</label>
+              <input type="date" name="tanggalSelesai" x-model="addData.tanggalSelesai" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
+            </div>
+          </div>
+
+          <!-- Jenis Cuti -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Jenis Cuti</label>
+            <select name="jenisCuti" x-model="addData.jenisCuti" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
+              <% JENIS_CUTI_LIST.forEach(jc => { %>
+                <option value="<%= jc %>"><%= jc %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <!-- Alasan / Keperluan -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Alasan / Keperluan Cuti</label>
+            <textarea name="alasan" x-model="addData.alasan" rows="2" placeholder="Contoh: Menunaikan ibadah umroh/haji, pemulihan pasca operasi, dll." class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2"></textarea>
+          </div>
+
+          <!-- Upload Berkas Surat Cuti -->
+          <div class="p-3.5 bg-indigo-50/40 rounded-xl border border-indigo-100 space-y-1.5">
+            <label class="block text-xs font-bold text-indigo-900">Upload Berkas Surat Cuti (PDF / Gambar)</label>
+            <input type="file" 
+                   name="suratCuti" 
+                   accept=".pdf,image/png,image/jpeg,image/webp" 
+                   class="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700 cursor-pointer">
+            <p class="text-[10px] text-slate-500">Format: PDF, PNG, JPG (Maks. 15MB). Boleh dikosongkan jika surat resmi belum terbit.</p>
+          </div>
+
+          <!-- Submit Buttons -->
+          <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+            <button @click="addModal = false" type="button" class="btn-secondary text-xs">
+              Batal
+            </button>
+            <button type="submit" class="btn-primary text-xs inline-flex items-center gap-1.5">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>Simpan Data Cuti</span>
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL 2: EDIT DATA CUTI -->
+  <!-- ======================================================== -->
+  <div x-cloak 
+       x-show="editModal" 
+       class="fixed inset-0 z-50 overflow-y-auto"
+       aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+      <div x-show="editModal" 
+           class="fixed inset-0 transition-opacity bg-slate-900/50 backdrop-blur-xs" 
+           @click="editModal = false"></div>
+
+      <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+      <div x-show="editModal"
+           class="inline-block w-full max-w-2xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-2xl rounded-2xl border border-slate-200/80">
+        
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-600">
+              <i data-lucide="edit" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="text-lg font-bold text-slate-900">Edit Data Cuti Pegawai</h3>
+              <p class="text-xs text-slate-500">Perbarui rincian periode atau ganti berkas surat cuti.</p>
+            </div>
+          </div>
+          <button @click="editModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <form :action="'/admin/cuti/' + editData.id + '/update'" method="POST" enctype="multipart/form-data" class="mt-5 space-y-4">
+          <input type="hidden" name="filterUnit" value="<%= filterUnit %>">
+          <input type="hidden" name="filterBulan" value="<%= filterBulan %>">
+          <input type="hidden" name="filterTahun" value="<%= filterTahun %>">
+          <input type="hidden" name="filterJenisCuti" value="<%= filterJenisCuti %>">
+          <input type="hidden" name="filterSearch" value="<%= search %>">
+
+          <!-- Pegawai Info Card (Read-only on edit) -->
+          <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-between">
+            <div>
+              <div class="text-xs font-bold text-slate-900" x-text="editData.nama"></div>
+              <div class="text-[11px] text-slate-500 font-mono" x-text="editData.nip"></div>
+            </div>
+            <div class="text-right">
+              <span class="text-[11px] font-medium text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200" x-text="editData.unitNama"></span>
+            </div>
+          </div>
+
+          <!-- Periode Bulan & Tahun -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Bulan Cuti</label>
+              <select name="bulan" x-model="editData.bulan" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
+                <% for (let b = 1; b <= 12; b++) { %>
+                  <option value="<%= b %>"><%= BULAN_NAMES[b] %></option>
+                <% } %>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Tahun Cuti</label>
+              <input type="number" name="tahun" x-model="editData.tahun" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
+            </div>
+          </div>
+
+          <!-- Rentang Tanggal Cuti -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Mulai Cuti</label>
+              <input type="date" name="tanggalMulai" x-model="editData.tanggalMulai" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Selesai Cuti</label>
+              <input type="date" name="tanggalSelesai" x-model="editData.tanggalSelesai" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
+            </div>
+          </div>
+
+          <!-- Jenis Cuti -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Jenis Cuti</label>
+            <select name="jenisCuti" x-model="editData.jenisCuti" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2" required>
+              <% JENIS_CUTI_LIST.forEach(jc => { %>
+                <option value="<%= jc %>"><%= jc %></option>
+              <% }) %>
+            </select>
+          </div>
+
+          <!-- Alasan / Keperluan -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Alasan / Keperluan Cuti</label>
+            <textarea name="alasan" x-model="editData.alasan" rows="2" class="w-full text-xs rounded-xl border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 py-2"></textarea>
+          </div>
+
+          <!-- Ganti Berkas Surat Cuti -->
+          <div class="p-3.5 bg-amber-50/40 rounded-xl border border-amber-100 space-y-1.5">
+            <label class="block text-xs font-bold text-amber-900">Ganti Berkas Surat Cuti (Opsional)</label>
+            <input type="file" 
+                   name="suratCuti" 
+                   accept=".pdf,image/png,image/jpeg,image/webp" 
+                   class="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-600 file:text-white hover:file:bg-amber-700 cursor-pointer">
+            <p class="text-[10px] text-slate-500">Biarkan kosong jika tidak ingin mengubah berkas yang sudah ada.</p>
+          </div>
+
+          <!-- Submit Buttons -->
+          <div class="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+            <button @click="editModal = false" type="button" class="btn-secondary text-xs">
+              Batal
+            </button>
+            <button type="submit" class="btn-primary text-xs inline-flex items-center gap-1.5">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>Simpan Perubahan</span>
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL 3: UPLOAD / GANTI SURAT CUTI -->
+  <!-- ======================================================== -->
+  <div x-cloak 
+       x-show="uploadModal" 
+       class="fixed inset-0 z-50 overflow-y-auto"
+       aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+      <div x-show="uploadModal" 
+           class="fixed inset-0 transition-opacity bg-slate-900/50 backdrop-blur-xs" 
+           @click="uploadModal = false"></div>
+
+      <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+      <div x-show="uploadModal"
+           class="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-2xl rounded-2xl border border-slate-200/80">
+        
+        <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600">
+              <i data-lucide="file-up" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h3 class="text-base font-bold text-slate-900">Upload Surat Cuti Resmi</h3>
+              <p class="text-xs text-slate-500">Unggah berkas PDF/gambar surat cuti.</p>
+            </div>
+          </div>
+          <button @click="uploadModal = false" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <form :action="'/admin/cuti/' + (selectedItem ? selectedItem.id : '') + '/upload'" method="POST" enctype="multipart/form-data" class="mt-4 space-y-4">
+          <input type="hidden" name="filterUnit" value="<%= filterUnit %>">
+          <input type="hidden" name="filterBulan" value="<%= filterBulan %>">
+          <input type="hidden" name="filterTahun" value="<%= filterTahun %>">
+          <input type="hidden" name="filterJenisCuti" value="<%= filterJenisCuti %>">
+          <input type="hidden" name="filterSearch" value="<%= search %>">
+
+          <div class="p-3 bg-slate-50 rounded-xl text-xs space-y-1">
+            <div class="font-bold text-slate-900" x-text="selectedItem ? selectedItem.employeeName : ''"></div>
+            <div class="text-slate-500 font-mono" x-text="selectedItem ? selectedItem.employeeNip : ''"></div>
+            <div class="text-indigo-600 font-semibold" x-text="selectedItem ? (selectedItem.jenisCuti + ' (' + selectedItem.tanggalCuti + ')') : ''"></div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Pilih Berkas Surat Cuti</label>
+            <input type="file" 
+                   name="suratCuti" 
+                   accept=".pdf,image/png,image/jpeg,image/webp" 
+                   class="block w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-600 file:text-white hover:file:bg-emerald-700 cursor-pointer"
+                   required>
+            <p class="text-[10px] text-slate-400 mt-1">Format: PDF, PNG, JPG (Maks. 15MB).</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1">Catatan Tambahan (Opsional)</label>
+            <input type="text" 
+                   name="catatanAdmin" 
+                   placeholder="Contoh: No. Surat 800/123/Disdik/2026"
+                   class="w-full text-xs rounded-xl border-slate-300 focus:border-emerald-500 focus:ring-emerald-500 py-2">
+          </div>
+
+          <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+            <button @click="uploadModal = false" type="button" class="btn-secondary text-xs">
+              Batal
+            </button>
+            <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors">
+              <i data-lucide="upload" class="w-4 h-4"></i>
+              <span>Upload Sekarang</span>
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL 4: HAPUS DATA CUTI SATUAN -->
+  <!-- ======================================================== -->
+  <div x-cloak 
+       x-show="deleteModal" 
+       class="fixed inset-0 z-50 overflow-y-auto"
+       aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+      <div x-show="deleteModal" 
+           class="fixed inset-0 transition-opacity bg-slate-900/50 backdrop-blur-xs" 
+           @click="deleteModal = false"></div>
+
+      <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+      <div x-show="deleteModal"
+           class="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-2xl rounded-2xl border border-slate-200/80">
+        
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600">
+            <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Konfirmasi Hapus Cuti</h3>
+            <p class="text-xs text-slate-500">Tindakan ini tidak dapat dibatalkan.</p>
+          </div>
+        </div>
+
+        <p class="text-xs text-slate-600 mb-4">
+          Apakah Anda yakin ingin menghapus data cuti untuk <strong class="text-slate-900" x-text="selectedItem ? selectedItem.employeeName : ''"></strong>? File berkas surat cuti fisik yang terhubung juga akan dihapus.
+        </p>
+
+        <form :action="'/admin/cuti/' + (selectedItem ? selectedItem.id : '') + '/delete'" method="POST" class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <input type="hidden" name="filterUnit" value="<%= filterUnit %>">
+          <input type="hidden" name="filterBulan" value="<%= filterBulan %>">
+          <input type="hidden" name="filterTahun" value="<%= filterTahun %>">
+          <input type="hidden" name="filterJenisCuti" value="<%= filterJenisCuti %>">
+          <input type="hidden" name="filterSearch" value="<%= search %>">
+
+          <button @click="deleteModal = false" type="button" class="btn-secondary text-xs">
+            Batal
+          </button>
+          <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            <span>Ya, Hapus Cuti</span>
+          </button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL 5: BULK DELETE DATA CUTI TERPILIH -->
+  <!-- ======================================================== -->
+  <div x-cloak 
+       x-show="bulkDeleteModal" 
+       class="fixed inset-0 z-50 overflow-y-auto"
+       aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+      <div x-show="bulkDeleteModal" 
+           class="fixed inset-0 transition-opacity bg-slate-900/50 backdrop-blur-xs" 
+           @click="bulkDeleteModal = false"></div>
+
+      <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+      <div x-show="bulkDeleteModal"
+           class="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-2xl rounded-2xl border border-slate-200/80">
+        
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 rounded-xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600">
+            <i data-lucide="trash-2" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-slate-900">Hapus Massal Cuti</h3>
+            <p class="text-xs text-slate-500">Hapus sekaligus semua data cuti terpilih.</p>
+          </div>
+        </div>
+
+        <p class="text-xs text-slate-600 mb-4">
+          Anda akan menghapus sebanyak <strong class="text-rose-600 font-bold" x-text="selectedIds.length"></strong> data cuti beserta seluruh berkas surat cuti yang terlampir. Tindakan ini permanen.
+        </p>
+
+        <form action="/admin/cuti/bulk-delete" method="POST" class="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+          <input type="hidden" name="filterUnit" value="<%= filterUnit %>">
+          <input type="hidden" name="filterBulan" value="<%= filterBulan %>">
+          <input type="hidden" name="filterTahun" value="<%= filterTahun %>">
+          <input type="hidden" name="filterJenisCuti" value="<%= filterJenisCuti %>">
+          <input type="hidden" name="filterSearch" value="<%= search %>">
+          <input type="hidden" name="ids" :value="JSON.stringify(selectedIds)">
+
+          <button @click="bulkDeleteModal = false" type="button" class="btn-secondary text-xs">
+            Batal
+          </button>
+          <button type="submit" class="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold rounded-xl shadow-xs transition-colors">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+            <span>Ya, Hapus Semua</span>
+          </button>
+        </form>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL 6: PREVIEW SURAT CUTI (PDF / IMAGE) -->
+  <!-- ======================================================== -->
+  <div x-cloak 
+       x-show="pdfModal" 
+       class="fixed inset-0 z-50 overflow-y-auto"
+       aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+      <div x-show="pdfModal" 
+           class="fixed inset-0 transition-opacity bg-slate-900/60 backdrop-blur-xs" 
+           @click="closePdf()"></div>
+
+      <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+      <div x-show="pdfModal"
+           class="inline-block w-full max-w-4xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-2xl rounded-2xl border border-slate-200/80">
+        
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+              <i data-lucide="file-text" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <h3 class="text-sm sm:text-base font-bold text-slate-900" x-text="pdfTitle"></h3>
+              <p class="text-[11px] text-slate-500" x-text="pdfFileName"></p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <a :href="pdfUrl" 
+               target="_blank" 
+               class="p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+               title="Buka di Tab Baru">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
+            </a>
+            <a :href="pdfUrl" 
+               :download="pdfFileName" 
+               class="p-2 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+               title="Unduh Berkas">
+              <i data-lucide="download" class="w-4 h-4"></i>
+            </a>
+            <button @click="closePdf()" class="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100">
+              <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-4 bg-slate-100 rounded-xl overflow-hidden h-[65vh] flex items-center justify-center border border-slate-200">
+          <template x-if="pdfUrl.toLowerCase().endsWith('.pdf')">
+            <iframe :src="pdfUrl" class="w-full h-full border-0" frameborder="0"></iframe>
+          </template>
+          <template x-if="!pdfUrl.toLowerCase().endsWith('.pdf')">
+            <img :src="pdfUrl" alt="Surat Cuti" class="max-w-full max-h-full object-contain p-2">
+          </template>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<%- include('../partials/footer') %>
+

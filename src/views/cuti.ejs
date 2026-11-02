@@ -1,0 +1,531 @@
+<%- include('partials/head') %>
+<%- include('partials/public-nav') %>
+<%- include('partials/toast') %>
+
+<script>
+  function publicCutiApp() {
+    return {
+      nip: '<%= nipQuery || "" %>',
+      pdfModal: false,
+      pdfUrl: '',
+      pdfTitle: '',
+      pdfFileName: '',
+
+      openPdf(url, title, filename) {
+        this.pdfUrl = url;
+        this.pdfTitle = title || 'Dokumen Surat Cuti Resmi';
+        this.pdfFileName = filename || 'Surat_Cuti.pdf';
+        this.pdfModal = true;
+      },
+
+      closePdf() {
+        this.pdfModal = false;
+        this.pdfUrl = '';
+      }
+    };
+  }
+</script>
+
+<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full space-y-8" x-data="publicCutiApp()">
+  
+  <!-- Hero Section -->
+  <div class="relative overflow-hidden bg-gradient-to-br from-indigo-900 via-indigo-800 to-slate-900 rounded-3xl p-6 sm:p-10 text-white shadow-xl">
+    <div class="absolute -right-10 -bottom-10 w-72 h-72 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute right-1/4 -top-10 w-60 h-60 bg-sky-500/10 rounded-full blur-2xl pointer-events-none"></div>
+    
+    <div class="relative z-10 max-w-3xl space-y-4">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/15 text-indigo-200 text-xs font-semibold">
+        <i data-lucide="shield-check" class="w-3.5 h-3.5 text-indigo-300"></i>
+        <span>Layanan Cuti Mandiri Pegawai</span>
+      </div>
+      
+      <h1 class="text-2xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
+        Rekapitulasi Cuti & Penerbitan Surat Cuti
+      </h1>
+      
+      <p class="text-slate-300 text-xs sm:text-base leading-relaxed">
+        Periksa riwayat cuti tahunan, cuti sakit, melahirkan, atau cuti haji Anda secara transparan. Anda juga dapat langsung mengunduh berkas Surat Cuti resmi yang telah diterbitkan oleh pengelola kepegawaian.
+      </p>
+    </div>
+
+    <!-- Search Form Input NIP -->
+    <div class="relative z-10 mt-6 pt-6 border-t border-white/10">
+      <form method="GET" action="/cuti" class="flex flex-col sm:flex-row items-center gap-3 max-w-2xl">
+        <div class="relative w-full">
+          <input type="text" 
+                 name="nip" 
+                 x-model="nip"
+                 value="<%= nipQuery %>" 
+                 placeholder="Masukkan 18 Digit NIP Anda..." 
+                 class="w-full bg-white text-slate-900 pl-11 pr-4 py-3 rounded-2xl text-sm font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 shadow-md border-0"
+                 required>
+          <i data-lucide="search" class="w-5 h-5 text-indigo-600 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
+        </div>
+
+        <button type="submit" 
+                class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-500 hover:bg-indigo-400 active:bg-indigo-600 text-white text-sm font-bold rounded-2xl shadow-lg transition-all shrink-0">
+          <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+          <span>Cek Riwayat Cuti</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- KONDISI 1: NIP TIDAK DITEMUKAN -->
+  <!-- ======================================================== -->
+  <% if (employeeNotFound) { %>
+    <div class="bg-rose-50 border border-rose-200 rounded-2xl p-6 text-center space-y-3">
+      <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+        <i data-lucide="user-x" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h3 class="text-base font-bold text-rose-900">Data Pegawai Tidak Ditemukan</h3>
+        <p class="text-xs sm:text-sm text-rose-700 max-w-md mx-auto mt-1">
+          NIP <strong class="font-mono text-rose-900"><%= nipQuery %></strong> tidak terdaftar sebagai pegawai aktif di lingkungan Korwil Cibitung. Silakan pastikan digit NIP sudah benar atau hubungi admin sekolah/unit kerja Anda.
+        </p>
+      </div>
+      <div class="pt-2">
+        <a href="/cuti" class="inline-flex items-center gap-1.5 px-4 py-2 bg-rose-600 text-white text-xs font-semibold rounded-xl hover:bg-rose-700 transition-colors">
+          <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+          <span>Reset Pencarian</span>
+        </a>
+      </div>
+    </div>
+  <% } %>
+
+  <!-- ======================================================== -->
+  <!-- KONDISI 2: DATA PEGAWAI DITEMUKAN -->
+  <!-- ======================================================== -->
+  <% if (employee) { %>
+    
+    <!-- Profil Identitas Pegawai -->
+    <div class="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center text-xl font-extrabold shadow-md shrink-0">
+          <%= employee.nama ? employee.nama.charAt(0).toUpperCase() : 'P' %>
+        </div>
+        <div class="space-y-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h2 class="text-lg sm:text-xl font-bold text-slate-900"><%= employee.nama %></h2>
+            <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+              <i data-lucide="check-circle" class="w-3 h-3 text-emerald-600"></i>
+              <span>Pegawai Aktif</span>
+            </span>
+          </div>
+          <div class="flex items-center gap-2 text-xs text-slate-500 flex-wrap">
+            <span class="font-mono font-medium text-slate-700 bg-slate-100 px-2 py-0.5 rounded">NIP: <%= employee.nip %></span>
+            <span>•</span>
+            <span class="font-medium text-slate-700"><%= employee.unit ? employee.unit.namaUnit : '-' %></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Action / Reset -->
+      <div class="flex items-center gap-2 self-start md:self-auto">
+        <a href="/cuti" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
+          <i data-lucide="x-circle" class="w-3.5 h-3.5"></i>
+          <span>Ganti Pegawai</span>
+        </a>
+      </div>
+    </div>
+
+    <!-- Mini Ringkasan Cuti Pegawai -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+      <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
+        <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Total Cuti</div>
+        <div class="text-2xl font-extrabold text-slate-900"><%= stats.total %></div>
+        <div class="text-[10px] text-slate-400 mt-0.5">Tahun <%= filterTahun === 'all' ? 'Semua' : filterTahun %></div>
+      </div>
+
+      <div class="bg-blue-50/50 p-4 rounded-2xl border border-blue-200/70 shadow-xs">
+        <div class="text-[11px] font-bold text-blue-600 uppercase tracking-wider mb-1">Tahunan</div>
+        <div class="text-2xl font-extrabold text-blue-700"><%= stats.tahunan %></div>
+        <div class="text-[10px] text-blue-500 mt-0.5">Cuti Tahunan</div>
+      </div>
+
+      <div class="bg-rose-50/50 p-4 rounded-2xl border border-rose-200/70 shadow-xs">
+        <div class="text-[11px] font-bold text-rose-600 uppercase tracking-wider mb-1">Sakit</div>
+        <div class="text-2xl font-extrabold text-rose-700"><%= stats.sakit %></div>
+        <div class="text-[10px] text-rose-500 mt-0.5">Cuti Sakit</div>
+      </div>
+
+      <div class="bg-pink-50/50 p-4 rounded-2xl border border-pink-200/70 shadow-xs">
+        <div class="text-[11px] font-bold text-pink-600 uppercase tracking-wider mb-1">Melahirkan</div>
+        <div class="text-2xl font-extrabold text-pink-700"><%= stats.melahirkan %></div>
+        <div class="text-[10px] text-pink-500 mt-0.5">Cuti Melahirkan</div>
+      </div>
+
+      <div class="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-200/70 shadow-xs">
+        <div class="text-[11px] font-bold text-emerald-600 uppercase tracking-wider mb-1">Surat Siap Unduh</div>
+        <div class="text-2xl font-extrabold text-emerald-700"><%= stats.suratTerbit %></div>
+        <div class="text-[10px] text-emerald-600 mt-0.5">Dokumen Resmi</div>
+      </div>
+
+      <div class="bg-amber-50/50 p-4 rounded-2xl border border-amber-200/70 shadow-xs">
+        <div class="text-[11px] font-bold text-amber-600 uppercase tracking-wider mb-1">Dalam Proses</div>
+        <div class="text-2xl font-extrabold text-amber-700"><%= stats.suratMenunggu %></div>
+        <div class="text-[10px] text-amber-600 mt-0.5">Menunggu Surat</div>
+      </div>
+    </div>
+
+    <!-- Filter Periode Pegawai -->
+    <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+      <div class="text-xs text-slate-600 font-semibold flex items-center gap-2">
+        <i data-lucide="filter" class="w-4 h-4 text-indigo-600"></i>
+        <span>Filter Periode Riwayat Cuti:</span>
+      </div>
+
+      <form method="GET" action="/cuti" class="flex items-center gap-2 flex-wrap">
+        <input type="hidden" name="nip" value="<%= nipQuery %>">
+        
+        <select name="bulan" onchange="this.form.submit()" class="text-xs rounded-xl border-slate-300 py-1.5 focus:border-indigo-500 focus:ring-indigo-500 bg-slate-50">
+          <option value="all" <%= filterBulan === 'all' ? 'selected' : '' %>>Semua Bulan</option>
+          <% for (let b = 1; b <= 12; b++) { %>
+            <option value="<%= b %>" <%= String(filterBulan) === String(b) ? 'selected' : '' %>><%= BULAN_NAMES[b] %></option>
+          <% } %>
+        </select>
+
+        <select name="tahun" onchange="this.form.submit()" class="text-xs rounded-xl border-slate-300 py-1.5 focus:border-indigo-500 focus:ring-indigo-500 bg-slate-50">
+          <option value="all" <%= filterTahun === 'all' ? 'selected' : '' %>>Semua Tahun</option>
+          <% availableYears.forEach(y => { %>
+            <option value="<%= y %>" <%= String(filterTahun) === String(y) ? 'selected' : '' %>><%= y %></option>
+          <% }) %>
+        </select>
+      </form>
+    </div>
+
+    <!-- Tabel / Daftar Riwayat Cuti -->
+    <div class="bg-white rounded-2xl shadow-xs border border-slate-200/80 overflow-hidden">
+      
+      <div class="p-4 border-b border-slate-200/80 flex items-center justify-between bg-slate-50/60">
+        <div class="flex items-center gap-2">
+          <i data-lucide="history" class="w-4 h-4 text-indigo-600"></i>
+          <span class="text-xs font-bold text-slate-800 uppercase tracking-wider">Daftar Riwayat Cuti</span>
+        </div>
+        <div class="text-xs text-slate-500">
+          Total: <span class="font-bold text-slate-900"><%= cutiList.length %></span> pengajuan
+        </div>
+      </div>
+
+      <% if (cutiList.length === 0) { %>
+        <div class="py-12 px-4 text-center">
+          <div class="w-12 h-12 mx-auto mb-2 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
+            <i data-lucide="calendar-check" class="w-6 h-6"></i>
+          </div>
+          <h4 class="text-sm font-bold text-slate-800">Tidak Ada Catatan Cuti</h4>
+          <p class="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+            Belum ada riwayat cuti yang tercatat untuk periode yang dipilih.
+          </p>
+        </div>
+      <% } else { %>
+
+        <!-- Desktop Table -->
+        <div class="hidden md:block overflow-x-auto">
+          <table class="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 bg-slate-50/80 text-slate-600 font-semibold uppercase tracking-wider text-[11px]">
+                <th class="py-3.5 px-4 w-12 text-center">No</th>
+                <th class="py-3.5 px-4">Periode</th>
+                <th class="py-3.5 px-4">Tanggal Cuti</th>
+                <th class="py-3.5 px-4">Jenis Cuti</th>
+                <th class="py-3.5 px-4">Keterangan / Alasan</th>
+                <th class="py-3.5 px-4 text-center">Dokumen Surat Cuti</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              <% cutiList.forEach((item, index) => { %>
+                <tr class="hover:bg-slate-50/70 transition-colors">
+                  <td class="py-3.5 px-4 text-center font-medium text-slate-400"><%= index + 1 %></td>
+
+                  <!-- Periode -->
+                  <td class="py-3.5 px-4">
+                    <div class="font-bold text-slate-900"><%= BULAN_NAMES[item.bulan] %> <%= item.tahun %></div>
+                    <div class="text-[10px] text-slate-400">Bulan <%= item.bulan %></div>
+                  </td>
+
+                  <!-- Tanggal Cuti -->
+                  <td class="py-3.5 px-4">
+                    <div class="font-semibold text-slate-800"><%= item.tanggalCuti %></div>
+                    <% if (item.tanggalMulai && item.tanggalSelesai) { %>
+                      <div class="text-[10px] text-slate-500"><%= item.tanggalMulai %> s/d <%= item.tanggalSelesai %></div>
+                    <% } %>
+                  </td>
+
+                  <!-- Jenis Cuti -->
+                  <td class="py-3.5 px-4">
+                    <% 
+                      let bColor = 'bg-slate-100 text-slate-700 border-slate-200';
+                      const jl = (item.jenisCuti || '').toLowerCase();
+                      if (jl.includes('tahunan')) bColor = 'bg-blue-50 text-blue-700 border-blue-200';
+                      else if (jl.includes('sakit')) bColor = 'bg-rose-50 text-rose-700 border-rose-200';
+                      else if (jl.includes('melahirkan')) bColor = 'bg-pink-50 text-pink-700 border-pink-200';
+                      else if (jl.includes('haji')) bColor = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                      else if (jl.includes('penting')) bColor = 'bg-amber-50 text-amber-700 border-amber-200';
+                      else if (jl.includes('besar')) bColor = 'bg-purple-50 text-purple-700 border-purple-200';
+                    %>
+                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold border <%= bColor %>">
+                      <%= item.jenisCuti %>
+                    </span>
+                  </td>
+
+                  <!-- Alasan -->
+                  <td class="py-3.5 px-4 max-w-sm">
+                    <div class="text-slate-700"><%= item.alasan || '-' %></div>
+                    <% if (item.catatanAdmin) { %>
+                      <div class="text-[10px] text-indigo-600 mt-0.5">Catatan: <%= item.catatanAdmin %></div>
+                    <% } %>
+                  </td>
+
+                  <!-- Surat Cuti -->
+                  <td class="py-3.5 px-4 text-center">
+                    <% if (item.fileSuratUrl) { %>
+                      <div class="inline-flex items-center gap-2">
+                        <button type="button" 
+                                @click="openPdf('<%= item.fileSuratUrl %>', 'Surat Cuti <%= item.jenisCuti %> - <%= employee.nama.replace(/'/g, "\\'") %>', '<%= (item.fileSuratName || "Surat_Cuti.pdf").replace(/'/g, "\\'") %>')" 
+                                class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold border border-indigo-200 transition-colors">
+                          <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                          <span>Lihat</span>
+                        </button>
+
+                        <a href="<%= item.fileSuratUrl %>" 
+                           download="<%= item.fileSuratName || 'Surat_Cuti.pdf' %>" 
+                           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold shadow-xs transition-colors">
+                          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                          <span>Unduh</span>
+                        </a>
+                      </div>
+                    <% } else { %>
+                      <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium bg-amber-50 text-amber-700 border border-amber-200">
+                        <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-500"></i>
+                        <span>Proses Penerbitan</span>
+                      </span>
+                    <% } %>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Mobile Cards -->
+        <div class="block md:hidden divide-y divide-slate-100">
+          <% cutiList.forEach((item, index) => { %>
+            <div class="p-4 space-y-3">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <div class="text-[11px] font-medium text-slate-400">Periode: <%= BULAN_NAMES[item.bulan] %> <%= item.tahun %></div>
+                  <h4 class="text-sm font-bold text-slate-900 mt-0.5"><%= item.tanggalCuti %></h4>
+                </div>
+
+                <% 
+                  let mCol = 'bg-slate-100 text-slate-700 border-slate-200';
+                  const jlm = (item.jenisCuti || '').toLowerCase();
+                  if (jlm.includes('tahunan')) mCol = 'bg-blue-50 text-blue-700 border-blue-200';
+                  else if (jlm.includes('sakit')) mCol = 'bg-rose-50 text-rose-700 border-rose-200';
+                  else if (jlm.includes('melahirkan')) mCol = 'bg-pink-50 text-pink-700 border-pink-200';
+                  else if (jlm.includes('haji')) mCol = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                  else if (jlm.includes('penting')) mCol = 'bg-amber-50 text-amber-700 border-amber-200';
+                  else if (jlm.includes('besar')) mCol = 'bg-purple-50 text-purple-700 border-purple-200';
+                %>
+                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border <%= mCol %>">
+                  <%= item.jenisCuti %>
+                </span>
+              </div>
+
+              <% if (item.alasan) { %>
+                <p class="text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                  <span class="font-medium text-slate-700">Keperluan:</span> <%= item.alasan %>
+                </p>
+              <% } %>
+
+              <!-- Mobile Download / Status -->
+              <div class="pt-1">
+                <% if (item.fileSuratUrl) { %>
+                  <div class="flex items-center gap-2">
+                    <button type="button" 
+                            @click="openPdf('<%= item.fileSuratUrl %>', 'Surat Cuti - <%= employee.nama.replace(/'/g, "\\'") %>', '<%= (item.fileSuratName || "Surat_Cuti.pdf").replace(/'/g, "\\'") %>')" 
+                            class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-bold border border-indigo-200">
+                      <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+                      <span>Lihat Dokumen</span>
+                    </button>
+                    <a href="<%= item.fileSuratUrl %>" 
+                       download="<%= item.fileSuratName || 'Surat_Cuti.pdf' %>" 
+                       class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow-xs">
+                      <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                      <span>Unduh Surat Cuti</span>
+                    </a>
+                  </div>
+                <% } else { %>
+                  <div class="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 text-xs font-medium">
+                    <i data-lucide="clock" class="w-4 h-4 text-amber-500"></i>
+                    <span>Surat Cuti sedang dalam proses penerbitan</span>
+                  </div>
+                <% } %>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+
+      <% } %>
+
+    </div>
+
+  <% } %>
+
+  <!-- ======================================================== -->
+  <!-- KONDISI 3: BELUM MEMASUKKAN NIP (PANDUAN AWAL) -->
+  <!-- ======================================================== -->
+  <% if (!employee && !employeeNotFound) { %>
+    
+    <!-- Panduan Cek Cuti -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+          1
+        </div>
+        <h3 class="text-sm font-bold text-slate-900">Masukkan 18 Digit NIP</h3>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          Ketikkan NIP lengkap Anda tanpa spasi pada kolom pencarian di bagian atas halaman untuk membuka riwayat cuti pribadi Anda.
+        </p>
+      </div>
+
+      <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+        <div class="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-600 flex items-center justify-center font-bold">
+          2
+        </div>
+        <h3 class="text-sm font-bold text-slate-900">Verifikasi Riwayat Cuti</h3>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          Lihat daftar pengajuan cuti, tanggal pelaksanaan, jenis cuti, serta status penerbitan berkas resmi dari bagian kepegawaian.
+        </p>
+      </div>
+
+      <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+        <div class="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center font-bold">
+          3
+        </div>
+        <h3 class="text-sm font-bold text-slate-900">Unduh Surat Cuti Resmi</h3>
+        <p class="text-xs text-slate-500 leading-relaxed">
+          Klik tombol "Unduh Surat Cuti" untuk mendownload salinan dokumen PDF resmi yang dapat disimpan dan dicetak sebagai bukti kepegawaian.
+        </p>
+      </div>
+    </div>
+
+    <!-- Informasi Jenis-Jenis Cuti ASN -->
+    <div class="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
+      <div class="space-y-1">
+        <h3 class="text-base sm:text-lg font-bold text-slate-900">Informasi Kategori Cuti Pegawai</h3>
+        <p class="text-xs sm:text-sm text-slate-500">Berdasarkan peraturan kepegawaian, berikut jenis cuti yang tersedia:</p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <div class="p-4 rounded-2xl bg-blue-50/40 border border-blue-100 space-y-2">
+          <div class="flex items-center gap-2 text-blue-700 font-bold text-xs">
+            <i data-lucide="sun" class="w-4 h-4"></i>
+            <span>Cuti Tahunan</span>
+          </div>
+          <p class="text-[11px] text-slate-600 leading-relaxed">
+            Hak cuti bagi pegawai yang telah bekerja sekurang-kurangnya 1 tahun secara terus-menerus.
+          </p>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-rose-50/40 border border-rose-100 space-y-2">
+          <div class="flex items-center gap-2 text-rose-700 font-bold text-xs">
+            <i data-lucide="activity" class="w-4 h-4"></i>
+            <span>Cuti Sakit</span>
+          </div>
+          <p class="text-[11px] text-slate-600 leading-relaxed">
+            Diberikan kepada pegawai yang mengalami gangguan kesehatan dengan melampirkan surat keterangan dokter.
+          </p>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-pink-50/40 border border-pink-100 space-y-2">
+          <div class="flex items-center gap-2 text-pink-700 font-bold text-xs">
+            <i data-lucide="heart" class="w-4 h-4"></i>
+            <span>Cuti Melahirkan</span>
+          </div>
+          <p class="text-[11px] text-slate-600 leading-relaxed">
+            Diberikan untuk kelahiran anak pertama sampai dengan anak ketiga sesuai ketentuan yang berlaku.
+          </p>
+        </div>
+
+        <div class="p-4 rounded-2xl bg-emerald-50/40 border border-emerald-100 space-y-2">
+          <div class="flex items-center gap-2 text-emerald-700 font-bold text-xs">
+            <i data-lucide="award" class="w-4 h-4"></i>
+            <span>Cuti Haji / Besar</span>
+          </div>
+          <p class="text-[11px] text-slate-600 leading-relaxed">
+            Diberikan bagi pegawai yang menunaikan ibadah haji atau keperluan khusus yang memenuhi syarat ketentuan perundangan.
+          </p>
+        </div>
+
+      </div>
+    </div>
+
+  <% } %>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: PREVIEW DOKUMEN SURAT CUTI -->
+  <!-- ======================================================== -->
+  <div x-cloak 
+       x-show="pdfModal" 
+       class="fixed inset-0 z-50 overflow-y-auto"
+       aria-labelledby="modal-title" role="dialog" aria-modal="true">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+      <div x-show="pdfModal" 
+           class="fixed inset-0 transition-opacity bg-slate-900/60 backdrop-blur-xs" 
+           @click="closePdf()"></div>
+
+      <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+      <div x-show="pdfModal"
+           class="inline-block w-full max-w-4xl p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-2xl rounded-2xl border border-slate-200/80">
+        
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2.5">
+            <div class="w-8 h-8 rounded-lg bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+              <i data-lucide="file-text" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <h3 class="text-sm sm:text-base font-bold text-slate-900" x-text="pdfTitle"></h3>
+              <p class="text-[11px] text-slate-500" x-text="pdfFileName"></p>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <a :href="pdfUrl" 
+               target="_blank" 
+               class="p-2 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+               title="Buka di Tab Baru">
+              <i data-lucide="external-link" class="w-4 h-4"></i>
+            </a>
+            <a :href="pdfUrl" 
+               :download="pdfFileName" 
+               class="p-2 text-slate-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+               title="Unduh Berkas">
+              <i data-lucide="download" class="w-4 h-4"></i>
+            </a>
+            <button @click="closePdf()" class="text-slate-400 hover:text-slate-600 p-2 rounded-lg hover:bg-slate-100">
+              <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="mt-4 bg-slate-100 rounded-xl overflow-hidden h-[65vh] flex items-center justify-center border border-slate-200">
+          <template x-if="pdfUrl.toLowerCase().endsWith('.pdf')">
+            <iframe :src="pdfUrl" class="w-full h-full border-0" frameborder="0"></iframe>
+          </template>
+          <template x-if="!pdfUrl.toLowerCase().endsWith('.pdf')">
+            <img :src="pdfUrl" alt="Surat Cuti" class="max-w-full max-h-full object-contain p-2">
+          </template>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<%- include('partials/footer') %>
+
