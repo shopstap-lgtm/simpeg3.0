@@ -2,56 +2,69 @@
 <%- include('../partials/admin-nav') %>
 <%- include('../partials/toast') %>
 
-<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-6"
-      x-data="{
-        addModal: false,
-        editModal: false,
-        deleteModal: false,
-        bulkDeleteModal: false,
-        selectedUnits: [],
-        selectAll: false,
-        toggleSelectAll(ids) {
-          if (this.selectAll) {
-            this.selectedUnits = [...ids];
-          } else {
-            this.selectedUnits = [];
-          }
-        },
-        addKategori: 'NEGERI',
-        addJenjang: 'SD',
-        employees: <%- JSON.stringify(employees || []) %>,
-        editData: { id: '', namaUnit: '', kategori: 'NEGERI', jenjang: 'SD', kepalaSekolah: '', nipKepalaSekolah: '', kontakKepalaSekolah: '', operatorSekolah: '', kontakOperator: '' },
-        deleteData: { id: '', namaUnit: '' },
-        fillKepsekNip(nama, isEdit = false) {
-          const emp = this.employees.find(e => (e.nama || '').trim().toLowerCase() === (nama || '').trim().toLowerCase());
-          if (emp && emp.nip) {
-            if (isEdit) {
-              this.editData.nipKepalaSekolah = emp.nip;
-            } else {
-              const nipEl = document.getElementById('add-nipKepalaSekolah');
-              if (nipEl) nipEl.value = emp.nip;
-            }
-          }
-        },
-        openEdit(unit) {
-          this.editData = {
-            id: unit.id,
-            namaUnit: unit.namaUnit,
-            kategori: unit.kategori || 'NEGERI',
-            jenjang: unit.jenjang || 'SD',
-            kepalaSekolah: unit.kepalaSekolah || '',
-            nipKepalaSekolah: unit.nipKepalaSekolah || '',
-            kontakKepalaSekolah: unit.kontakKepalaSekolah || '',
-            operatorSekolah: unit.operatorSekolah || '',
-            kontakOperator: unit.kontakOperator || ''
-          };
-          this.editModal = true;
-        },
-        openDelete(unit) {
-          this.deleteData = { id: unit.id, namaUnit: unit.namaUnit };
-          this.deleteModal = true;
+<script id="unit-employees-data" type="application/json">
+  <%- JSON.stringify(employees || []) %>
+</script>
+<script>
+  function unitKerjaData() {
+    return {
+      addModal: false,
+      editModal: false,
+      deleteModal: false,
+      bulkDeleteModal: false,
+      selectedUnits: [],
+      selectAll: false,
+      toggleSelectAll(ids) {
+        if (this.selectAll) {
+          this.selectedUnits = [...ids];
+        } else {
+          this.selectedUnits = [];
         }
-      }">
+      },
+      addKategori: 'NEGERI',
+      addJenjang: 'SD',
+      employees: JSON.parse(document.getElementById('unit-employees-data')?.textContent || '[]'),
+      editData: { id: '', namaUnit: '', kategori: 'NEGERI', jenjang: 'SD', kepalaSekolah: '', nipKepalaSekolah: '', kontakKepalaSekolah: '', operatorSekolah: '', kontakOperator: '' },
+      deleteData: { id: '', namaUnit: '' },
+      fillKepsekNip(nama, isEdit = false) {
+        if (!nama) return;
+        const target = (nama || '').trim().toLowerCase();
+        const emp = this.employees.find(function(e) {
+          return (e.nama || '').trim().toLowerCase() === target;
+        });
+        if (emp && emp.nip) {
+          if (isEdit) {
+            this.editData.nipKepalaSekolah = emp.nip;
+          } else {
+            const nipEl = document.getElementById('add-nipKepalaSekolah');
+            if (nipEl) nipEl.value = emp.nip;
+          }
+        }
+      },
+      openEdit(unit) {
+        this.editData = {
+          id: unit.id,
+          namaUnit: unit.namaUnit,
+          kategori: unit.kategori || 'NEGERI',
+          jenjang: unit.jenjang || 'SD',
+          kepalaSekolah: unit.kepalaSekolah || '',
+          nipKepalaSekolah: unit.nipKepalaSekolah || '',
+          kontakKepalaSekolah: unit.kontakKepalaSekolah || '',
+          operatorSekolah: unit.operatorSekolah || '',
+          kontakOperator: unit.kontakOperator || ''
+        };
+        this.editModal = true;
+      },
+      openDelete(unit) {
+        this.deleteData = { id: unit.id, namaUnit: unit.namaUnit };
+        this.deleteModal = true;
+      }
+    };
+  }
+</script>
+
+<main class="flex-1 py-8 px-4 sm:px-6 lg:px-8 w-full max-w-full space-y-6"
+      x-data="unitKerjaData()">
 
   <!-- Page Header -->
   <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
