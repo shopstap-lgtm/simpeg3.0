@@ -363,13 +363,35 @@ export const smartSheetController = {
   uploadCellFile: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      const colId = (req.body?.colId || req.query?.colId) as string;
+
       if (id) {
-        const sheet = await prisma.smartSheet.findUnique({ where: { id }, select: { status: true } });
+        const sheet = await prisma.smartSheet.findUnique({ where: { id }, select: { status: true, columns: true } });
         if (sheet && sheet.status === 'CLOSED') {
           return res.status(403).json({
             success: false,
             message: 'Spreadsheet ini telah DITUTUP oleh admin. Pengunggahan berkas dinonaktifkan.'
           });
+        }
+
+        // Validate allowed extensions if colId provided
+        if (sheet && colId && req.file) {
+          const cols = (sheet.columns as any[]) || [];
+          const col = cols.find(c => c.id === colId);
+          if (col && col.allowedExtensions && col.allowedExtensions.trim() !== '' && col.allowedExtensions.trim() !== '*') {
+            const allowed = col.allowedExtensions.split(',').map((e: string) => e.trim().toLowerCase());
+            const originalExt = '.' + (req.file.originalname.split('.').pop() || '').toLowerCase();
+            if (!allowed.includes(originalExt)) {
+              const fs = await import('fs');
+              if (req.file.path && fs.existsSync(req.file.path)) {
+                try { fs.unlinkSync(req.file.path); } catch (e) {}
+              }
+              return res.status(400).json({
+                success: false,
+                message: `Format file ${originalExt} tidak diizinkan. Ekstensi yang diperbolehkan: ${col.allowedExtensions}`
+              });
+            }
+          }
         }
       }
 
@@ -493,6 +515,7 @@ export const smartSheetController = {
           jenjang: { colId: 'c_jenjang', name: 'Jenjang', type: 'text', width: 110, isLocked: true, getValue: u => u.jenjang || '-' },
           kategori: { colId: 'c_kategori', name: 'Kategori', type: 'text', width: 120, isLocked: true, getValue: u => u.kategori || '-' },
           kepalaSekolah: { colId: 'c_kepsek', name: 'Kepala Sekolah', type: 'text', width: 200, isLocked: false, getValue: u => u.kepalaSekolah || '-' },
+          nipKepalaSekolah: { colId: 'c_nip_kepsek', name: 'NIP Kepala Sekolah', type: 'nip', width: 200, isLocked: false, getValue: u => u.nipKepalaSekolah || '-' },
           kontakKepalaSekolah: { colId: 'c_kontak_kepsek', name: 'Kontak Kepala Sekolah', type: 'text', width: 170, isLocked: false, getValue: u => u.kontakKepalaSekolah || '-' },
           operatorSekolah: { colId: 'c_operator', name: 'Operator Sekolah', type: 'text', width: 190, isLocked: false, getValue: u => u.operatorSekolah || '-' },
           kontakOperator: { colId: 'c_kontak_operator', name: 'Kontak Operator', type: 'text', width: 170, isLocked: false, getValue: u => u.kontakOperator || '-' }
@@ -500,7 +523,7 @@ export const smartSheetController = {
 
         const activeFieldKeys: string[] = (Array.isArray(selectedFields) && selectedFields.length > 0)
           ? selectedFields.filter(f => UNIT_FIELD_MAP[f])
-          : ['namaUnit', 'jenjang', 'kategori', 'kepalaSekolah'];
+          : ['namaUnit', 'jenjang', 'kategori', 'kepalaSekolah', 'nipKepalaSekolah'];
 
         if (activeFieldKeys.length === 0) {
           return res.status(400).json({ success: false, message: 'Pilih minimal 1 atribut kolom unit kerja' });

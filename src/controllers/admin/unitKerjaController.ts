@@ -16,6 +16,7 @@ export const unitKerjaController = {
           { namaUnit: { contains: search, mode: 'insensitive' } },
           { jenjang: { contains: search, mode: 'insensitive' } },
           { kepalaSekolah: { contains: search, mode: 'insensitive' } },
+          { nipKepalaSekolah: { contains: search, mode: 'insensitive' } },
           { operatorSekolah: { contains: search, mode: 'insensitive' } }
         ];
       }
@@ -50,6 +51,7 @@ export const unitKerjaController = {
         kategori: u.kategori || 'NEGERI',
         jenjang: u.jenjang || 'SD',
         kepalaSekolah: u.kepalaSekolah || '',
+        nipKepalaSekolah: u.nipKepalaSekolah || '',
         kontakKepalaSekolah: u.kontakKepalaSekolah || '',
         operatorSekolah: u.operatorSekolah || '',
         kontakOperator: u.kontakOperator || '',
@@ -89,7 +91,7 @@ export const unitKerjaController = {
 
   create: async (req: Request, res: Response) => {
     try {
-      const { namaUnit, kategori, jenjang, kepalaSekolah, kontakKepalaSekolah, operatorSekolah, kontakOperator } = req.body;
+      const { namaUnit, kategori, jenjang, kepalaSekolah, nipKepalaSekolah, kontakKepalaSekolah, operatorSekolah, kontakOperator } = req.body;
 
       if (!namaUnit || namaUnit.trim() === '') {
         if ((req as any).session) {
@@ -119,6 +121,7 @@ export const unitKerjaController = {
           kategori: validKategori,
           jenjang: validJenjang,
           kepalaSekolah: kepalaSekolah?.trim() || null,
+          nipKepalaSekolah: nipKepalaSekolah?.trim() || null,
           kontakKepalaSekolah: kontakKepalaSekolah?.trim() || null,
           operatorSekolah: operatorSekolah?.trim() || null,
           kontakOperator: kontakOperator?.trim() || null
@@ -145,7 +148,7 @@ export const unitKerjaController = {
   update: async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      const { namaUnit, kategori, jenjang, kepalaSekolah, kontakKepalaSekolah, operatorSekolah, kontakOperator } = req.body;
+      const { namaUnit, kategori, jenjang, kepalaSekolah, nipKepalaSekolah, kontakKepalaSekolah, operatorSekolah, kontakOperator } = req.body;
 
       if (!namaUnit || namaUnit.trim() === '') {
         if ((req as any).session) {
@@ -179,6 +182,7 @@ export const unitKerjaController = {
           kategori: validKategori,
           jenjang: validJenjang,
           kepalaSekolah: kepalaSekolah?.trim() || null,
+          nipKepalaSekolah: nipKepalaSekolah?.trim() || null,
           kontakKepalaSekolah: kontakKepalaSekolah?.trim() || null,
           operatorSekolah: operatorSekolah?.trim() || null,
           kontakOperator: kontakOperator?.trim() || null
