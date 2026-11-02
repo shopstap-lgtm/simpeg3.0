@@ -47,7 +47,7 @@ const matchesClarificationMonthYear = (c: any, bulan: number, tahun: number): bo
 };
 
 const buildRedirectUrl = (req: Request, defaultTab = 'pending') => {
-  const tab = (req.query.tab as string) || defaultTab;
+  const tab = (req.query.tab as string) || (req.body?.tab as string) || defaultTab;
   const unit = (req.query.unit as string) || '';
   const status = (req.query.status as string) || '';
   const search = (req.query.search as string) || '';
@@ -59,6 +59,123 @@ const buildRedirectUrl = (req: Request, defaultTab = 'pending') => {
   if (search) params.set('search', search);
 
   return `/admin/klarifikasi?${params.toString()}`;
+};
+
+const applyAttendanceApproval = async (item: any) => {
+  const targetStatus = item.statusPengganti || 'DL';
+
+  const updateDay = async (year: number, month: number, day: number) => {
+    const period = await prisma.attendancePeriod.upsert({
+      where: { bulan_tahun: { bulan: month, tahun: year } },
+      update: {},
+      create: { bulan: month, tahun: year }
+    });
+
+    await prisma.attendanceDay.upsert({
+      where: {
+        employeeId_periodId_tanggal: {
+          employeeId: item.employeeId,
+          periodId: period.id,
+          tanggal: day
+        }
+      },
+      update: {
+        status: targetStatus,
+        keterangan: `Klarifikasi Disetujui (${targetStatus})`
+      },
+      create: {
+        employeeId: item.employeeId,
+        periodId: period.id,
+        tanggal: day,
+        status: targetStatus,
+        keterangan: `Klarifikasi Disetujui (${targetStatus})`
+      }
+    });
+  };
+
+  if (item.tanggalAbsen.includes('s/d')) {
+    const [startStr, endStr] = item.tanggalAbsen.split(' s/d ').map((s: string) => s.trim());
+    const startDate = new Date(startStr);
+    const endDate = new Date(endStr);
+
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      const yr = d.getFullYear();
+      const mo = d.getMonth() + 1;
+      const dt = d.getDate();
+      const dayOfWeek = d.getDay();
+      // Skip akhir pekan (Sabtu & Minggu) dan Hari Libur Nasional
+      if (dayOfWeek === 0 || dayOfWeek === 6 || holidayService.isHoliday(yr, mo, dt)) {
+        continue;
+      }
+      await updateDay(yr, mo, dt);
+    }
+  } else {
+    const parts = item.tanggalAbsen.split('-');
+    if (parts.length === 3) {
+      const yr = parseInt(parts[0]);
+      const mo = parseInt(parts[1]);
+      const dt = parseInt(parts[2]);
+      const checkDate = new Date(yr, mo - 1, dt);
+      const dayOfWeek = checkDate.getDay();
+      // Skip akhir pekan dan Hari Libur Nasional jika ada pengajuan pada hari libur
+      if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidayService.isHoliday(yr, mo, dt)) {
+        await updateDay(yr, mo, dt);
+      }
+    }
+  }
+};
+
+const revertAttendance = async (item: any) => {
+  if (item.statusVerifikasi !== 'APPROVED') return;
+  const revertStatus = item.statusAwal || 'TK';
+
+  const revertDay = async (year: number, month: number, day: number) => {
+    const period = await prisma.attendancePeriod.findUnique({
+      where: { bulan_tahun: { bulan: month, tahun: year } }
+    });
+
+    if (period) {
+      await prisma.attendanceDay.updateMany({
+        where: {
+          employeeId: item.employeeId,
+          periodId: period.id,
+          tanggal: day
+        },
+        data: {
+          status: revertStatus,
+          keterangan: `Status Dikembalikan ke Semula (${revertStatus})`
+        }
+      });
+    }
+  };
+
+  if (item.tanggalAbsen.includes('s/d')) {
+    const [startStr, endStr] = item.tanggalAbsen.split(' s/d ').map((s: string) => s.trim());
+    const startDate = new Date(startStr);
+    const endDate = new Date(endStr);
+
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      await revertDay(d.getFullYear(), d.getMonth() + 1, d.getDate());
+    }
+  } else {
+    const parts = item.tanggalAbsen.split('-');
+    if (parts.length === 3) {
+      await revertDay(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]));
+    }
+  }
+};
+
+const parseIds = (bodyIds: any): string[] => {
+  if (!bodyIds) return [];
+  if (Array.isArray(bodyIds)) return bodyIds.filter(Boolean);
+  if (typeof bodyIds === 'string') {
+    try {
+      const parsed = JSON.parse(bodyIds);
+      if (Array.isArray(parsed)) return parsed.filter(Boolean);
+    } catch {}
+    return bodyIds.split(',').map(s => s.trim()).filter(Boolean);
+  }
+  return [];
 };
 
 export const klarifikasiController = {
@@ -197,67 +314,7 @@ export const klarifikasiController = {
         });
 
         // Update attendance days directly in the database
-        const targetStatus = item.statusPengganti || 'DL';
-
-        const updateDay = async (year: number, month: number, day: number) => {
-          const period = await prisma.attendancePeriod.upsert({
-            where: { bulan_tahun: { bulan: month, tahun: year } },
-            update: {},
-            create: { bulan: month, tahun: year }
-          });
-
-          await prisma.attendanceDay.upsert({
-            where: {
-              employeeId_periodId_tanggal: {
-                employeeId: item.employeeId,
-                periodId: period.id,
-                tanggal: day
-              }
-            },
-            update: {
-              status: targetStatus,
-              keterangan: `Klarifikasi Disetujui (${targetStatus})`
-            },
-            create: {
-              employeeId: item.employeeId,
-              periodId: period.id,
-              tanggal: day,
-              status: targetStatus,
-              keterangan: `Klarifikasi Disetujui (${targetStatus})`
-            }
-          });
-        };
-
-        if (item.tanggalAbsen.includes('s/d')) {
-          const [startStr, endStr] = item.tanggalAbsen.split(' s/d ').map(s => s.trim());
-          const startDate = new Date(startStr);
-          const endDate = new Date(endStr);
-
-          for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-            const yr = d.getFullYear();
-            const mo = d.getMonth() + 1;
-            const dt = d.getDate();
-            const dayOfWeek = d.getDay();
-            // Skip akhir pekan (Sabtu & Minggu) dan Hari Libur Nasional
-            if (dayOfWeek === 0 || dayOfWeek === 6 || holidayService.isHoliday(yr, mo, dt)) {
-              continue;
-            }
-            await updateDay(yr, mo, dt);
-          }
-        } else {
-          const parts = item.tanggalAbsen.split('-');
-          if (parts.length === 3) {
-            const yr = parseInt(parts[0]);
-            const mo = parseInt(parts[1]);
-            const dt = parseInt(parts[2]);
-            const checkDate = new Date(yr, mo - 1, dt);
-            const dayOfWeek = checkDate.getDay();
-            // Skip akhir pekan dan Hari Libur Nasional jika ada pengajuan pada hari libur
-            if (dayOfWeek !== 0 && dayOfWeek !== 6 && !holidayService.isHoliday(yr, mo, dt)) {
-              await updateDay(yr, mo, dt);
-            }
-          }
-        }
+        await applyAttendanceApproval(item);
 
         if ((req as any).session) {
           (req as any).session.toast = {
@@ -325,48 +382,15 @@ export const klarifikasiController = {
 
       if (item) {
         // If it was approved before, revert status in attendance day
-        if (item.statusVerifikasi === 'APPROVED') {
-          const revertStatus = item.statusAwal || 'TK';
-
-          const revertDay = async (year: number, month: number, day: number) => {
-            const period = await prisma.attendancePeriod.findUnique({
-              where: { bulan_tahun: { bulan: month, tahun: year } }
-            });
-
-            if (period) {
-              await prisma.attendanceDay.updateMany({
-                where: {
-                  employeeId: item.employeeId,
-                  periodId: period.id,
-                  tanggal: day
-                },
-                data: {
-                  status: revertStatus,
-                  keterangan: `Status Dikembalikan ke Semula (${revertStatus})`
-                }
-              });
-            }
-          };
-
-          if (item.tanggalAbsen.includes('s/d')) {
-            const [startStr, endStr] = item.tanggalAbsen.split(' s/d ').map(s => s.trim());
-            const startDate = new Date(startStr);
-            const endDate = new Date(endStr);
-
-            for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-              await revertDay(d.getFullYear(), d.getMonth() + 1, d.getDate());
-            }
-          } else {
-            const parts = item.tanggalAbsen.split('-');
-            if (parts.length === 3) {
-              await revertDay(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]));
-            }
-          }
-        }
+        await revertAttendance(item);
 
         // Hapus berkas fisik hasil upload dari disk/storage agar tidak menjadi file sampah
         if (item.fileUrl) {
-          await deleteFileFromStorage(item.fileUrl);
+          try {
+            await deleteFileFromStorage(item.fileUrl);
+          } catch (e) {
+            console.error('Failed to delete file from storage:', e);
+          }
         }
 
         await prisma.clarification.delete({ where: { id } });
@@ -382,6 +406,147 @@ export const klarifikasiController = {
       res.redirect(buildRedirectUrl(req, redirectTab));
     } catch (error) {
       console.error('Error in klarifikasiController.delete:', error);
+      res.redirect(buildRedirectUrl(req, 'pending'));
+    }
+  },
+
+  bulkApprove: async (req: Request, res: Response) => {
+    try {
+      const ids = parseIds(req.body.ids);
+      const catatanAdmin = req.body.catatanAdmin || 'Klarifikasi absensi disetujui.';
+
+      if (ids.length === 0) {
+        if ((req as any).session) {
+          (req as any).session.toast = {
+            type: 'warning',
+            message: 'Tidak ada permohonan klarifikasi yang dipilih untuk disetujui.'
+          };
+        }
+        return res.redirect(buildRedirectUrl(req, 'pending'));
+      }
+
+      const items = await prisma.clarification.findMany({
+        where: { id: { in: ids } },
+        include: { employee: true }
+      });
+
+      const reviewer = (req as any).session?.user?.namaLengkap || 'Admin Korwil';
+      const reviewTimestamp = formatWIB(new Date());
+
+      for (const item of items) {
+        await prisma.clarification.update({
+          where: { id: item.id },
+          data: {
+            statusVerifikasi: 'APPROVED',
+            catatanAdmin: catatanAdmin,
+            reviewedBy: reviewer,
+            reviewedAt: reviewTimestamp
+          }
+        });
+        await applyAttendanceApproval(item);
+      }
+
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'success',
+          message: `${items.length} permohonan klarifikasi absensi berhasil DISETUJUI dan tabel rekap otomatis diperbarui.`
+        };
+      }
+
+      res.redirect(buildRedirectUrl(req, 'pending'));
+    } catch (error) {
+      console.error('Error in klarifikasiController.bulkApprove:', error);
+      res.redirect(buildRedirectUrl(req, 'pending'));
+    }
+  },
+
+  bulkReject: async (req: Request, res: Response) => {
+    try {
+      const ids = parseIds(req.body.ids);
+      const catatanAdmin = req.body.catatanAdmin || 'Bukti dokumen belum memenuhi ketentuan / belum ditandatangani Kepala Sekolah.';
+
+      if (ids.length === 0) {
+        if ((req as any).session) {
+          (req as any).session.toast = {
+            type: 'warning',
+            message: 'Tidak ada permohonan klarifikasi yang dipilih untuk ditolak.'
+          };
+        }
+        return res.redirect(buildRedirectUrl(req, 'pending'));
+      }
+
+      const reviewer = (req as any).session?.user?.namaLengkap || 'Admin Korwil';
+      const reviewTimestamp = formatWIB(new Date());
+
+      const result = await prisma.clarification.updateMany({
+        where: { id: { in: ids } },
+        data: {
+          statusVerifikasi: 'REJECTED',
+          catatanAdmin: catatanAdmin,
+          reviewedBy: reviewer,
+          reviewedAt: reviewTimestamp
+        }
+      });
+
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'warning',
+          message: `${result.count} permohonan klarifikasi absensi berhasil DITOLAK dan dipindahkan ke Riwayat Arsip.`
+        };
+      }
+
+      res.redirect(buildRedirectUrl(req, 'pending'));
+    } catch (error) {
+      console.error('Error in klarifikasiController.bulkReject:', error);
+      res.redirect(buildRedirectUrl(req, 'pending'));
+    }
+  },
+
+  bulkDelete: async (req: Request, res: Response) => {
+    try {
+      const ids = parseIds(req.body.ids);
+      const redirectTab = (req.query.tab as string) || (req.body?.tab as string) || 'pending';
+
+      if (ids.length === 0) {
+        if ((req as any).session) {
+          (req as any).session.toast = {
+            type: 'warning',
+            message: 'Tidak ada permohonan klarifikasi yang dipilih untuk dihapus.'
+          };
+        }
+        return res.redirect(buildRedirectUrl(req, redirectTab));
+      }
+
+      const items = await prisma.clarification.findMany({
+        where: { id: { in: ids } },
+        include: { employee: true }
+      });
+
+      for (const item of items) {
+        await revertAttendance(item);
+        if (item.fileUrl) {
+          try {
+            await deleteFileFromStorage(item.fileUrl);
+          } catch (e) {
+            console.error('Failed to delete file from storage:', e);
+          }
+        }
+      }
+
+      const result = await prisma.clarification.deleteMany({
+        where: { id: { in: ids } }
+      });
+
+      if ((req as any).session) {
+        (req as any).session.toast = {
+          type: 'success',
+          message: `${result.count} permohonan klarifikasi absensi berhasil dihapus dan status absensi dipulihkan.`
+        };
+      }
+
+      res.redirect(buildRedirectUrl(req, redirectTab));
+    } catch (error) {
+      console.error('Error in klarifikasiController.bulkDelete:', error);
       res.redirect(buildRedirectUrl(req, 'pending'));
     }
   },

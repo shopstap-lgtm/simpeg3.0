@@ -90,10 +90,13 @@ router.get('/logout', authController.logout);
 router.use(requireAdmin);
 
 // Klarifikasi Absensi
-// ⚠️ Export routes MUST be before :id routes
+// ⚠️ Export routes and bulk routes MUST be before :id routes
 router.get('/klarifikasi/export/excel', klarifikasiController.exportExcel);
 router.get('/klarifikasi/export/pdf', klarifikasiController.exportPdf);
 router.get('/klarifikasi', klarifikasiController.show);
+router.post('/klarifikasi/bulk-approve', klarifikasiController.bulkApprove);
+router.post('/klarifikasi/bulk-reject', klarifikasiController.bulkReject);
+router.post('/klarifikasi/bulk-delete', klarifikasiController.bulkDelete);
 router.post('/klarifikasi/:id/approve', klarifikasiController.approve);
 router.post('/klarifikasi/:id/reject', klarifikasiController.reject);
 router.post('/klarifikasi/:id/delete', klarifikasiController.delete);

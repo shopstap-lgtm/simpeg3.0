@@ -176,6 +176,59 @@
         },
         handleFiles(files) {
           this.excelFileList = Array.from(files).map(f => f.name);
+        },
+        selectedIds: [],
+        bulkActionModal: false,
+        bulkActionType: 'approve',
+        bulkCatatanAdmin: '',
+        toggleSelectAll(items) {
+          if (!items || items.length === 0) return;
+          const itemIds = items.map(it => it.id);
+          const allSelected = itemIds.every(id => this.selectedIds.includes(id));
+          if (allSelected) {
+            this.selectedIds = this.selectedIds.filter(id => !itemIds.includes(id));
+          } else {
+            const newSet = new Set([...this.selectedIds, ...itemIds]);
+            this.selectedIds = Array.from(newSet);
+          }
+        },
+        isAllSelected(items) {
+          if (!items || items.length === 0) return false;
+          return items.every(it => this.selectedIds.includes(it.id));
+        },
+        isSelected(id) {
+          return this.selectedIds.includes(id);
+        },
+        toggleSelect(id) {
+          if (this.selectedIds.includes(id)) {
+            this.selectedIds = this.selectedIds.filter(x => x !== id);
+          } else {
+            this.selectedIds.push(id);
+          }
+        },
+        clearSelection() {
+          this.selectedIds = [];
+        },
+        openBulkAction(type) {
+          if (this.selectedIds.length === 0) return;
+          this.bulkActionType = type;
+          if (type === 'approve') {
+            this.bulkCatatanAdmin = 'Klarifikasi absensi disetujui.';
+          } else if (type === 'reject') {
+            this.bulkCatatanAdmin = 'Bukti dokumen tidak sesuai / belum ditandatangani Kepala Sekolah.';
+          } else {
+            this.bulkCatatanAdmin = '';
+          }
+          this.bulkActionModal = true;
+          this.$nextTick(() => { if (window.lucide) window.lucide.createIcons(); });
+        },
+        get bulkActionUrl() {
+          const params = new URLSearchParams();
+          params.set('tab', this.activeTab || 'pending');
+          if (this.filterUnit && this.filterUnit !== 'unit-all') params.set('unit', this.filterUnit);
+          if (this.filterStatus && this.filterStatus !== 'ALL') params.set('status', this.filterStatus);
+          if (this.search) params.set('search', this.search);
+          return '/admin/klarifikasi/bulk-' + this.bulkActionType + '?' + params.toString();
         }
       }">
 
@@ -428,15 +481,42 @@
           </div>
         <% } %>
 
+        <% if (pendingList.length > 0) { %>
+          <!-- Mobile Select All Bar -->
+          <div class="flex items-center justify-between p-2.5 bg-amber-50/80 rounded-xl border border-amber-200 text-xs">
+            <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-700 select-none">
+              <input type="checkbox"
+                     @click="toggleSelectAll(allPendingItems)"
+                     :checked="isAllSelected(allPendingItems)"
+                     class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4 h-4">
+              <span>Pilih Semua Antrean (<%= pendingList.length %>)</span>
+            </label>
+            <template x-if="selectedIds.length > 0">
+              <button type="button" @click="clearSelection()" class="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer">
+                Batal (<span x-text="selectedIds.length"></span>)
+              </button>
+            </template>
+          </div>
+        <% } %>
+
         <% pendingList.forEach(function(item, idx) { %>
-          <div x-show="isPendingVisible(<%= idx %>)" class="p-4 rounded-2xl border border-amber-200 bg-amber-50/20 space-y-3">
+          <div x-show="isPendingVisible(<%= idx %>)" 
+               :class="isSelected('<%= item.id %>') ? 'border-indigo-400 bg-indigo-50/40 ring-2 ring-indigo-500/20' : 'border-amber-200 bg-amber-50/20'"
+               class="p-4 rounded-2xl border space-y-3 transition-colors">
             <div class="flex items-start justify-between gap-3">
-              <div>
-                <h3 class="font-bold text-sm text-slate-900"><%= item.employeeName %></h3>
-                <p class="text-xs text-slate-500">NIP: <%= item.employeeNip %></p>
-                <p class="text-[11px] text-indigo-600 font-medium"><%= item.unitNama %></p>
+              <div class="flex items-start gap-2.5 min-w-0">
+                <input type="checkbox"
+                       value="<%= item.id %>"
+                       :checked="isSelected('<%= item.id %>')"
+                       @change="toggleSelect('<%= item.id %>')"
+                       class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4 h-4 mt-0.5 shrink-0">
+                <div class="min-w-0">
+                  <h3 class="font-bold text-sm text-slate-900 truncate"><%= item.employeeName %></h3>
+                  <p class="text-xs text-slate-500">NIP: <%= item.employeeNip %></p>
+                  <p class="text-[11px] text-indigo-600 font-medium truncate"><%= item.unitNama %></p>
+                </div>
               </div>
-              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+              <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
                 Menunggu
               </span>
             </div>
@@ -568,6 +648,12 @@
         <table class="w-full text-left text-xs border-collapse table-auto min-w-[900px]">
           <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
             <tr>
+              <th class="w-10 px-3.5 py-3 text-center">
+                <input type="checkbox" 
+                       @click="toggleSelectAll(allPendingItems)"
+                       :checked="isAllSelected(allPendingItems)"
+                       class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4 h-4">
+              </th>
               <th class="px-3.5 py-3 w-[17%] min-w-[150px]">Pegawai & NIP</th>
               <th class="px-3 py-3 w-[13%] min-w-[120px]">Unit Kerja</th>
               <th class="px-2.5 py-3 text-center w-[8%] min-w-[80px]">Tgl Absen</th>
@@ -581,7 +667,7 @@
           <tbody class="divide-y divide-slate-100">
             <% if (pendingList.length === 0) { %>
               <tr>
-                <td colspan="8" class="py-12 text-center text-slate-500">
+                <td colspan="9" class="py-12 text-center text-slate-500">
                   <i data-lucide="check-check" class="w-8 h-8 mx-auto text-emerald-500 mb-2"></i>
                   <p class="font-bold text-sm text-slate-700">Semua antrean klarifikasi telah diproses!</p>
                 </td>
@@ -589,7 +675,14 @@
             <% } %>
 
             <% pendingList.forEach(function(item, idx) { %>
-              <tr class="hover:bg-amber-50/30 transition-colors">
+              <tr :class="isSelected('<%= item.id %>') ? 'bg-indigo-50/70 border-l-4 border-l-indigo-600' : 'hover:bg-amber-50/30'" class="transition-colors">
+                <td class="w-10 px-3.5 py-3 text-center align-middle">
+                  <input type="checkbox"
+                         value="<%= item.id %>"
+                         :checked="isSelected('<%= item.id %>')"
+                         @change="toggleSelect('<%= item.id %>')"
+                         class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4 h-4">
+                </td>
                 <td class="px-3.5 py-3 align-middle">
                   <div class="font-bold text-slate-900 text-xs leading-tight"><%= item.employeeName %></div>
                   <div class="text-[11px] text-slate-400 mt-0.5">NIP: <%= item.employeeNip %></div>
@@ -667,13 +760,40 @@
           </div>
         <% } %>
 
+        <% if (archiveList.length > 0) { %>
+          <!-- Mobile Select All Bar for Archive -->
+          <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-200 text-xs">
+            <label class="flex items-center gap-2 cursor-pointer font-bold text-slate-700 select-none">
+              <input type="checkbox"
+                     @click="toggleSelectAll(allArchiveItems)"
+                     :checked="isAllSelected(allArchiveItems)"
+                     class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4 h-4">
+              <span>Pilih Semua Arsip (<%= archiveList.length %>)</span>
+            </label>
+            <template x-if="selectedIds.length > 0">
+              <button type="button" @click="clearSelection()" class="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer">
+                Batal (<span x-text="selectedIds.length"></span>)
+              </button>
+            </template>
+          </div>
+        <% } %>
+
         <% archiveList.forEach(function(item, aIdx) { %>
-          <div x-show="isArchiveVisible(<%= aIdx %>)" class="p-4 rounded-2xl border border-slate-200 bg-white shadow-2xs space-y-3">
+          <div x-show="isArchiveVisible(<%= aIdx %>)" 
+               :class="isSelected('<%= item.id %>') ? 'border-indigo-400 bg-indigo-50/40 ring-2 ring-indigo-500/20' : 'border-slate-200 bg-white'"
+               class="p-4 rounded-2xl border shadow-2xs space-y-3 transition-colors">
             <div class="flex items-start justify-between gap-3">
-              <div>
-                <h3 class="font-bold text-sm text-slate-900"><%= item.employeeName %></h3>
-                <p class="text-xs text-slate-500">NIP: <%= item.employeeNip %></p>
-                <p class="text-[11px] text-indigo-600 font-medium"><%= item.unitNama %></p>
+              <div class="flex items-start gap-2.5 min-w-0">
+                <input type="checkbox"
+                       value="<%= item.id %>"
+                       :checked="isSelected('<%= item.id %>')"
+                       @change="toggleSelect('<%= item.id %>')"
+                       class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4 h-4 mt-0.5 shrink-0">
+                <div class="min-w-0">
+                  <h3 class="font-bold text-sm text-slate-900 truncate"><%= item.employeeName %></h3>
+                  <p class="text-xs text-slate-500">NIP: <%= item.employeeNip %></p>
+                  <p class="text-[11px] text-indigo-600 font-medium truncate"><%= item.unitNama %></p>
+                </div>
               </div>
               <div class="shrink-0">
                 <% if (item.statusVerifikasi === 'APPROVED') { %>
@@ -800,6 +920,12 @@
         <table class="w-full text-left text-xs border-collapse table-auto min-w-[900px]">
           <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
             <tr>
+              <th class="w-10 px-3.5 py-3 text-center">
+                <input type="checkbox" 
+                       @click="toggleSelectAll(allArchiveItems)"
+                       :checked="isAllSelected(allArchiveItems)"
+                       class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4 h-4">
+              </th>
               <th class="px-3.5 py-3 w-[18%]">Pegawai & NIP</th>
               <th class="px-3 py-3 w-[14%]">Unit Kerja</th>
               <th class="px-2.5 py-3 text-center w-[8%]">Tgl</th>
@@ -808,12 +934,13 @@
               <th class="px-3 py-3 w-[18%]">Catatan Admin</th>
               <th class="px-2.5 py-3 text-center w-[10%]">Reviewer</th>
               <th class="px-2.5 py-3 text-center w-[11%]">Waktu</th>
+              <th class="px-2.5 py-3 text-right">Aksi</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-100">
             <% if (archiveList.length === 0) { %>
               <tr>
-                <td colspan="8" class="py-12 text-center text-slate-500">
+                <td colspan="10" class="py-12 text-center text-slate-500">
                   <i data-lucide="archive" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
                   <p class="font-bold text-sm text-slate-700">Belum ada riwayat verifikasi</p>
                 </td>
@@ -821,7 +948,14 @@
             <% } %>
 
             <% archiveList.forEach(function(item, aIdx) { %>
-              <tr class="hover:bg-slate-50/80 transition-colors">
+              <tr :class="isSelected('<%= item.id %>') ? 'bg-indigo-50/70 border-l-4 border-l-indigo-600' : 'hover:bg-slate-50/80'" class="transition-colors">
+                <td class="w-10 px-3.5 py-3 text-center align-middle">
+                  <input type="checkbox"
+                         value="<%= item.id %>"
+                         :checked="isSelected('<%= item.id %>')"
+                         @change="toggleSelect('<%= item.id %>')"
+                         class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4 h-4">
+                </td>
                 <td class="px-3.5 py-3 align-middle">
                   <div class="font-bold text-slate-900 text-xs leading-tight"><%= item.employeeName %></div>
                   <div class="text-[11px] text-slate-400 mt-0.5">NIP: <%= item.employeeNip %></div>
@@ -878,6 +1012,59 @@
 
     </div>
 
+  </div>
+
+  <!-- FLOATING BULK ACTION TOOLBAR -->
+  <div x-cloak
+       x-show="selectedIds.length > 0"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0 translate-y-6"
+       x-transition:enter-end="opacity-100 translate-y-0"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100 translate-y-0"
+       x-transition:leave-end="opacity-0 translate-y-6"
+       class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 backdrop-blur-md text-white px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl shadow-2xl border border-slate-700/80 flex items-center gap-2 sm:gap-4 max-w-[95vw] sm:max-w-xl">
+    
+    <div class="flex items-center gap-2 pr-2.5 border-r border-slate-700 shrink-0">
+      <span class="w-6 h-6 rounded-full bg-indigo-600 text-white font-black text-xs flex items-center justify-center" x-text="selectedIds.length"></span>
+      <span class="text-xs font-semibold whitespace-nowrap text-slate-200 hidden sm:inline">Data Terpilih</span>
+    </div>
+
+    <div class="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+      <!-- Multi Setujui (Only in pending tab) -->
+      <button type="button" 
+              x-show="activeTab === 'pending'"
+              @click="openBulkAction('approve')" 
+              class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-sm transition active:scale-95 cursor-pointer">
+        <i data-lucide="check" class="w-3.5 h-3.5"></i>
+        <span>Setujui</span>
+      </button>
+
+      <!-- Multi Tolak (Only in pending tab) -->
+      <button type="button" 
+              x-show="activeTab === 'pending'"
+              @click="openBulkAction('reject')" 
+              class="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-sm transition active:scale-95 cursor-pointer">
+        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+        <span>Tolak</span>
+      </button>
+
+      <!-- Multi Hapus (Both pending & history) -->
+      <button type="button" 
+              @click="openBulkAction('delete')" 
+              class="px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs inline-flex items-center gap-1.5 shadow-sm transition active:scale-95 cursor-pointer">
+        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+        <span>Hapus</span>
+      </button>
+
+      <!-- Batal Selection -->
+      <button type="button" 
+              @click="clearSelection()" 
+              class="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition cursor-pointer"
+              title="Batalkan Pilihan">
+        <i data-lucide="x" class="w-4 h-4"></i>
+      </button>
+    </div>
   </div>
 
   <!-- ALPINE.JS MODAL 1: APPROVE / REJECT CONFIRMATION -->
@@ -1039,6 +1226,127 @@
             Tutup
           </button>
         </div>
+
+      </div>
+    </div>
+  </template>
+
+  <!-- ALPINE.JS MODAL 4: BULK ACTION CONFIRMATION -->
+  <template x-teleport="body">
+    <div x-show="bulkActionModal" 
+         x-transition:enter="transition ease-out duration-200"
+         x-transition:enter-start="opacity-0"
+         x-transition:enter-end="opacity-100"
+         x-transition:leave="transition ease-in duration-150"
+         x-transition:leave-start="opacity-100"
+         x-transition:leave-end="opacity-0"
+         class="fixed inset-0 !m-0 !mt-0 modal-overlay z-modal overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4"
+         style="display: none; margin: 0 !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; z-index: 999999 !important;">
+      
+      <div @click.away="bulkActionModal = false"
+           class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-4">
+        
+        <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+          <div class="flex items-center gap-2.5">
+            <template x-if="bulkActionType === 'approve'">
+              <div class="p-2 rounded-xl bg-emerald-100 text-emerald-600">
+                <i data-lucide="check-check" class="w-5 h-5"></i>
+              </div>
+            </template>
+            <template x-if="bulkActionType === 'reject'">
+              <div class="p-2 rounded-xl bg-amber-100 text-amber-600">
+                <i data-lucide="x-circle" class="w-5 h-5"></i>
+              </div>
+            </template>
+            <template x-if="bulkActionType === 'delete'">
+              <div class="p-2 rounded-xl bg-rose-100 text-rose-600">
+                <i data-lucide="trash-2" class="w-5 h-5"></i>
+              </div>
+            </template>
+            <div>
+              <h3 class="font-bold text-base text-slate-900" 
+                  x-text="bulkActionType === 'approve' ? 'Setujui Klarifikasi Sekaligus' : (bulkActionType === 'reject' ? 'Tolak Klarifikasi Sekaligus' : 'Hapus Klarifikasi Sekaligus')"></h3>
+              <p class="text-xs text-slate-500 font-medium">
+                <span class="font-bold text-indigo-600" x-text="selectedIds.length"></span> permohonan dipilih
+              </p>
+            </div>
+          </div>
+          <button @click="bulkActionModal = false" class="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 transition">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
+
+        <form :action="bulkActionUrl" method="POST" class="space-y-4">
+          <!-- Hidden inputs for each selected id -->
+          <template x-for="id in selectedIds" :key="id">
+            <input type="hidden" name="ids" :value="id">
+          </template>
+          <input type="hidden" name="tab" :value="activeTab">
+
+          <!-- Notice banner -->
+          <template x-if="bulkActionType === 'approve'">
+            <div class="p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl text-emerald-800 text-xs leading-relaxed space-y-1">
+              <p class="font-bold">Konfirmasi Persetujuan Massal:</p>
+              <p>Seluruh <span class="font-bold" x-text="selectedIds.length"></span> klarifikasi absensi yang dipilih akan disetujui, dan tabel rekap absensi otomatis disesuaikan dengan status pengganti masing-masing.</p>
+            </div>
+          </template>
+
+          <template x-if="bulkActionType === 'reject'">
+            <div class="p-3.5 bg-amber-50 border border-amber-200 rounded-2xl text-amber-800 text-xs leading-relaxed space-y-1">
+              <p class="font-bold">Konfirmasi Penolakan Massal:</p>
+              <p>Seluruh <span class="font-bold" x-text="selectedIds.length"></span> klarifikasi absensi yang dipilih akan ditolak dan dipindahkan ke Riwayat Arsip. Status kehadiran pegawai tidak akan diubah.</p>
+            </div>
+          </template>
+
+          <template x-if="bulkActionType === 'delete'">
+            <div class="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs leading-relaxed space-y-1">
+              <p class="font-bold">Peringatan Penghapusan Massal:</p>
+              <p>Seluruh <span class="font-bold" x-text="selectedIds.length"></span> klarifikasi yang dipilih dan file berkas lampirannya akan dihapus permanen. Jika sebelumnya pernah disetujui, status absensi pegawai otomatis dikembalikan ke status semula.</p>
+            </div>
+          </template>
+
+          <!-- Catatan Admin (for approve & reject) -->
+          <template x-if="bulkActionType === 'approve' || bulkActionType === 'reject'">
+            <div>
+              <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">
+                <span x-text="bulkActionType === 'approve' ? 'Catatan Persetujuan (Opsional)' : 'Alasan Penolakan (Wajib)'"></span>
+              </label>
+              <textarea name="catatanAdmin" rows="2" x-model="bulkCatatanAdmin" :required="bulkActionType === 'reject'" class="form-input text-xs w-full"></textarea>
+            </div>
+          </template>
+
+          <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+            <button type="button" @click="bulkActionModal = false" class="btn-secondary py-2 px-3.5 text-xs font-semibold">
+              Batal
+            </button>
+            <button type="submit" 
+                    :class="{
+                      'bg-emerald-600 hover:bg-emerald-700 text-white': bulkActionType === 'approve',
+                      'bg-amber-600 hover:bg-amber-700 text-white': bulkActionType === 'reject',
+                      'bg-rose-600 hover:bg-rose-700 text-white': bulkActionType === 'delete'
+                    }"
+                    class="py-2 px-4 rounded-xl text-xs font-bold shadow-sm transition active:scale-95 flex items-center gap-1.5 cursor-pointer">
+              <template x-if="bulkActionType === 'approve'">
+                <span class="inline-flex items-center gap-1">
+                  <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                  <span x-text="'Ya, Setujui ' + selectedIds.length + ' Data'"></span>
+                </span>
+              </template>
+              <template x-if="bulkActionType === 'reject'">
+                <span class="inline-flex items-center gap-1">
+                  <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                  <span x-text="'Ya, Tolak ' + selectedIds.length + ' Data'"></span>
+                </span>
+              </template>
+              <template x-if="bulkActionType === 'delete'">
+                <span class="inline-flex items-center gap-1">
+                  <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                  <span x-text="'Ya, Hapus ' + selectedIds.length + ' Data'"></span>
+                </span>
+              </template>
+            </button>
+          </div>
+        </form>
 
       </div>
     </div>
