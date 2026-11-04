@@ -19,6 +19,68 @@
         filterUnit: '<%= filterUnit %>',
         filterStatus: '<%= filterStatus %>',
         search: '<%= search ? search.replace(/'/g, "\\'") : '' %>',
+        pendingSortCol: '<%= (activeTab === "pending" && typeof sortBy !== "undefined" && sortBy) ? sortBy : "" %>',
+        pendingSortDir: '<%= (activeTab === "pending" && typeof sortOrder !== "undefined" && sortOrder) ? sortOrder : "asc" %>',
+        archiveSortCol: '<%= (activeTab === "history" && typeof sortBy !== "undefined" && sortBy) ? sortBy : "waktu" %>',
+        archiveSortDir: '<%= (activeTab === "history" && typeof sortOrder !== "undefined" && sortOrder) ? sortOrder : "desc" %>',
+        sortColumn(tab, col) {
+          if (tab === 'pending') {
+            if (this.pendingSortCol === col) {
+              this.pendingSortDir = this.pendingSortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+              this.pendingSortCol = col;
+              this.pendingSortDir = (col === 'waktu' || col === 'createdAtRaw') ? 'desc' : 'asc';
+            }
+            this.sortPendingTable();
+            this.updateUrlSortParams();
+            this.$nextTick(() => {
+              if (window.lucide) lucide.createIcons();
+            });
+          } else {
+            let nextDir = 'asc';
+            if (this.archiveSortCol === col) {
+              nextDir = this.archiveSortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+              nextDir = (col === 'waktu' || col === 'reviewedAt' || col === 'nilai') ? 'desc' : 'asc';
+            }
+            const params = new URLSearchParams(window.location.search);
+            params.set('tab', 'history');
+            params.set('sortBy', col);
+            params.set('sortOrder', nextDir);
+            params.set('page', '1');
+            window.location.href = '/admin/ekinerja-review?' + params.toString();
+          }
+        },
+        sortPendingTable() {
+          const tbody = document.getElementById('table-pending-body');
+          if (!tbody) return;
+          const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+          if (rows.length === 0) return;
+          const dir = this.pendingSortDir === 'desc' ? -1 : 1;
+          const col = this.pendingSortCol;
+
+          rows.sort((a, b) => {
+            let valA = a.dataset[col] || '';
+            let valB = b.dataset[col] || '';
+            if (col === 'waktu' || col === 'createdAtRaw') {
+              return dir * ((Number(valA) || 0) - (Number(valB) || 0));
+            }
+            return dir * valA.localeCompare(valB, 'id', { numeric: true, sensitivity: 'base' });
+          });
+
+          rows.forEach(r => tbody.appendChild(r));
+        },
+        updateUrlSortParams() {
+          const url = new URL(window.location.href);
+          url.searchParams.set('tab', this.activeTab);
+          const col = this.activeTab === 'pending' ? this.pendingSortCol : this.archiveSortCol;
+          const dir = this.activeTab === 'pending' ? this.pendingSortDir : this.archiveSortDir;
+          if (col) {
+            url.searchParams.set('sortBy', col);
+            url.searchParams.set('sortOrder', dir);
+          }
+          window.history.replaceState({}, '', url.toString());
+        },
         allPendingItems: window.ekinerjaPendingData || [],
         allArchiveItems: window.ekinerjaArchiveData || [],
         mobilePendingPage: 1,
@@ -92,6 +154,12 @@
             const defLim = (this.filterUnit && this.filterUnit !== 'unit-all') ? 'all' : '50';
             if ('<%= pagination.limit %>' && '<%= pagination.limit %>' !== defLim) params.set('limit', '<%= pagination.limit %>');
           <% } %>
+          const activeSortCol = this.activeTab === 'pending' ? this.pendingSortCol : this.archiveSortCol;
+          const activeSortDir = this.activeTab === 'pending' ? this.pendingSortDir : this.archiveSortDir;
+          if (activeSortCol) {
+            params.set('sortBy', activeSortCol);
+            params.set('sortOrder', activeSortDir);
+          }
           return '/admin/ekinerja-review/' + this.selectedReport.id + '/delete?' + params.toString();
         },
 
@@ -167,6 +235,13 @@
             if ('<%= pagination.limit %>' && '<%= pagination.limit %>' !== defLim) params.set('limit', '<%= pagination.limit %>');
           <% } %>
 
+          const activeSortCol = this.activeTab === 'pending' ? this.pendingSortCol : this.archiveSortCol;
+          const activeSortDir = this.activeTab === 'pending' ? this.pendingSortDir : this.archiveSortDir;
+          if (activeSortCol) {
+            params.set('sortBy', activeSortCol);
+            params.set('sortOrder', activeSortDir);
+          }
+
           form.action = '/admin/ekinerja-review/' + this.selectedReport.id + '/review?' + params.toString();
           const statusEl = form.querySelector('input[name=statusReview]');
           if (statusEl) statusEl.value = this.reviewAction === 'approve' ? 'APPROVED' : 'REJECTED';
@@ -209,6 +284,10 @@
     <div class="bg-slate-50/80 p-3.5 sm:p-4 rounded-2xl border border-slate-200/80 w-full overflow-visible">
       <form action="/admin/ekinerja-review" method="GET" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 items-end w-full">
         <input type="hidden" name="tab" :value="activeTab">
+        <% if (typeof sortBy !== 'undefined' && sortBy) { %>
+          <input type="hidden" name="sortBy" value="<%= sortBy %>">
+          <input type="hidden" name="sortOrder" value="<%= sortOrder %>">
+        <% } %>
         <% const defaultFilterLimit = (filterUnit && filterUnit !== 'unit-all') ? 'all' : '50'; %>
         <% if (typeof pagination !== 'undefined' && pagination && String(pagination.limit) !== String(defaultFilterLimit)) { %>
           <input type="hidden" name="limit" value="<%= pagination.limit %>">
@@ -553,15 +632,75 @@
         <table class="w-full text-left text-xs border-collapse table-auto">
           <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
             <tr>
-              <th class="px-3.5 py-3 w-[22%]">Pegawai & NIP</th>
-              <th class="px-3 py-3 w-[16%]">Unit Kerja</th>
-              <th class="px-2.5 py-3 text-center w-[9%]">Periode</th>
+              <th class="px-3.5 py-3 w-[22%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('pending', 'nama')">
+                <div class="inline-flex items-center gap-1.5">
+                  <span>Pegawai & NIP</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="pendingSortCol === 'nama'">
+                      <span>
+                        <i x-show="pendingSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="pendingSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="pendingSortCol !== 'nama'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-3 py-3 w-[16%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('pending', 'unit')">
+                <div class="inline-flex items-center gap-1.5">
+                  <span>Unit Kerja</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="pendingSortCol === 'unit'">
+                      <span>
+                        <i x-show="pendingSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="pendingSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="pendingSortCol !== 'unit'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-2.5 py-3 text-center w-[9%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('pending', 'periode')">
+                <div class="inline-flex items-center justify-center gap-1.5">
+                  <span>Periode</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="pendingSortCol === 'periode'">
+                      <span>
+                        <i x-show="pendingSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="pendingSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="pendingSortCol !== 'periode'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
               <th class="px-3 py-3 text-center w-[20%]">Dokumen Laporan</th>
-              <th class="px-2.5 py-3 text-center w-[12%]">Waktu Kirim</th>
+              <th class="px-2.5 py-3 text-center w-[12%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('pending', 'waktu')">
+                <div class="inline-flex items-center justify-center gap-1.5">
+                  <span>Waktu Kirim</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="pendingSortCol === 'waktu' || pendingSortCol === 'createdAt'">
+                      <span>
+                        <i x-show="pendingSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="pendingSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="pendingSortCol !== 'waktu' && pendingSortCol !== 'createdAt'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
               <th class="px-3.5 py-3 text-right w-[21%]">Aksi</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100">
+          <tbody id="table-pending-body" class="divide-y divide-slate-100">
             <% if (pendingList.length === 0) { %>
               <tr>
                 <td colspan="6" class="py-12 text-center text-slate-500">
@@ -572,7 +711,12 @@
             <% } %>
 
             <% pendingList.forEach(function(item, idx) { %>
-              <tr class="hover:bg-amber-50/30 transition-colors">
+              <tr class="hover:bg-amber-50/30 transition-colors"
+                  data-id="<%= item.id %>"
+                  data-nama="<%= (item.employee.nama || '').toLowerCase() %>"
+                  data-unit="<%= (item.employee.unitNama || '').toLowerCase() %>"
+                  data-periode="<%= String(item.tahun) + String(item.bulan).padStart(2, '0') %>"
+                  data-waktu="<%= item.createdAtRaw || 0 %>">
                 <td class="px-3.5 py-3 align-middle">
                   <div class="font-bold text-slate-900 text-xs leading-tight"><%= item.employee.nama %></div>
                   <div class="text-[11px] text-slate-400 mt-0.5">NIP: <%= item.employee.nip %></div>
@@ -741,17 +885,107 @@
         <table class="w-full text-left text-xs border-collapse table-auto">
           <thead class="bg-slate-100/80 text-slate-700 uppercase font-bold text-[10px] tracking-wider border-b border-slate-200">
             <tr>
-              <th class="px-3.5 py-3 w-[20%]">Pegawai & NIP</th>
-              <th class="px-3 py-3 w-[15%]">Unit Kerja</th>
-              <th class="px-2.5 py-3 text-center w-[8%]">Periode</th>
-              <th class="px-2.5 py-3 text-center w-[9%]">Status</th>
+              <th class="px-3.5 py-3 w-[20%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('history', 'nama')">
+                <div class="inline-flex items-center gap-1.5">
+                  <span>Pegawai & NIP</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="archiveSortCol === 'nama'">
+                      <span>
+                        <i x-show="archiveSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="archiveSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="archiveSortCol !== 'nama'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-3 py-3 w-[15%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('history', 'unit')">
+                <div class="inline-flex items-center gap-1.5">
+                  <span>Unit Kerja</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="archiveSortCol === 'unit'">
+                      <span>
+                        <i x-show="archiveSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="archiveSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="archiveSortCol !== 'unit'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-2.5 py-3 text-center w-[8%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('history', 'periode')">
+                <div class="inline-flex items-center justify-center gap-1.5">
+                  <span>Periode</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="archiveSortCol === 'periode'">
+                      <span>
+                        <i x-show="archiveSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="archiveSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="archiveSortCol !== 'periode'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-2.5 py-3 text-center w-[9%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('history', 'status')">
+                <div class="inline-flex items-center justify-center gap-1.5">
+                  <span>Status</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="archiveSortCol === 'status'">
+                      <span>
+                        <i x-show="archiveSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="archiveSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="archiveSortCol !== 'status'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
               <th class="px-3 py-3 text-center w-[16%]">Dokumen</th>
-              <th class="px-2.5 py-3 text-center w-[11%]">Nilai</th>
-              <th class="px-2.5 py-3 text-center w-[12%]">Reviewer</th>
+              <th class="px-2.5 py-3 text-center w-[11%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('history', 'nilai')">
+                <div class="inline-flex items-center justify-center gap-1.5">
+                  <span>Nilai</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="archiveSortCol === 'nilai'">
+                      <span>
+                        <i x-show="archiveSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="archiveSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="archiveSortCol !== 'nilai'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-2.5 py-3 text-center w-[12%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('history', 'reviewer')">
+                <div class="inline-flex items-center justify-center gap-1.5">
+                  <span>Reviewer</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="archiveSortCol === 'reviewer' || archiveSortCol === 'waktu'">
+                      <span>
+                        <i x-show="archiveSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="archiveSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="archiveSortCol !== 'reviewer' && archiveSortCol !== 'waktu'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
               <th class="px-3 py-3 text-right w-[9%]">Aksi</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100">
+          <tbody id="table-archive-body" class="divide-y divide-slate-100">
             <% if (archiveList.length === 0) { %>
               <tr>
                 <td colspan="8" class="py-12 text-center text-slate-500">
@@ -762,7 +996,15 @@
             <% } %>
 
             <% archiveList.forEach(function(item, aIdx) { %>
-              <tr class="hover:bg-slate-50/80 transition-colors">
+              <tr class="hover:bg-slate-50/80 transition-colors"
+                  data-id="<%= item.id %>"
+                  data-nama="<%= (item.employee.nama || '').toLowerCase() %>"
+                  data-unit="<%= (item.employee.unitNama || '').toLowerCase() %>"
+                  data-periode="<%= String(item.tahun) + String(item.bulan).padStart(2, '0') %>"
+                  data-status="<%= item.statusReview || '' %>"
+                  data-nilai="<%= (item.nilaiBulanan !== undefined ? item.nilaiBulanan : 0) + (item.nilaiHarian !== undefined ? item.nilaiHarian : 0) %>"
+                  data-reviewer="<%= (item.reviewedBy || '').toLowerCase() %>"
+                  data-waktu="<%= item.reviewedAtRaw || 0 %>">
                 <td class="px-3.5 py-3 align-middle">
                   <div class="font-bold text-slate-900 text-xs leading-tight"><%= item.employee.nama %></div>
                   <div class="text-[11px] text-slate-400 mt-0.5">NIP: <%= item.employee.nip %></div>
@@ -853,6 +1095,8 @@
           if (filterUnit && filterUnit !== 'unit-all') params.set('unit', filterUnit);
           if (filterStatus && filterStatus !== 'ALL') params.set('status', filterStatus);
           if (search) params.set('search', search);
+          if (typeof sortBy !== 'undefined' && sortBy) params.set('sortBy', sortBy);
+          if (typeof sortOrder !== 'undefined' && sortOrder) params.set('sortOrder', sortOrder);
           if (pagination.limit && String(pagination.limit) !== String(defaultLimit)) params.set('limit', pagination.limit);
           params.set('page', p);
           return '/admin/ekinerja-review?' + params.toString();
@@ -864,6 +1108,8 @@
           if (filterUnit && filterUnit !== 'unit-all') params.set('unit', filterUnit);
           if (filterStatus && filterStatus !== 'ALL') params.set('status', filterStatus);
           if (search) params.set('search', search);
+          if (typeof sortBy !== 'undefined' && sortBy) params.set('sortBy', sortBy);
+          if (typeof sortOrder !== 'undefined' && sortOrder) params.set('sortOrder', sortOrder);
           if (String(lim) !== String(defaultLimit)) {
             params.set('limit', lim);
           }

@@ -28,6 +28,8 @@ const buildRedirectUrl = (req: Request, defaultTab = 'pending') => {
   const search = (req.query.search as string) || '';
   const page = (req.query.page as string) || '';
   const limit = (req.query.limit as string) || '';
+  const sortBy = (req.query.sortBy as string) || '';
+  const sortOrder = (req.query.sortOrder as string) || '';
 
   const params = new URLSearchParams();
   params.set('tab', tab);
@@ -37,6 +39,8 @@ const buildRedirectUrl = (req: Request, defaultTab = 'pending') => {
   if (page && page !== '1') params.set('page', page);
   const defaultLimit = (unit && unit !== 'unit-all') ? 'all' : '50';
   if (limit && limit !== defaultLimit) params.set('limit', limit);
+  if (sortBy) params.set('sortBy', sortBy);
+  if (sortOrder) params.set('sortOrder', sortOrder);
 
   return `/admin/ekinerja-review?${params.toString()}`;
 };
@@ -48,6 +52,8 @@ export const ekinerjaReviewController = {
       const filterStatus = (req.query.status as string) || 'ALL';
       const search = ((req.query.search as string) || '').trim();
       let activeTab = (req.query.tab as string) || 'pending';
+      const sortBy = ((req.query.sortBy as string) || '').trim();
+      const sortOrder = ((req.query.sortOrder as string) || '').toLowerCase() === 'asc' ? 'asc' : 'desc';
 
       // Auto-switch tab based on review status filter
       if (filterStatus === 'APPROVED' || filterStatus === 'REJECTED') {
@@ -157,12 +163,45 @@ export const ekinerjaReviewController = {
         }
       };
 
+      // Dynamic order by for pending & archive
+      let pendingOrderBy: any = { createdAt: 'asc' };
+      if (activeTab === 'pending' || !req.query.tab) {
+        if (sortBy === 'nama') {
+          pendingOrderBy = { employee: { nama: sortOrder } };
+        } else if (sortBy === 'unit') {
+          pendingOrderBy = { employee: { unit: { namaUnit: sortOrder } } };
+        } else if (sortBy === 'periode') {
+          pendingOrderBy = [{ tahun: sortOrder }, { bulan: sortOrder }];
+        } else if (sortBy === 'waktu' || sortBy === 'createdAt') {
+          pendingOrderBy = { createdAt: sortOrder };
+        }
+      }
+
+      let archiveOrderBy: any = [{ updatedAt: 'desc' }, { createdAt: 'desc' }];
+      if (sortBy) {
+        if (sortBy === 'nama') {
+          archiveOrderBy = [{ employee: { nama: sortOrder } }, { updatedAt: 'desc' }];
+        } else if (sortBy === 'unit') {
+          archiveOrderBy = [{ employee: { unit: { namaUnit: sortOrder } } }, { updatedAt: 'desc' }];
+        } else if (sortBy === 'periode') {
+          archiveOrderBy = [{ tahun: sortOrder }, { bulan: sortOrder }, { updatedAt: 'desc' }];
+        } else if (sortBy === 'status') {
+          archiveOrderBy = [{ statusReview: sortOrder }, { updatedAt: 'desc' }];
+        } else if (sortBy === 'nilai') {
+          archiveOrderBy = [{ nilaiBulanan: sortOrder }, { nilaiHarian: sortOrder }, { updatedAt: 'desc' }];
+        } else if (sortBy === 'reviewer') {
+          archiveOrderBy = [{ reviewedBy: sortOrder }, { updatedAt: sortOrder }];
+        } else if (sortBy === 'waktu' || sortBy === 'reviewedAt') {
+          archiveOrderBy = [{ updatedAt: sortOrder }, { createdAt: sortOrder }];
+        }
+      }
+
       // Step 2: Fetch pending reports and paginated archive reports concurrently
       const pendingPromise = (filterStatus === 'ALL' || filterStatus === 'PENDING') && pendingCount > 0
         ? prisma.ekinerjaReport.findMany({
             where: { ...whereBase, statusReview: 'PENDING' },
             select: reportSelect,
-            orderBy: { createdAt: 'asc' }
+            orderBy: pendingOrderBy
           })
         : Promise.resolve([]);
 
@@ -177,10 +216,7 @@ export const ekinerjaReviewController = {
         ? prisma.ekinerjaReport.findMany({
             where: archiveWhere,
             select: reportSelect,
-            orderBy: [
-              { updatedAt: 'desc' },
-              { createdAt: 'desc' }
-            ],
+            orderBy: archiveOrderBy,
             take: isAllLimit ? undefined : limit,
             skip: isAllLimit ? undefined : (page - 1) * limit
           })
@@ -215,6 +251,8 @@ export const ekinerjaReviewController = {
         reviewedBy: item.reviewedBy,
         reviewedAt: formatWIB(item.reviewedAt),
         submittedAt: formatWIB(item.createdAt),
+        createdAtRaw: item.createdAt ? new Date(item.createdAt).getTime() : 0,
+        reviewedAtRaw: item.updatedAt ? new Date(item.updatedAt).getTime() : 0,
         updatedAtTimestamp: item.updatedAt ? new Date(item.updatedAt).getTime() : Date.now()
       });
 
@@ -259,6 +297,8 @@ export const ekinerjaReviewController = {
         approvedCount,
         rejectedCount,
         pagination,
+        sortBy,
+        sortOrder,
         toast,
         user: (req as any).session?.user || { role: 'SUPER_ADMIN', namaLengkap: 'Administrator Utama' }
       });

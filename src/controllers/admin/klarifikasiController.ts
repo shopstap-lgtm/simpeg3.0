@@ -185,6 +185,8 @@ export const klarifikasiController = {
       const filterStatus = (req.query.status as string) || (req.query.historyStatus as string) || 'ALL';
       const search = ((req.query.search as string) || '').trim();
       let activeTab = (req.query.tab as string) || 'pending';
+      const sortBy = (req.query.sortBy as string) || '';
+      const sortOrder = ((req.query.sortOrder as string) || '').toLowerCase() === 'desc' ? 'desc' : 'asc';
 
       // Auto-switch tab based on review status filter
       if (filterStatus === 'APPROVED' || filterStatus === 'REJECTED') {
@@ -218,24 +220,30 @@ export const klarifikasiController = {
         })
       ]);
 
-      const formatted = allClarifications.map(c => ({
-        id: c.id,
-        employeeId: c.employeeId,
-        employeeName: c.employee.nama,
-        employeeNip: c.employee.nip,
-        unitNama: c.employee.unit.namaUnit,
-        tanggalAbsen: c.tanggalAbsen,
-        statusAwal: c.statusAwal,
-        statusPengganti: c.statusPengganti,
-        alasan: c.alasan,
-        fileUrl: c.fileUrl,
-        fileName: c.fileName,
-        statusVerifikasi: c.statusVerifikasi,
-        catatanAdmin: c.catatanAdmin,
-        reviewedBy: c.reviewedBy,
-        reviewedAt: formatWIB(c.reviewedAt),
-        createdAt: formatWIB(c.createdAt)
-      }));
+      const formatted = allClarifications.map(c => {
+        const cTime = c.createdAt ? new Date(c.createdAt).getTime() : 0;
+        const rTime = c.updatedAt ? new Date(c.updatedAt).getTime() : 0;
+        return {
+          id: c.id,
+          employeeId: c.employeeId,
+          employeeName: c.employee.nama,
+          employeeNip: c.employee.nip,
+          unitNama: c.employee.unit.namaUnit,
+          tanggalAbsen: c.tanggalAbsen,
+          statusAwal: c.statusAwal,
+          statusPengganti: c.statusPengganti,
+          alasan: c.alasan,
+          fileUrl: c.fileUrl,
+          fileName: c.fileName,
+          statusVerifikasi: c.statusVerifikasi,
+          catatanAdmin: c.catatanAdmin,
+          reviewedBy: c.reviewedBy,
+          reviewedAt: c.reviewedAt || (c.statusVerifikasi !== 'PENDING' ? formatWIB(c.updatedAt) : null),
+          reviewedAtRaw: rTime,
+          createdAt: formatWIB(c.createdAt),
+          createdAtRaw: cTime
+        };
+      });
 
       // Total counters matching unit & search
       const pendingCount = formatted.filter(c => c.statusVerifikasi === 'PENDING').length;
@@ -246,6 +254,9 @@ export const klarifikasiController = {
       let pendingList = formatted.filter(c => c.statusVerifikasi === 'PENDING');
       let archiveList = formatted.filter(c => c.statusVerifikasi !== 'PENDING');
 
+      // Riwayat dan Arsip: sort default adalah yang terakhir di-review (reviewedAt desc)
+      archiveList.sort((a, b) => b.reviewedAtRaw - a.reviewedAtRaw);
+
       if (filterStatus === 'APPROVED') {
         archiveList = archiveList.filter(c => c.statusVerifikasi === 'APPROVED');
         pendingList = [];
@@ -254,6 +265,57 @@ export const klarifikasiController = {
         pendingList = [];
       } else if (filterStatus === 'PENDING') {
         archiveList = [];
+      }
+
+      // Helper sorting jika parameter sortBy aktif
+      const applySorting = (list: any[], col: string, order: string) => {
+        const dir = order === 'desc' ? -1 : 1;
+        return list.slice().sort((a, b) => {
+          if (col === 'nama') {
+            return dir * (a.employeeName || '').localeCompare(b.employeeName || '', 'id');
+          }
+          if (col === 'nip') {
+            return dir * (a.employeeNip || '').localeCompare(b.employeeNip || '');
+          }
+          if (col === 'unit') {
+            return dir * (a.unitNama || '').localeCompare(b.unitNama || '', 'id');
+          }
+          if (col === 'tanggal') {
+            return dir * (a.tanggalAbsen || '').localeCompare(b.tanggalAbsen || '');
+          }
+          if (col === 'waktu' || col === 'createdAt') {
+            return dir * (a.createdAtRaw - b.createdAtRaw);
+          }
+          if (col === 'perubahan' || col === 'status') {
+            const strA = `${a.statusAwal}-${a.statusPengganti}`;
+            const strB = `${b.statusAwal}-${b.statusPengganti}`;
+            return dir * strA.localeCompare(strB);
+          }
+          if (col === 'alasan') {
+            return dir * (a.alasan || '').localeCompare(b.alasan || '', 'id');
+          }
+          if (col === 'keputusan' || col === 'statusVerifikasi') {
+            return dir * (a.statusVerifikasi || '').localeCompare(b.statusVerifikasi || '');
+          }
+          if (col === 'catatan') {
+            return dir * (a.catatanAdmin || '').localeCompare(b.catatanAdmin || '', 'id');
+          }
+          if (col === 'reviewer') {
+            return dir * (a.reviewedBy || '').localeCompare(b.reviewedBy || '', 'id');
+          }
+          if (col === 'reviewedAt' || col === 'waktuReview') {
+            return dir * (a.reviewedAtRaw - b.reviewedAtRaw);
+          }
+          return 0;
+        });
+      };
+
+      if (sortBy) {
+        if (activeTab === 'pending') {
+          pendingList = applySorting(pendingList, sortBy, sortOrder);
+        } else if (activeTab === 'history') {
+          archiveList = applySorting(archiveList, sortBy, sortOrder);
+        }
       }
 
       const units = [
@@ -281,6 +343,8 @@ export const klarifikasiController = {
         approvedCount,
         rejectedCount,
         toast,
+        sortBy,
+        sortOrder,
         user: (req as any).session?.user || { role: 'SUPER_ADMIN', namaLengkap: 'Administrator Utama' }
       });
     } catch (error) {

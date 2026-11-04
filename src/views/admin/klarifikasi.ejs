@@ -31,6 +31,10 @@
         excelFileList: [],
         allPendingItems: (window.klarifikasiPendingData || []),
         allArchiveItems: (window.klarifikasiArchiveData || []),
+        pendingSortCol: '<%= typeof sortBy !== "undefined" && sortBy ? sortBy : "waktu" %>',
+        pendingSortDir: '<%= typeof sortOrder !== "undefined" && sortOrder ? sortOrder : "asc" %>',
+        archiveSortCol: '<%= typeof sortBy !== "undefined" && sortBy ? sortBy : "reviewedAt" %>',
+        archiveSortDir: '<%= typeof sortOrder !== "undefined" && sortOrder ? sortOrder : "desc" %>',
         mobilePendingPage: 1,
         mobilePendingPerPage: 10,
         get totalPendingCount() {
@@ -139,6 +143,78 @@
             this.mobileArchivePage = p;
             this.scrollMobileToTop('mobile-archive-list');
           }
+        },
+        sortColumn(tab, col) {
+          if (tab === 'pending') {
+            if (this.pendingSortCol === col) {
+              this.pendingSortDir = this.pendingSortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+              this.pendingSortCol = col;
+              this.pendingSortDir = (col === 'waktu' || col === 'createdAt') ? 'desc' : 'asc';
+            }
+            this.sortPendingTable();
+          } else {
+            if (this.archiveSortCol === col) {
+              this.archiveSortDir = this.archiveSortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+              this.archiveSortCol = col;
+              this.archiveSortDir = (col === 'reviewedAt' || col === 'waktu') ? 'desc' : 'asc';
+            }
+            this.sortArchiveTable();
+          }
+          this.updateUrlSortParams();
+          this.$nextTick(() => {
+            if (window.lucide) lucide.createIcons();
+          });
+        },
+        sortPendingTable() {
+          const tbody = document.getElementById('table-pending-body');
+          if (!tbody) return;
+          const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+          if (rows.length === 0) return;
+          const dir = this.pendingSortDir === 'desc' ? -1 : 1;
+          const col = this.pendingSortCol;
+
+          rows.sort((a, b) => {
+            let valA = a.dataset[col] || '';
+            let valB = b.dataset[col] || '';
+            if (col === 'waktu' || col === 'createdAtRaw') {
+              return dir * ((Number(valA) || 0) - (Number(valB) || 0));
+            }
+            return dir * valA.localeCompare(valB, 'id', { numeric: true, sensitivity: 'base' });
+          });
+
+          rows.forEach(r => tbody.appendChild(r));
+        },
+        sortArchiveTable() {
+          const tbody = document.getElementById('table-archive-body');
+          if (!tbody) return;
+          const rows = Array.from(tbody.querySelectorAll('tr[data-id]'));
+          if (rows.length === 0) return;
+          const dir = this.archiveSortDir === 'desc' ? -1 : 1;
+          const col = this.archiveSortCol;
+
+          rows.sort((a, b) => {
+            let valA = a.dataset[col] || '';
+            let valB = b.dataset[col] || '';
+            if (col === 'reviewedAt' || col === 'reviewedAtRaw' || col === 'waktu') {
+              return dir * ((Number(valA) || 0) - (Number(valB) || 0));
+            }
+            return dir * valA.localeCompare(valB, 'id', { numeric: true, sensitivity: 'base' });
+          });
+
+          rows.forEach(r => tbody.appendChild(r));
+        },
+        updateUrlSortParams() {
+          const url = new URL(window.location.href);
+          url.searchParams.set('tab', this.activeTab);
+          const col = this.activeTab === 'pending' ? this.pendingSortCol : this.archiveSortCol;
+          const dir = this.activeTab === 'pending' ? this.pendingSortDir : this.archiveSortDir;
+          if (col) {
+            url.searchParams.set('sortBy', col);
+            url.searchParams.set('sortOrder', dir);
+          }
+          window.history.replaceState({}, '', url.toString());
         },
         get actionUrl() {
           if (!this.selectedItem) return '#';
@@ -654,17 +730,107 @@
                        :checked="isAllSelected(allPendingItems)"
                        class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4 h-4">
               </th>
-              <th class="px-3.5 py-3 w-[17%] min-w-[150px]">Pegawai & NIP</th>
-              <th class="px-3 py-3 w-[13%] min-w-[120px]">Unit Kerja</th>
-              <th class="px-2.5 py-3 text-center w-[8%] min-w-[80px]">Tgl Absen</th>
-              <th class="px-2.5 py-3 text-center w-[9%] min-w-[85px]">Waktu Kirim</th>
-              <th class="px-2.5 py-3 text-center w-[11%] min-w-[105px]">Perubahan Status</th>
-              <th class="px-3 py-3 w-[18%] min-w-[140px]">Alasan Pegawai</th>
+              <th class="px-3.5 py-3 w-[17%] min-w-[150px] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('pending', 'nama')">
+                <div class="inline-flex items-center gap-1.5">
+                  <span>Pegawai & NIP</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="pendingSortCol === 'nama'">
+                      <span>
+                        <i x-show="pendingSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="pendingSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="pendingSortCol !== 'nama'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-3 py-3 w-[13%] min-w-[120px] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('pending', 'unit')">
+                <div class="inline-flex items-center gap-1.5">
+                  <span>Unit Kerja</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="pendingSortCol === 'unit'">
+                      <span>
+                        <i x-show="pendingSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="pendingSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="pendingSortCol !== 'unit'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-2.5 py-3 text-center w-[8%] min-w-[80px] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('pending', 'tanggal')">
+                <div class="inline-flex items-center justify-center gap-1.5 w-full">
+                  <span>Tgl Absen</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="pendingSortCol === 'tanggal'">
+                      <span>
+                        <i x-show="pendingSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="pendingSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="pendingSortCol !== 'tanggal'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-2.5 py-3 text-center w-[9%] min-w-[85px] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('pending', 'waktu')">
+                <div class="inline-flex items-center justify-center gap-1.5 w-full">
+                  <span>Waktu Kirim</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="pendingSortCol === 'waktu'">
+                      <span>
+                        <i x-show="pendingSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="pendingSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="pendingSortCol !== 'waktu'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-2.5 py-3 text-center w-[11%] min-w-[105px] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('pending', 'perubahan')">
+                <div class="inline-flex items-center justify-center gap-1.5 w-full">
+                  <span>Perubahan Status</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="pendingSortCol === 'perubahan'">
+                      <span>
+                        <i x-show="pendingSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="pendingSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="pendingSortCol !== 'perubahan'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-3 py-3 w-[18%] min-w-[140px] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('pending', 'alasan')">
+                <div class="inline-flex items-center gap-1.5">
+                  <span>Alasan Pegawai</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="pendingSortCol === 'alasan'">
+                      <span>
+                        <i x-show="pendingSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="pendingSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="pendingSortCol !== 'alasan'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
               <th class="px-2.5 py-3 text-center w-[6%] min-w-[65px]">Bukti</th>
               <th class="px-3 py-3 text-right w-[18%] min-w-[175px]">Aksi</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100">
+          <tbody id="table-pending-body" class="divide-y divide-slate-100">
             <% if (pendingList.length === 0) { %>
               <tr>
                 <td colspan="9" class="py-12 text-center text-slate-500">
@@ -675,7 +841,14 @@
             <% } %>
 
             <% pendingList.forEach(function(item, idx) { %>
-              <tr :class="isSelected('<%= item.id %>') ? 'bg-indigo-50/70 border-l-4 border-l-indigo-600' : 'hover:bg-amber-50/30'" class="transition-colors">
+              <tr data-id="<%= item.id %>"
+                  data-nama="<%= item.employeeName %>"
+                  data-unit="<%= item.unitNama %>"
+                  data-tanggal="<%= item.tanggalAbsen %>"
+                  data-waktu="<%= item.createdAtRaw %>"
+                  data-perubahan="<%= item.statusAwal %>-<%= item.statusPengganti %>"
+                  data-alasan="<%= item.alasan %>"
+                  :class="isSelected('<%= item.id %>') ? 'bg-indigo-50/70 border-l-4 border-l-indigo-600' : 'hover:bg-amber-50/30'" class="transition-colors">
                 <td class="w-10 px-3.5 py-3 text-center align-middle">
                   <input type="checkbox"
                          value="<%= item.id %>"
@@ -926,18 +1099,125 @@
                        :checked="isAllSelected(allArchiveItems)"
                        class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer w-4 h-4">
               </th>
-              <th class="px-3.5 py-3 w-[18%]">Pegawai & NIP</th>
-              <th class="px-3 py-3 w-[14%]">Unit Kerja</th>
-              <th class="px-2.5 py-3 text-center w-[8%]">Tgl</th>
-              <th class="px-2.5 py-3 text-center w-[12%]">Perubahan</th>
-              <th class="px-2.5 py-3 text-center w-[9%]">Keputusan</th>
-              <th class="px-3 py-3 w-[18%]">Catatan Admin</th>
-              <th class="px-2.5 py-3 text-center w-[10%]">Reviewer</th>
-              <th class="px-2.5 py-3 text-center w-[11%]">Waktu</th>
+              <th class="px-3.5 py-3 w-[17%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('history', 'nama')">
+                <div class="inline-flex items-center gap-1.5">
+                  <span>Pegawai & NIP</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="archiveSortCol === 'nama'">
+                      <span>
+                        <i x-show="archiveSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="archiveSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="archiveSortCol !== 'nama'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-3 py-3 w-[14%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('history', 'unit')">
+                <div class="inline-flex items-center gap-1.5">
+                  <span>Unit Kerja</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="archiveSortCol === 'unit'">
+                      <span>
+                        <i x-show="archiveSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="archiveSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="archiveSortCol !== 'unit'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-2.5 py-3 text-center w-[8%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('history', 'tanggal')">
+                <div class="inline-flex items-center justify-center gap-1.5 w-full">
+                  <span>Tgl</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="archiveSortCol === 'tanggal'">
+                      <span>
+                        <i x-show="archiveSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="archiveSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="archiveSortCol !== 'tanggal'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-2.5 py-3 text-center w-[11%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('history', 'perubahan')">
+                <div class="inline-flex items-center justify-center gap-1.5 w-full">
+                  <span>Perubahan</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="archiveSortCol === 'perubahan'">
+                      <span>
+                        <i x-show="archiveSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="archiveSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="archiveSortCol !== 'perubahan'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-2.5 py-3 text-center w-[9%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('history', 'keputusan')">
+                <div class="inline-flex items-center justify-center gap-1.5 w-full">
+                  <span>Keputusan</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="archiveSortCol === 'keputusan'">
+                      <span>
+                        <i x-show="archiveSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="archiveSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="archiveSortCol !== 'keputusan'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <th class="px-3 py-3 w-[17%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('history', 'catatan')">
+                <div class="inline-flex items-center gap-1.5">
+                  <span>Catatan Admin</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="archiveSortCol === 'catatan'">
+                      <span>
+                        <i x-show="archiveSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="archiveSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="archiveSortCol !== 'catatan'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
+              <!-- Kolom Bukti/Dokumen Tetap Ditampilkan -->
+              <th class="px-2.5 py-3 text-center w-[6%] min-w-[65px]">Bukti</th>
+              <!-- Reviewer dan Waktu disatukan jadi 1 kolom seperti tabel review ekinerja -->
+              <th class="px-2.5 py-3 text-center w-[12%] cursor-pointer select-none hover:bg-slate-200/70 transition-colors group" @click="sortColumn('history', 'reviewedAt')">
+                <div class="inline-flex items-center justify-center gap-1.5 w-full">
+                  <span>Reviewer</span>
+                  <span class="inline-flex text-slate-400 group-hover:text-indigo-600 transition-colors">
+                    <template x-if="archiveSortCol === 'reviewedAt'">
+                      <span>
+                        <i x-show="archiveSortDir === 'asc'" data-lucide="arrow-up" class="w-3.5 h-3.5 text-indigo-600"></i>
+                        <i x-show="archiveSortDir === 'desc'" data-lucide="arrow-down" class="w-3.5 h-3.5 text-indigo-600"></i>
+                      </span>
+                    </template>
+                    <template x-if="archiveSortCol !== 'reviewedAt'">
+                      <i data-lucide="arrow-up-down" class="w-3 h-3 opacity-40 group-hover:opacity-100"></i>
+                    </template>
+                  </span>
+                </div>
+              </th>
               <th class="px-2.5 py-3 text-right">Aksi</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-slate-100">
+          <tbody id="table-archive-body" class="divide-y divide-slate-100">
             <% if (archiveList.length === 0) { %>
               <tr>
                 <td colspan="10" class="py-12 text-center text-slate-500">
@@ -948,7 +1228,16 @@
             <% } %>
 
             <% archiveList.forEach(function(item, aIdx) { %>
-              <tr :class="isSelected('<%= item.id %>') ? 'bg-indigo-50/70 border-l-4 border-l-indigo-600' : 'hover:bg-slate-50/80'" class="transition-colors">
+              <tr data-id="<%= item.id %>"
+                  data-nama="<%= item.employeeName %>"
+                  data-unit="<%= item.unitNama %>"
+                  data-tanggal="<%= item.tanggalAbsen %>"
+                  data-perubahan="<%= item.statusAwal %>-<%= item.statusPengganti %>"
+                  data-keputusan="<%= item.statusVerifikasi %>"
+                  data-catatan="<%= item.catatanAdmin || '' %>"
+                  data-reviewed-at="<%= item.reviewedAtRaw %>"
+                  data-reviewer="<%= item.reviewedBy || '' %>"
+                  :class="isSelected('<%= item.id %>') ? 'bg-indigo-50/70 border-l-4 border-l-indigo-600' : 'hover:bg-slate-50/80'" class="transition-colors">
                 <td class="w-10 px-3.5 py-3 text-center align-middle">
                   <input type="checkbox"
                          value="<%= item.id %>"
@@ -991,12 +1280,22 @@
                   <%= item.catatanAdmin || '-' %>
                 </td>
 
-                <td class="px-2.5 py-3 text-center text-slate-600 text-[11px] align-middle whitespace-nowrap">
-                  <%= item.reviewedBy || 'Admin' %>
+                <!-- Kolom Bukti Dokumen -->
+                <td class="px-2.5 py-3 text-center align-middle whitespace-nowrap">
+                  <% if (item.fileUrl) { %>
+                    <button type="button" @click="viewPdf('Bukti Klarifikasi - ' + '<%= item.employeeName %>', '<%= item.fileUrl %>', '<%= item.fileName %>')" class="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold text-[11px] transition-colors" title="Lihat Berkas PDF">
+                      <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                      <span>PDF</span>
+                    </button>
+                  <% } else { %>
+                    <span class="text-slate-300 text-xs">-</span>
+                  <% } %>
                 </td>
 
-                <td class="px-2.5 py-3 text-center text-slate-400 text-[10px] align-middle whitespace-nowrap">
-                  <%= item.reviewedAt || '-' %>
+                <!-- Reviewer & Waktu Disatukan 1 Kolom (seperti review ekinerja) -->
+                <td class="px-2.5 py-3 text-center text-slate-500 text-[10px] align-middle whitespace-nowrap">
+                  <div class="font-medium text-slate-700"><%= item.reviewedBy || 'Admin' %></div>
+                  <div class="text-slate-400 text-[9px] mt-0.5"><%= item.reviewedAt || '-' %></div>
                 </td>
 
                 <td class="px-2.5 py-3 text-right align-middle whitespace-nowrap">
