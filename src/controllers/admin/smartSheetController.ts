@@ -7,6 +7,175 @@ import { updateSheetSocketStatus } from '../../sockets/smartSheetSocket';
 
 const prisma = new PrismaClient();
 
+function sanitizeForFilename(val: any): string {
+  if (val === null || val === undefined) return '';
+  const str = String(val).trim();
+  return str
+    .replace(/[\/\\:\*\?"<>\|\r\n\t]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .trim();
+}
+
+function generateSmartSheetFileName(
+  originalFilename: string,
+  pattern: string | undefined,
+  columns: any[],
+  rowData: Record<string, any>,
+  colId: string
+): string {
+  const ext = path.extname(originalFilename);
+  const baseName = path.basename(originalFilename, ext);
+  const cleanBaseName = sanitizeForFilename(baseName) || 'FILE';
+
+  if (!pattern || !pattern.trim()) {
+    return `${cleanBaseName}${ext}`;
+  }
+
+  const currentCol = columns.find(c => c.id === colId);
+  const currentColName = currentCol ? (currentCol.name || '') : '';
+  const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+
+  let result = pattern;
+
+  // 1. Buat kamus nilai dari semua kolom SmartSheet ini
+  const colValueMap = new Map<string, string>();
+  let unitValue = '';
+  let kepsekValue = '';
+  let nipValue = '';
+  let namaValue = '';
+
+  for (const c of columns) {
+    const rawVal = rowData[c.id];
+    const cleanVal = sanitizeForFilename(rawVal);
+    const colNameLower = (c.name || '').toLowerCase().trim();
+
+    // Simpan ke kamus berdasarkan id kolom (misal: c_unit) dan nama kolom asli (misal: Unit Kerja)
+    if (c.id) colValueMap.set(c.id.toLowerCase(), cleanVal);
+    if (c.name) {
+      colValueMap.set(colNameLower, cleanVal);
+      // Simpan juga versi tanpa spasi atau dengan underscore (misal: unitkerja, unit_kerja)
+      colValueMap.set(colNameLower.replace(/\s+/g, ''), cleanVal);
+      colValueMap.set(colNameLower.replace(/[\s\-_]+/g, '_'), cleanVal);
+    }
+
+    if (cleanVal) {
+      // UNIT KERJA: Kolom Unit / Sekolah (TIDAK BOLEH Kepala Sekolah / Operator)
+      const isKepsekOrOp = colNameLower.includes('kepala') || colNameLower.includes('kepsek') || colNameLower.includes('operator');
+      if (
+        c.id === 'c_unit' || 
+        colNameLower === 'unit kerja' || 
+        colNameLower === 'unit' || 
+        colNameLower === 'nama unit' ||
+        colNameLower === 'nama unit kerja' ||
+        colNameLower === 'nama unit kerja / sekolah' ||
+        (!isKepsekOrOp && (colNameLower.includes('unit') || colNameLower.includes('sekolah')))
+      ) {
+        if (!unitValue || c.id === 'c_unit' || colNameLower === 'unit kerja') {
+          unitValue = cleanVal;
+        }
+      }
+
+      // KEPALA SEKOLAH: Kolom nama kepala sekolah
+      if (
+        c.id === 'c_kepsek' || 
+        colNameLower === 'kepala sekolah' || 
+        colNameLower.includes('kepsek') || 
+        (colNameLower.includes('kepala') && colNameLower.includes('sekolah'))
+      ) {
+        if (!colNameLower.includes('nip') && !colNameLower.includes('kontak') && !colNameLower.includes('no')) {
+          kepsekValue = cleanVal;
+        }
+      }
+
+      // NIP: Kolom bertipe NIP atau bernama NIP
+      if (
+        c.type === 'nip' || 
+        colNameLower === 'nip' || 
+        colNameLower.startsWith('nip ') || 
+        (!nipValue && /^\d{16,18}$/.test(cleanVal))
+      ) {
+        if (!nipValue || c.type === 'nip' || colNameLower === 'nip') {
+          nipValue = cleanVal.replace(/[^0-9]/g, '');
+        }
+      }
+
+      // NAMA PEGAWAI: Kolom nama pegawai (bukan nama unit, bukan sekolah)
+      if (
+        c.id === 'c_nama' || 
+        colNameLower === 'nama pegawai' || 
+        colNameLower === 'nama' ||
+        (colNameLower.includes('nama') && !colNameLower.includes('unit') && !colNameLower.includes('sekolah') && !colNameLower.includes('operator'))
+      ) {
+        if (!namaValue || c.id === 'c_nama' || colNameLower === 'nama pegawai') {
+          namaValue = cleanVal;
+        }
+      }
+    }
+  }
+
+  // 2. Ganti semua placeholder {TAG} secara dinamis
+  result = result.replace(/\{([^{}]+)\}/g, (match, tag) => {
+    const rawTag = tag.trim();
+    const tagLower = rawTag.toLowerCase();
+    const tagNormalized = tagLower.replace(/[\s\-_]+/g, '_');
+    const tagNoSpace = tagLower.replace(/\s+/g, '');
+
+    // Cek kecocokan langsung dengan nama kolom SmartSheet (misal {Unit Kerja}, {Jenjang})
+    if (colValueMap.has(tagLower)) return colValueMap.get(tagLower) || '';
+    if (colValueMap.has(tagNormalized)) return colValueMap.get(tagNormalized) || '';
+    if (colValueMap.has(tagNoSpace)) return colValueMap.get(tagNoSpace) || '';
+
+    // Variabel umum & alias:
+    if (tagLower === 'unit' || tagLower === 'unit_kerja' || tagLower === 'unit kerja' || tagLower === 'sekolah') {
+      return unitValue || 'NOUNIT';
+    }
+    if (tagLower === 'kepsek' || tagLower === 'kepala_sekolah' || tagLower === 'kepala sekolah') {
+      return kepsekValue || 'NOKEPSEK';
+    }
+    if (tagLower === 'nip' || tagLower === 'nip_pegawai' || tagLower === 'nip_kepsek') {
+      return nipValue || 'NONIP';
+    }
+    if (tagLower === 'nama' || tagLower === 'nama_pegawai' || tagLower === 'pegawai') {
+      return namaValue || 'ANONIM';
+    }
+    if (tagLower === 'kolom' || tagLower === 'nama_kolom' || tagLower === 'nama kolom') {
+      return sanitizeForFilename(currentColName) || 'BERKAS';
+    }
+    if (tagLower === 'tanggal' || tagLower === 'tgl') {
+      return dateStr;
+    }
+    if (tagLower === 'nama_file' || tagLower === 'original' || tagLower === 'nama_asli' || tagLower === 'nama file' || tagLower === 'nama asli') {
+      return cleanBaseName;
+    }
+
+    // Fuzzy match: apakah tag adalah bagian dari nama kolom yang ada
+    for (const [k, v] of colValueMap.entries()) {
+      if (k === tagLower || k.includes(tagLower)) {
+        return v || '';
+      }
+    }
+
+    return '';
+  });
+
+  // 3. Bersihkan hasil akhir agar aman di filesystem
+  result = result
+    .replace(/[\/\\:\*\?"<>\|\r\n\t]/g, '_')
+    .replace(/[\s]+/g, '_')
+    .replace(/[^a-zA-Z0-9-_\.]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .trim();
+
+  if (!result) {
+    result = cleanBaseName || 'BERKAS';
+  }
+
+  return `${result}${ext}`;
+}
+
+// Backward compatibility helper
 function findMetaFromSmartSheetRow(columns: any[], rowData: Record<string, any>, colId: string) {
   let nip = '';
   let nama = '';
@@ -20,60 +189,18 @@ function findMetaFromSmartSheetRow(columns: any[], rowData: Record<string, any>,
     const val = rowData[c.id];
     if (val && typeof val === 'string') {
       const lowerName = (c.name || '').toLowerCase();
+      const isKepsekOrOp = lowerName.includes('kepala') || lowerName.includes('kepsek') || lowerName.includes('operator');
       if (c.type === 'nip' || lowerName.includes('nip') || (!nip && /^\d{16,18}$/.test(val.trim()))) {
         nip = val.trim();
-      } else if (lowerName.includes('nama') && !lowerName.includes('unit') && !lowerName.includes('sekolah') && !lowerName.includes('operator')) {
+      } else if (lowerName.includes('nama') && !isKepsekOrOp && !lowerName.includes('unit')) {
         nama = val.trim();
-      } else if (lowerName.includes('unit') || lowerName.includes('sekolah')) {
+      } else if (!isKepsekOrOp && (lowerName.includes('unit') || lowerName.includes('sekolah') || c.id === 'c_unit')) {
         unit = val.trim();
       }
     }
   }
 
   return { nip, nama, unit, colName };
-}
-
-function generateSmartSheetRenamedFilename(
-  originalFilename: string,
-  pattern: string | undefined,
-  meta: { nip?: string; nama?: string; unit?: string; colName?: string }
-): { physicalName: string; displayName: string } {
-  const ext = path.extname(originalFilename);
-  const baseName = path.basename(originalFilename, ext);
-
-  if (!pattern || !pattern.trim()) {
-    const safeBase = baseName.replace(/[^a-zA-Z0-9-_]/g, '_').slice(0, 50) || 'BERKAS';
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e6);
-    const physical = `sheet-${uniqueSuffix}-${safeBase}${ext}`;
-    return { physicalName: physical, displayName: originalFilename };
-  }
-
-  const cleanNip = (meta.nip || 'NONIP').replace(/[^0-9]/g, '') || 'NONIP';
-  const cleanNama = (meta.nama || 'ANONIM').toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_') || 'ANONIM';
-  const cleanUnit = (meta.unit || 'NOUNIT').toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_') || 'NOUNIT';
-  const cleanCol = (meta.colName || 'BERKAS').toUpperCase().replace(/[^A-Z0-9]/g, '_').replace(/_+/g, '_') || 'BERKAS';
-  const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
-  const cleanBaseName = baseName.replace(/[^a-zA-Z0-9-_]/g, '_') || 'FILE';
-
-  let result = pattern
-    .replace(/\{NIP\}/gi, cleanNip)
-    .replace(/\{NAMA\}/gi, cleanNama)
-    .replace(/\{SEKOLAH\}/gi, cleanUnit)
-    .replace(/\{UNIT\}/gi, cleanUnit)
-    .replace(/\{KOLOM\}/gi, cleanCol)
-    .replace(/\{TANGGAL\}/gi, dateStr)
-    .replace(/\{TGL\}/gi, dateStr)
-    .replace(/\{NAMA_FILE\}/gi, cleanBaseName)
-    .replace(/\{ORIGINAL\}/gi, cleanBaseName);
-
-  result = result.replace(/[^a-zA-Z0-9-_]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
-  if (!result) result = `BERKAS_${Date.now()}`;
-
-  const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e4);
-  const displayName = `${result}${ext}`;
-  const physicalName = `sheet-${uniqueSuffix}-${result}${ext}`;
-
-  return { physicalName, displayName };
 }
 
 export const smartSheetController = {
@@ -471,28 +598,42 @@ export const smartSheetController = {
           }
         }
 
-        // 2. Auto-Rename if fileNamingPattern or renamePattern is configured on the column
-        const pattern = (col.fileNamingPattern || col.renamePattern || '').trim();
-        if (col && pattern !== '') {
-          let rowData: Record<string, any> = {};
-          if (req.body?.rowData) {
-            try {
-              rowData = typeof req.body.rowData === 'string' ? JSON.parse(req.body.rowData) : req.body.rowData;
-            } catch (e) {
-              rowData = {};
-            }
-          }
-          const meta = findMetaFromSmartSheetRow(cols, rowData, colId);
-          const renameInfo = generateSmartSheetRenamedFilename(req.file.originalname, pattern, meta);
-          const uploadDir = path.dirname(req.file.path);
-          const newPath = path.join(uploadDir, renameInfo.physicalName);
+        // 2. Generate clean filename according to pattern or clean original name (TANPA PENOMORAN DEFAULT)
+        let rowData: Record<string, any> = {};
+        if (req.body?.rowData) {
           try {
-            fs.renameSync(req.file.path, newPath);
-            finalFilename = renameInfo.physicalName;
-            finalDisplayName = renameInfo.displayName;
-          } catch (renameErr) {
-            console.warn('[smartSheetController] Auto-rename error:', renameErr);
+            rowData = typeof req.body.rowData === 'string' ? JSON.parse(req.body.rowData) : req.body.rowData;
+          } catch (e) {
+            rowData = {};
           }
+        }
+
+        const pattern = (col?.fileNamingPattern || col?.renamePattern || '').trim();
+        const cleanTargetFilename = generateSmartSheetFileName(req.file.originalname, pattern, cols, rowData, colId);
+
+        const uploadDir = path.dirname(req.file.path);
+        let destFilename = cleanTargetFilename;
+        let destPath = path.join(uploadDir, destFilename);
+
+        // Hanya jika file fisik dengan nama persis sama sudah ada dan bukan dari upload ini,
+        // berikan nomor duplicate (1), (2) agar tidak saling menimpa
+        if (fs.existsSync(destPath) && destPath !== req.file.path) {
+          const ext = path.extname(cleanTargetFilename);
+          const base = path.basename(cleanTargetFilename, ext);
+          let counter = 1;
+          while (fs.existsSync(destPath) && destPath !== req.file.path) {
+            destFilename = `${base} (${counter})${ext}`;
+            destPath = path.join(uploadDir, destFilename);
+            counter++;
+          }
+        }
+
+        try {
+          fs.renameSync(req.file.path, destPath);
+          finalFilename = destFilename;
+          finalDisplayName = destFilename;
+        } catch (renameErr) {
+          console.warn('[smartSheetController] Auto-rename error:', renameErr);
         }
       }
 
@@ -536,19 +677,32 @@ export const smartSheetController = {
       }
 
       const ext = path.extname(oldFilename);
-      let cleanNewBase = path.basename(newName.trim(), ext).replace(/[^a-zA-Z0-9-_]/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '');
+      let cleanNewBase = path.basename(newName.trim(), ext)
+        .replace(/[\/\\:\*\?"<>\|\r\n\t]/g, '_')
+        .replace(/[\s]+/g, '_')
+        .replace(/[^a-zA-Z0-9-_\.]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '');
       if (!cleanNewBase) cleanNewBase = 'BERKAS';
 
-      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e4);
-      const newFilename = `sheet-${uniqueSuffix}-${cleanNewBase}${ext}`;
-      const newFilePath = path.join(uploadDir, newFilename);
+      let targetFilename = `${cleanNewBase}${ext}`;
+      let targetPath = path.join(uploadDir, targetFilename);
 
-      fs.renameSync(oldFilePath, newFilePath);
+      if (fs.existsSync(targetPath) && targetPath !== oldFilePath) {
+        let counter = 1;
+        while (fs.existsSync(targetPath) && targetPath !== oldFilePath) {
+          targetFilename = `${cleanNewBase} (${counter})${ext}`;
+          targetPath = path.join(uploadDir, targetFilename);
+          counter++;
+        }
+      }
+
+      fs.renameSync(oldFilePath, targetPath);
 
       return res.json({
         success: true,
-        newFileUrl: `/uploads/${newFilename}`,
-        newFileName: `${cleanNewBase}${ext}`
+        newFileUrl: `/uploads/${targetFilename}`,
+        newFileName: targetFilename
       });
     } catch (err: any) {
       console.error('[smartSheetController.renameCellFile] Error:', err);

@@ -826,8 +826,9 @@
                               <div class="flex items-center justify-center gap-1.5 w-full min-w-0">
                                 <a :href="row.data[col.id]" 
                                    target="_blank" 
+                                   :download="extractFileName(row.data[col.id])"
                                    class="px-2 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[11px] font-semibold rounded-lg inline-flex items-center justify-center gap-1.5 truncate max-w-[85%] transition-colors text-center" 
-                                   title="Buka Berkas">
+                                   title="Buka / Download Berkas">
                                   <i data-lucide="file-text" class="w-3 h-3 shrink-0"></i>
                                   <span class="truncate" x-text="extractFileName(row.data[col.id])"></span>
                                 </a>
@@ -1304,60 +1305,66 @@
         </div>
 
         <!-- Pengaturan Penamaan File Upload (Rename File Sesuai Keinginan) -->
-        <div x-show="activeCol.type === 'file'" class="p-2.5 bg-indigo-50/70 border border-indigo-200 rounded-xl space-y-2">
+        <div x-show="activeCol.type === 'file'" class="p-3 bg-indigo-50/70 border border-indigo-200 rounded-xl space-y-2.5">
           <div class="flex items-center justify-between">
             <label class="block text-xs font-bold text-indigo-900">Format Penamaan File (Rename Otomatis):</label>
+            <button type="button" 
+                    @click="activeCol.fileNamingPattern = ''; triggerAutoSave();" 
+                    class="text-[10.5px] font-semibold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer">
+              Reset ke Nama Asli
+            </button>
           </div>
+          
           <input type="text" 
                  x-model="activeCol.fileNamingPattern" 
                  @input="triggerAutoSave()" 
-                 placeholder="Contoh: {nip}_{kolom} atau Berkas_{nama}" 
-                 class="w-full px-2.5 py-1.5 border border-indigo-200 rounded-lg text-xs focus:border-indigo-500 outline-none bg-white font-mono text-slate-800">
-          
-          <div class="flex flex-wrap gap-1">
-            <button type="button" 
-                    @click="activeCol.fileNamingPattern = ''; triggerAutoSave();" 
-                    class="px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer"
-                    :class="!activeCol.fileNamingPattern ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-100'">
-              Nama Asli
-            </button>
-            <button type="button" 
-                    @click="activeCol.fileNamingPattern = '{nip}_{kolom}'; triggerAutoSave();" 
-                    class="px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer"
-                    :class="activeCol.fileNamingPattern === '{nip}_{kolom}' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-100'">
-              {nip}_{kolom}
-            </button>
-            <button type="button" 
-                    @click="activeCol.fileNamingPattern = '{nama}_{kolom}'; triggerAutoSave();" 
-                    class="px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer"
-                    :class="activeCol.fileNamingPattern === '{nama}_{kolom}' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-100'">
-              {nama}_{kolom}
-            </button>
-            <button type="button" 
-                    @click="activeCol.fileNamingPattern = '{nip}_{nama}'; triggerAutoSave();" 
-                    class="px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer"
-                    :class="activeCol.fileNamingPattern === '{nip}_{nama}' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-100'">
-              {nip}_{nama}
-            </button>
-            <button type="button" 
-                    @click="activeCol.fileNamingPattern = '{kolom}_{original}'; triggerAutoSave();" 
-                    class="px-2 py-0.5 rounded text-[10px] font-bold border transition cursor-pointer"
-                    :class="activeCol.fileNamingPattern === '{kolom}_{original}' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-700 border-indigo-200 hover:bg-indigo-100'">
-              {kolom}_{original}
-            </button>
-          </div>
-          
-          <div class="text-[10px] text-indigo-800 leading-tight space-y-1">
-            <p class="font-semibold text-indigo-900">Tag variabel (klik tag untuk menyisipkan):</p>
-            <div class="flex flex-wrap gap-1">
-              <span @click="insertNamingTag('{nip}')" class="px-1.5 py-0.5 bg-white border border-indigo-200 rounded text-[9px] font-mono cursor-pointer hover:bg-indigo-100" title="Ambil nilai NIP dari baris">{nip}</span>
-              <span @click="insertNamingTag('{nama}')" class="px-1.5 py-0.5 bg-white border border-indigo-200 rounded text-[9px] font-mono cursor-pointer hover:bg-indigo-100" title="Ambil nilai Nama Pegawai dari baris">{nama}</span>
-              <span @click="insertNamingTag('{kolom}')" class="px-1.5 py-0.5 bg-white border border-indigo-200 rounded text-[9px] font-mono cursor-pointer hover:bg-indigo-100" title="Nama kolom ini">{kolom}</span>
-              <span @click="insertNamingTag('{unit}')" class="px-1.5 py-0.5 bg-white border border-indigo-200 rounded text-[9px] font-mono cursor-pointer hover:bg-indigo-100" title="Nama Unit / Sekolah">{unit}</span>
-              <span @click="insertNamingTag('{original}')" class="px-1.5 py-0.5 bg-white border border-indigo-200 rounded text-[9px] font-mono cursor-pointer hover:bg-indigo-100" title="Nama asli file">{original}</span>
-              <span @click="insertNamingTag('{tgl}')" class="px-1.5 py-0.5 bg-white border border-indigo-200 rounded text-[9px] font-mono cursor-pointer hover:bg-indigo-100" title="Tanggal YYYYMMDD">{tgl}</span>
+                 placeholder="Contoh: Perhitungan_{Unit Kerja} atau {Nama Pegawai}_{Nama Kolom}" 
+                 class="w-full px-2.5 py-1.5 border border-indigo-200 rounded-lg text-xs focus:border-indigo-500 outline-none bg-white font-mono text-slate-800 shadow-2xs">
+
+          <!-- 1. Pilihan Kolom Dinamis dari Spreadsheet Ini -->
+          <div class="space-y-1.5 pt-0.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[10.5px] font-bold text-indigo-950 flex items-center gap-1">
+                <i data-lucide="columns-3" class="w-3 h-3 text-indigo-600"></i>
+                <span>Pilih Kolom dari Spreadsheet Ini:</span>
+              </span>
+              <span class="text-[9.5px] text-indigo-600 italic">Klik tag untuk menyisipkan</span>
             </div>
-            <p class="text-[9px] text-indigo-600 italic">File yang diunggah akan otomatis di-rename mengikuti pola di atas.</p>
+            
+            <div class="flex flex-wrap gap-1 max-h-28 overflow-y-auto p-1 bg-white/70 border border-indigo-100 rounded-lg">
+              <template x-for="c in (sheetData.columns || []).filter(c => c.id !== activeCol.id && c.name)" :key="c.id">
+                <button type="button" 
+                        @click="insertNamingTag('{' + c.name + '}')" 
+                        class="px-2 py-0.5 bg-white hover:bg-indigo-600 hover:text-white text-indigo-700 border border-indigo-200 hover:border-indigo-600 rounded text-[10px] font-mono font-medium shadow-2xs transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                        :title="'Sisipkan nilai kolom ' + c.name">
+                  <i data-lucide="plus" class="w-2.5 h-2.5"></i>
+                  <span x-text="'{' + c.name + '}'"></span>
+                </button>
+              </template>
+              <template x-if="!(sheetData.columns || []).some(c => c.id !== activeCol.id && c.name)">
+                <span class="text-[10px] text-slate-400 italic p-1">Belum ada kolom lain di spreadsheet ini.</span>
+              </template>
+            </div>
+          </div>
+
+          <!-- 2. Tag Variabel Bantuan Sistem -->
+          <div class="space-y-1">
+            <span class="text-[10px] font-semibold text-indigo-900 block">Tag Tambahan Sistem:</span>
+            <div class="flex flex-wrap gap-1">
+              <button type="button" @click="insertNamingTag('{Nama Kolom}')" class="px-1.5 py-0.5 bg-indigo-100/70 hover:bg-indigo-200 text-indigo-800 border border-indigo-200 rounded text-[9.5px] font-mono cursor-pointer transition-colors" title="Nama kolom berkas ini">{Nama Kolom}</button>
+              <button type="button" @click="insertNamingTag('{Tanggal}')" class="px-1.5 py-0.5 bg-indigo-100/70 hover:bg-indigo-200 text-indigo-800 border border-indigo-200 rounded text-[9.5px] font-mono cursor-pointer transition-colors" title="Tanggal unggah format YYYYMMDD">{Tanggal}</button>
+              <button type="button" @click="insertNamingTag('{Nama Asli}')" class="px-1.5 py-0.5 bg-indigo-100/70 hover:bg-indigo-200 text-indigo-800 border border-indigo-200 rounded text-[9.5px] font-mono cursor-pointer transition-colors" title="Nama asli file yang diunggah">{Nama Asli}</button>
+            </div>
+          </div>
+
+          <!-- 3. Live Preview Hasil Penamaan -->
+          <div class="p-2 bg-white border border-indigo-200/80 rounded-lg text-xs space-y-1">
+            <div class="flex items-center justify-between text-[10px] text-slate-500 font-semibold uppercase tracking-wider">
+              <span>Preview Nama Berkas:</span>
+              <span class="text-[9px] text-emerald-600 font-bold lowercase">bersih tanpa penomoran default</span>
+            </div>
+            <div class="font-mono text-[11px] text-indigo-800 font-bold truncate bg-slate-50 px-2 py-1 rounded border border-slate-200" 
+                 x-text="getNamingPreview(activeCol)"></div>
           </div>
         </div>
 
@@ -3760,6 +3767,73 @@
           this.triggerAutoSave();
         },
 
+        getNamingPreview(col) {
+          if (!col || !col.fileNamingPattern || !col.fileNamingPattern.trim()) {
+            return '(Nama Asli File).ext (Tanpa Penomoran)';
+          }
+
+          const pattern = col.fileNamingPattern.trim();
+          const firstRow = (this.sheetData.rows && this.sheetData.rows.length > 0) ? this.sheetData.rows[0] : null;
+          const rowData = firstRow ? (firstRow.data || {}) : {};
+          const cols = this.sheetData.columns || [];
+
+          // Map data kolom
+          const colMap = {};
+          let sampleUnit = '';
+          let sampleNama = '';
+          let sampleNip = '';
+
+          cols.forEach(c => {
+            const rawVal = rowData[c.id];
+            const clean = rawVal ? String(rawVal).replace(/[\/\\:\*\?"<>\|\r\n\t]/g, '_').replace(/\s+/g, '_').replace(/_+/g, '_') : '';
+            colMap[c.name.toLowerCase().trim()] = clean || c.name.toUpperCase().replace(/\s+/g, '_');
+            colMap[c.id.toLowerCase()] = clean || c.name.toUpperCase().replace(/\s+/g, '_');
+
+            const nLower = (c.name || '').toLowerCase();
+            const isKepsekOrOp = nLower.includes('kepala') || nLower.includes('kepsek') || nLower.includes('operator');
+            if (!isKepsekOrOp && (c.id === 'c_unit' || nLower.includes('unit') || nLower.includes('sekolah'))) {
+              if (!sampleUnit || c.id === 'c_unit') sampleUnit = clean || 'SDN_CIBUNTU_01';
+            }
+            if (!isKepsekOrOp && (c.id === 'c_nama' || nLower.includes('nama'))) {
+              if (!sampleNama || c.id === 'c_nama') sampleNama = clean || 'NAMA_PEGAWAI';
+            }
+            if (c.type === 'nip' || nLower.includes('nip')) {
+              if (!sampleNip || c.type === 'nip') sampleNip = clean || '198501012010011001';
+            }
+          });
+
+          const dateStr = new Date().toISOString().split('T')[0].replace(/-/g, '');
+          const currentColName = (col.name || 'BERKAS').toUpperCase().replace(/\s+/g, '_');
+
+          let res = pattern.replace(/\{([^{}]+)\}/g, (match, tag) => {
+            const t = tag.trim().toLowerCase();
+            const tNorm = t.replace(/[\s\-_]+/g, '_');
+            const tNoSpace = t.replace(/\s+/g, '');
+
+            if (colMap[t]) return colMap[t];
+            if (colMap[tNorm]) return colMap[tNorm];
+            if (colMap[tNoSpace]) return colMap[tNoSpace];
+
+            if (t === 'unit' || t === 'unit_kerja' || t === 'sekolah') return sampleUnit || 'SDN_CIBUNTU_01';
+            if (t === 'nama' || t === 'nama_pegawai') return sampleNama || 'NAMA_PEGAWAI';
+            if (t === 'nip') return sampleNip || '198501012010011001';
+            if (t === 'nama kolom' || t === 'nama_kolom' || t === 'kolom') return currentColName;
+            if (t === 'tanggal' || t === 'tgl') return dateStr;
+            if (t === 'nama asli' || t === 'nama_asli' || t === 'original' || t === 'nama_file') return 'DOKUMEN_SAYA';
+
+            return t.toUpperCase().replace(/\s+/g, '_');
+          });
+
+          res = res
+            .replace(/[\/\\:\*\?"<>\|\r\n\t]/g, '_')
+            .replace(/[\s]+/g, '_')
+            .replace(/[^a-zA-Z0-9-_\.]/g, '_')
+            .replace(/_+/g, '_')
+            .replace(/^_+|_+$/g, '');
+
+          return (res || 'BERKAS') + '.xlsx';
+        },
+
         openRenameModal(row, colId) {
           if (this.isClosed) return;
           this.activeRenameRow = row;
@@ -3834,8 +3908,13 @@
         extractFileName(url) {
           if (!url) return '';
           const parts = url.split('/');
-          const raw = parts[parts.length - 1];
-          return raw.replace(/^sheet-\d+-/, '');
+          let raw = parts[parts.length - 1] || '';
+          try {
+            raw = decodeURIComponent(raw);
+          } catch(e) {}
+          // Bersihkan prefix legacy sistem jika ada (sheet-TIMESTAMP-RANDOM- atau sheet-TIMESTAMP-)
+          raw = raw.replace(/^sheet-\d+(?:-\d+)?-/, '');
+          return raw;
         },
 
         // ==========================================
