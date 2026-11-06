@@ -228,60 +228,59 @@
     </div>
   </div>
 
-  <!-- KPI / Summary Cards -->
-  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-    <div class="bg-white p-4 rounded-xl border border-slate-200/80 shadow-xs">
-      <div class="flex items-center justify-between text-slate-500 mb-1">
-        <span class="text-[11px] font-bold uppercase tracking-wider">Total Cuti</span>
-        <i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i>
+  <!-- KPI / Summary Cards (Kecil, Sederhana & 1 Baris Rapi) -->
+  <div class="bg-white p-2.5 rounded-2xl border border-slate-200/80 shadow-xs">
+    <div class="flex items-center gap-2 overflow-x-auto py-0.5 custom-scrollbar">
+      
+      <!-- Total Cuti -->
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100/90 border border-slate-200 text-slate-800 shrink-0 text-xs shadow-2xs">
+        <i data-lucide="layers" class="w-3.5 h-3.5 text-slate-600"></i>
+        <span class="font-medium text-slate-600 text-[11px]">Total Cuti:</span>
+        <span class="font-black text-slate-900 text-xs"><%= stats.totalCount %></span>
       </div>
-      <div class="text-xl sm:text-2xl font-extrabold text-slate-900"><%= stats.totalCount %></div>
-      <div class="text-[10px] text-slate-400 mt-0.5">Sesuai filter aktif</div>
-    </div>
 
-    <div class="bg-white p-4 rounded-xl border border-blue-200/80 shadow-xs bg-blue-50/20">
-      <div class="flex items-center justify-between text-blue-600 mb-1">
-        <span class="text-[11px] font-bold uppercase tracking-wider">Tahunan</span>
-        <i data-lucide="sun" class="w-4 h-4 text-blue-500"></i>
+      <!-- Tahunan -->
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-blue-50/80 border border-blue-200/80 text-blue-800 shrink-0 text-xs shadow-2xs">
+        <i data-lucide="sun" class="w-3.5 h-3.5 text-blue-600"></i>
+        <span class="font-medium text-blue-700 text-[11px]">Tahunan:</span>
+        <span class="font-black text-blue-900 text-xs"><%= stats.cutiTahunanCount %></span>
       </div>
-      <div class="text-xl sm:text-2xl font-extrabold text-blue-700"><%= stats.cutiTahunanCount %></div>
-      <div class="text-[10px] text-blue-500 mt-0.5">Cuti Tahunan</div>
-    </div>
 
-    <div class="bg-white p-4 rounded-xl border border-rose-200/80 shadow-xs bg-rose-50/20">
-      <div class="flex items-center justify-between text-rose-600 mb-1">
-        <span class="text-[11px] font-bold uppercase tracking-wider">Sakit</span>
-        <i data-lucide="activity" class="w-4 h-4 text-rose-500"></i>
+      <!-- Sakit -->
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-50/80 border border-rose-200/80 text-rose-800 shrink-0 text-xs shadow-2xs">
+        <i data-lucide="activity" class="w-3.5 h-3.5 text-rose-600"></i>
+        <span class="font-medium text-rose-700 text-[11px]">Sakit:</span>
+        <span class="font-black text-rose-900 text-xs"><%= stats.cutiSakitCount %></span>
       </div>
-      <div class="text-xl sm:text-2xl font-extrabold text-rose-700"><%= stats.cutiSakitCount %></div>
-      <div class="text-[10px] text-rose-500 mt-0.5">Cuti Sakit</div>
-    </div>
 
-    <div class="bg-white p-4 rounded-xl border border-pink-200/80 shadow-xs bg-pink-50/20">
-      <div class="flex items-center justify-between text-pink-600 mb-1">
-        <span class="text-[11px] font-bold uppercase tracking-wider">Melahirkan</span>
-        <i data-lucide="heart" class="w-4 h-4 text-pink-500"></i>
+      <!-- Melahirkan -->
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-pink-50/80 border border-pink-200/80 text-pink-800 shrink-0 text-xs shadow-2xs">
+        <i data-lucide="heart" class="w-3.5 h-3.5 text-pink-600"></i>
+        <span class="font-medium text-pink-700 text-[11px]">Melahirkan:</span>
+        <span class="font-black text-pink-900 text-xs"><%= stats.cutiMelahirkanCount %></span>
       </div>
-      <div class="text-xl sm:text-2xl font-extrabold text-pink-700"><%= stats.cutiMelahirkanCount %></div>
-      <div class="text-[10px] text-pink-500 mt-0.5">Cuti Melahirkan</div>
-    </div>
 
-    <div class="bg-white p-4 rounded-xl border border-emerald-200/80 shadow-xs bg-emerald-50/20">
-      <div class="flex items-center justify-between text-emerald-600 mb-1">
-        <span class="text-[11px] font-bold uppercase tracking-wider">Surat Terbit (CT)</span>
-        <i data-lucide="file-check-2" class="w-4 h-4 text-emerald-500"></i>
+      <!-- Haji / Lainnya -->
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-50/80 border border-purple-200/80 text-purple-800 shrink-0 text-xs shadow-2xs">
+        <i data-lucide="award" class="w-3.5 h-3.5 text-purple-600"></i>
+        <span class="font-medium text-purple-700 text-[11px]">Haji/Besar:</span>
+        <span class="font-black text-purple-900 text-xs"><%= (stats.cutiHajiCount || 0) + (stats.cutiLainnyaCount || 0) %></span>
       </div>
-      <div class="text-xl sm:text-2xl font-extrabold text-emerald-700"><%= stats.suratTerbitCount %></div>
-      <div class="text-[10px] text-emerald-600 mt-0.5">Absensi Otomatis CT</div>
-    </div>
 
-    <div class="bg-white p-4 rounded-xl border border-amber-200/80 shadow-xs bg-amber-50/20">
-      <div class="flex items-center justify-between text-amber-600 mb-1">
-        <span class="text-[11px] font-bold uppercase tracking-wider">Menunggu Surat</span>
-        <i data-lucide="clock" class="w-4 h-4 text-amber-500"></i>
+      <!-- Surat Terbit (CT) -->
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-50/80 border border-emerald-200/80 text-emerald-800 shrink-0 text-xs shadow-2xs">
+        <i data-lucide="file-check-2" class="w-3.5 h-3.5 text-emerald-600"></i>
+        <span class="font-medium text-emerald-700 text-[11px]">Surat Terbit (CT):</span>
+        <span class="font-black text-emerald-900 text-xs"><%= stats.suratTerbitCount %></span>
       </div>
-      <div class="text-xl sm:text-2xl font-extrabold text-amber-700"><%= stats.suratMenungguCount %></div>
-      <div class="text-[10px] text-amber-500 mt-0.5">Belum Upload Berkas</div>
+
+      <!-- Menunggu Surat -->
+      <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-50/80 border border-amber-200/80 text-amber-800 shrink-0 text-xs shadow-2xs">
+        <i data-lucide="clock" class="w-3.5 h-3.5 text-amber-600"></i>
+        <span class="font-medium text-amber-700 text-[11px]">Menunggu Surat:</span>
+        <span class="font-black text-amber-900 text-xs"><%= stats.suratMenungguCount %></span>
+      </div>
+
     </div>
   </div>
 
