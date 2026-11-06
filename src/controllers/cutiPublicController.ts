@@ -36,12 +36,8 @@ export const cutiPublicController = {
       const cms = await prisma.cmsConfig.findUnique({ where: { id: 'cms-main' } });
       const currentYear = new Date().getFullYear();
 
-      const sessionUser = (req as any).session?.user;
-      const isAdmin = !!sessionUser && (
-        sessionUser.role === 'SUPER_ADMIN' ||
-        sessionUser.role === 'ADMIN_DINAS' ||
-        sessionUser.role === 'ADMIN_KORWIL'
-      );
+      const sessionUser = (req as any).session?.user || (res.locals as any)?.user || null;
+      const isAdmin = !!sessionUser;
 
       const rawNip = (req.query.nip as string) || '';
       const cleanNip = rawNip.replace(/\s+/g, '').trim();

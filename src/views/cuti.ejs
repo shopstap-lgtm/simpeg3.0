@@ -2,9 +2,18 @@
 <%- include('partials/public-nav') %>
 <%- include('partials/toast') %>
 
+<script id="cuti-data-raw" type="application/json">
+  <%- JSON.stringify(cutiList || []) %>
+</script>
+
 <script>
   function publicCutiApp() {
-    const cutiData = <%- JSON.stringify(cutiList) %>;
+    let cutiData = [];
+    try {
+      cutiData = JSON.parse(document.getElementById('cuti-data-raw')?.textContent || '[]');
+    } catch (e) {
+      cutiData = [];
+    }
     return {
       items: cutiData,
       nip: '<%= nipQuery || "" %>',
@@ -121,17 +130,25 @@
                  name="nip" 
                  x-model="nip"
                  value="<%= nipQuery %>" 
-                 placeholder="Masukkan 18 Digit NIP Pegawai..." 
+                 placeholder="<%= isAdmin ? 'Ketik NIP Pegawai tertentu (opsional)...' : 'Masukkan 18 Digit NIP Pegawai...' %>" 
                  class="w-full bg-white text-slate-900 pl-11 pr-4 py-3 rounded-2xl text-sm font-medium placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 shadow-md border-0"
-                 required>
+                 <%= isAdmin ? '' : 'required' %>>
           <i data-lucide="search" class="w-5 h-5 text-indigo-600 absolute left-3.5 top-1/2 -translate-y-1/2"></i>
         </div>
 
         <button type="submit" 
                 class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-indigo-500 hover:bg-indigo-400 active:bg-indigo-600 text-white text-sm font-bold rounded-2xl shadow-lg transition-all shrink-0">
           <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-          <span>Cek Riwayat Cuti</span>
+          <span><%= isAdmin ? 'Filter Pegawai' : 'Cek Riwayat Cuti' %></span>
         </button>
+
+        <% if (isAdmin && nipQuery) { %>
+          <a href="/cuti" 
+             class="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-4 py-3 bg-white/10 hover:bg-white/20 active:bg-white/30 text-white text-sm font-semibold rounded-2xl border border-white/20 shadow-md transition-all shrink-0">
+            <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+            <span>Semua Data</span>
+          </a>
+        <% } %>
       </form>
     </div>
   </div>
