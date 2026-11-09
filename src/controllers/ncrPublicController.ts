@@ -60,45 +60,10 @@ export const ncrPublicController = {
   },
 
   /**
-   * Search active employees for autocomplete
+   * Search active employees (dinonaktifkan untuk keamanan privasi publik)
    */
   searchEmployees: async (req: Request, res: Response) => {
-    const q = (req.query.q as string || '').trim();
-    if (q.length < 2) {
-      return res.json({ success: true, employees: [] });
-    }
-
-    try {
-      const employees = await prisma.employee.findMany({
-        where: {
-          OR: [
-            { nama: { contains: q, mode: 'insensitive' } },
-            { nip: { contains: q } }
-          ]
-        },
-        take: 15,
-        select: {
-          id: true,
-          nip: true,
-          nama: true,
-          unit: { select: { namaUnit: true } }
-        },
-        orderBy: { nama: 'asc' }
-      });
-
-      res.json({
-        success: true,
-        employees: employees.map(e => ({
-          id: e.id,
-          nip: e.nip,
-          nama: e.nama,
-          unitNama: e.unit?.namaUnit || 'Korwil Cibitung'
-        }))
-      });
-    } catch (error) {
-      console.error('[ncrPublicController.searchEmployees] Error:', error);
-      res.status(500).json({ success: false, message: 'Gagal mencari data pegawai.' });
-    }
+    return res.json({ success: true, employees: [] });
   },
 
   /**
