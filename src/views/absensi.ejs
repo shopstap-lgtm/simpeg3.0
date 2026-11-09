@@ -359,6 +359,24 @@
             };
           });
 
+          // Jika diajukan ulang dari tanggal tertentu (defaultDate), pastikan tanggal tersebut selalu masuk ke pilihan eligible
+          if (defaultDate && !this.eligibleDays.some(d => d.dateStr === defaultDate)) {
+            const foundDay = daysList.find(d => {
+              const padDay = String(d.tanggal).padStart(2, '0');
+              const dateVal = '<%= tahun %>-<%= String(bulan).padStart(2, '0') %>-' + padDay;
+              return dateVal === defaultDate;
+            });
+            if (foundDay) {
+              this.eligibleDays.push({
+                tanggal: foundDay.tanggal,
+                dateStr: defaultDate,
+                status: foundDay.status,
+                label: 'Tgl ' + foundDay.tanggal + ' ' + '<%= resolvedNamaBulan %>' + ' (' + (foundDay.status || 'Klarifikasi Ulang') + ')'
+              });
+              this.eligibleDays.sort((a, b) => a.tanggal - b.tanggal);
+            }
+          }
+
           if (!this.isAdmin && this.eligibleDays.length === 0) {
             const _mp2 = (this.klarifikasiConfig.policies || {})[String(this.currentBulan)] || {};
             let msg = 'Pegawai ' + emp.nama + ' tidak memiliki presensi berstatus TK, DL Kuning, atau Libur Lainnya (LL)';

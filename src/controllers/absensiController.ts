@@ -38,6 +38,16 @@ const buildAbsensiRedirectUrl = (req: Request, fallbackBulan?: number, fallbackT
   return qs ? `/absensi?${qs}` : '/absensi';
 };
 
+const parseDateRange = (str: string): { start: string; end: string } => {
+  if (!str) return { start: '', end: '' };
+  if (str.includes(' s/d ')) {
+    const [s, e] = str.split(' s/d ').map(x => x.trim());
+    return { start: s, end: e };
+  }
+  const t = str.trim();
+  return { start: t, end: t };
+};
+
 export const absensiController = {
   show: async (req: Request, res: Response) => {
     try {
@@ -199,9 +209,38 @@ export const absensiController = {
         }
       }
 
+      // Deduplikasi & penimpaan klarifikasi usang per pegawai:
+      // Karena clarifications di-order createdAt desc, klarifikasi yang lebih baru muncul lebih dulu.
+      // Jika suatu tanggal/rentang tanggal sudah diajukan ulang (PENDING) atau disetujui (APPROVED),
+      // maka klarifikasi lama yang berstatus REJECTED untuk tanggal tersebut ditimpa dan TIDAK ditampilkan lagi di riwayat maupun evaluasi status.
+      const activeClarifications: typeof clarifications = [];
+      const seenEmpDateRanges = new Map<string, Array<{ start: string; end: string }>>();
+
+      for (const c of clarifications) {
+        const empId = c.employeeId;
+        const curRange = parseDateRange(c.tanggalAbsen);
+        let ranges = seenEmpDateRanges.get(empId);
+        if (!ranges) {
+          ranges = [];
+          seenEmpDateRanges.set(empId, ranges);
+        }
+
+        const isCoveredByNewer = ranges.some(r => r.start <= curRange.end && r.end >= curRange.start);
+
+        if (!isCoveredByNewer) {
+          activeClarifications.push(c);
+          ranges.push(curRange);
+        } else if (c.statusVerifikasi !== 'REJECTED') {
+          const isExactSame = ranges.some(r => r.start === curRange.start && r.end === curRange.end);
+          if (!isExactSame) {
+            activeClarifications.push(c);
+          }
+        }
+      }
+
       // OPTIMASI: Pre-group klarifikasi ke Map<employeeId, Clarification[]>
       const clarificationsByEmp = new Map<string, any[]>();
-      for (const c of clarifications) {
+      for (const c of activeClarifications) {
         let arr = clarificationsByEmp.get(c.employeeId);
         if (!arr) {
           arr = [];
@@ -275,19 +314,33 @@ export const absensiController = {
 
           if (!isHolidayOrWeekend) {
             for (const c of empClarifications) {
-              if (c.statusVerifikasi === 'PENDING' || c.statusVerifikasi === 'REJECTED') {
-                if (c.tanggalAbsen.includes(' s/d ')) {
-                  const [startStr, endStr] = c.tanggalAbsen.split(' s/d ').map((s: string) => s.trim());
-                  if (dateStr >= startStr && dateStr <= endStr) {
-                    clarificationStatus = c.statusVerifikasi;
-                    clarificationNote = c.catatanAdmin || (c.statusVerifikasi === 'PENDING' ? 'Sedang dalam review verifikasi' : 'Ditolak');
-                    break;
-                  }
-                } else if (c.tanggalAbsen === dateStr) {
-                  clarificationStatus = c.statusVerifikasi;
-                  clarificationNote = c.catatanAdmin || (c.statusVerifikasi === 'PENDING' ? 'Sedang dalam review verifikasi' : 'Ditolak');
-                  break;
+              let isMatch = false;
+              if (c.tanggalAbsen.includes(' s/d ')) {
+                const [startStr, endStr] = c.tanggalAbsen.split(' s/d ').map((s: string) => s.trim());
+                if (dateStr >= startStr && dateStr <= endStr) {
+                  isMatch = true;
                 }
+              } else if (c.tanggalAbsen === dateStr) {
+                isMatch = true;
+              }
+
+              if (isMatch) {
+                // c adalah klarifikasi TERBARU untuk tanggal dateStr ini
+                if (c.statusVerifikasi === 'PENDING') {
+                  clarificationStatus = 'PENDING';
+                  clarificationNote = c.catatanAdmin || 'Sedang dalam review verifikasi';
+                } else if (c.statusVerifikasi === 'APPROVED') {
+                  clarificationStatus = 'APPROVED';
+                  clarificationNote = c.catatanAdmin || 'Klarifikasi Disetujui';
+                } else if (c.statusVerifikasi === 'REJECTED') {
+                  // Titik merah berkedip hanya jika status presensi saat ini masih bermasalah (TK, DL_KUNING, EMPTY, LL, PC, TL)
+                  const isProblematic = status === 'TK' || status === 'DL_KUNING' || status === 'EMPTY' || status === 'LL' || status === 'PC' || status === 'TL';
+                  if (isProblematic) {
+                    clarificationStatus = 'REJECTED';
+                    clarificationNote = c.catatanAdmin || 'Ditolak: Bukti belum sesuai ketentuan';
+                  }
+                }
+                break;
               }
             }
           }
@@ -348,7 +401,7 @@ export const absensiController = {
         };
       });
 
-      const formattedClarifications = clarifications.map(c => ({
+      const formattedClarifications = activeClarifications.map(c => ({
         id: c.id,
         employeeId: c.employeeId,
         employeeName: c.employee.nama,
@@ -493,6 +546,34 @@ export const absensiController = {
             keterangan: keterangan || null
           }
         });
+      }
+
+      // Jika status presensi diubah menjadi status sah (HADIR, DL, ST, CT, dsb), bersihkan klarifikasi REJECTED lama pada tanggal ini
+      if (status !== 'TK' && status !== 'DL_KUNING' && status !== 'EMPTY') {
+        try {
+          const dateStr = `${t}-${String(b).padStart(2, '0')}-${String(tgl).padStart(2, '0')}`;
+          const oldRejected = await prisma.clarification.findMany({
+            where: {
+              employeeId,
+              statusVerifikasi: 'REJECTED'
+            }
+          });
+          const matchIds = oldRejected.filter(c => {
+            if (c.tanggalAbsen.includes(' s/d ')) {
+              const [s, e] = c.tanggalAbsen.split(' s/d ').map(x => x.trim());
+              return dateStr >= s && dateStr <= e;
+            }
+            return c.tanggalAbsen === dateStr;
+          }).map(c => c.id);
+
+          if (matchIds.length > 0) {
+            await prisma.clarification.deleteMany({
+              where: { id: { in: matchIds } }
+            });
+          }
+        } catch (e) {
+          console.warn('[directUpdate] Cleanup old rejected clarification error:', e);
+        }
       }
 
       const redirectUrl = buildAbsensiRedirectUrl(req, b, t);
@@ -846,6 +927,45 @@ export const absensiController = {
         console.warn('[Upload] Supabase upload failed, falling back to Base64 for klarifikasi');
         fileUrl = `data:${file.mimetype || 'application/pdf'};base64,${file.buffer.toString('base64')}`;
         fileName = file.originalname;
+      }
+
+      // Timpa dan bersihkan klarifikasi REJECTED lama yang beririsan dengan pengajuan baru ini agar status ditolak lama tertimpa seutuhnya di DB
+      try {
+        const newRange = parseDateRange(tanggalAbsen);
+
+        const oldRejectedList = await prisma.clarification.findMany({
+          where: {
+            employeeId,
+            statusVerifikasi: 'REJECTED'
+          }
+        });
+
+        const toDeleteIds: string[] = [];
+        const toDeleteFiles: string[] = [];
+
+        for (const old of oldRejectedList) {
+          const oldRange = parseDateRange(old.tanggalAbsen);
+          if (oldRange.start <= newRange.end && oldRange.end >= newRange.start) {
+            toDeleteIds.push(old.id);
+            if (old.fileUrl) toDeleteFiles.push(old.fileUrl);
+          }
+        }
+
+        if (toDeleteIds.length > 0) {
+          await prisma.clarification.deleteMany({
+            where: { id: { in: toDeleteIds } }
+          });
+          const { deleteFileFromStorage } = await import('../lib/supabase');
+          for (const fUrl of toDeleteFiles) {
+            try {
+              await deleteFileFromStorage(fUrl);
+            } catch (err) {
+              console.warn('[Cleanup] Failed to delete old rejected file:', err);
+            }
+          }
+        }
+      } catch (cleanupErr) {
+        console.warn('[Cleanup] Error removing old rejected clarifications:', cleanupErr);
       }
 
       await prisma.clarification.create({
